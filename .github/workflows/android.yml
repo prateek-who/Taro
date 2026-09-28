@@ -8,7 +8,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
       - run: ./gradlew assembleDebug
       - uses: actions/upload-artifact@v1
         with:

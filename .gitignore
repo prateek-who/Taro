@@ -69,3 +69,6 @@ fastlane/readme.md
 /app/full/release/baselineProfiles/1/app-full-release.dm
 /app/foss/release/output-metadata.json
 /app/full/release/output-metadata.json
+
+# Claude Code local settings
+.claude/settings.local.json

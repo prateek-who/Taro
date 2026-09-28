@@ -1,10 +1,6 @@
 package com.nvllz.stepsy.util
 
 import android.content.Context
-import android.text.method.LinkMovementMethod
-import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
-import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
@@ -14,15 +10,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.util.Calendar
-import androidx.core.text.HtmlCompat
 import androidx.preference.PreferenceManager
 import com.nvllz.stepsy.BuildConfig
-import com.nvllz.stepsy.R
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -51,6 +44,8 @@ object AppPreferences {
         val DAILY_GOAL_NOTIFICATION_PROGRESSBAR  = booleanPreferencesKey("daily_goal_notification_progressbar")
         val ENCOURAGING_NOTIFICATIONS            = booleanPreferencesKey("encouraging_notifications")
         val DAILY_GOAL_CHART_LINE                = booleanPreferencesKey("daily_goal_chart_line")
+        val LEG_LENGTH                           = stringPreferencesKey("leg_length")
+        val ONBOARDING_DONE                      = booleanPreferencesKey("onboarding_done")
     }
 
     lateinit var dataStore: DataStore<Preferences>
@@ -123,6 +118,31 @@ object AppPreferences {
         get() = runBlocking { weightFlow().first() }
         set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.WEIGHT] = value.toString() } }
 
+    // Leg length
+
+    fun legLengthFlow(): Flow<Int?> = dataStore.data.map { it[PreferenceKeys.LEG_LENGTH]?.toIntOrNull() }
+
+    var legLength: Int?
+        get() = runBlocking { legLengthFlow().first() }
+        set(value) = runBlocking {
+            dataStore.edit {
+                if (value == null) it.remove(PreferenceKeys.LEG_LENGTH) else it[PreferenceKeys.LEG_LENGTH] = value.toString()
+            }
+        }
+
+    // Onboarding
+
+    fun needsOnboarding(): Boolean = runBlocking {
+        val prefs = dataStore.data.first()
+        prefs[PreferenceKeys.ONBOARDING_DONE] != true &&
+            prefs[PreferenceKeys.HEIGHT] == null &&
+            prefs[PreferenceKeys.WEIGHT] == null
+    }
+
+    fun completeOnboarding() = runBlocking {
+        dataStore.edit { it[PreferenceKeys.ONBOARDING_DONE] = true }
+    }
+
     // Step length
 
     fun resetStepLength() {
@@ -130,10 +150,14 @@ object AppPreferences {
     }
 
     fun stepLengthFlow(): Flow<Float> = dataStore.data.map {
-        val height = it[PreferenceKeys.HEIGHT]?.toIntOrNull() ?: 180
-        val estimatedStepLength = (height * 0.415).toFloat()
-        it[PreferenceKeys.STEP_LENGTH] ?: estimatedStepLength
+        it[PreferenceKeys.STEP_LENGTH] ?: Util.estimateStepLength(
+            it[PreferenceKeys.HEIGHT]?.toIntOrNull() ?: 180,
+            it[PreferenceKeys.LEG_LENGTH]?.toIntOrNull(),
+        )
     }
+
+    val estimatedStepLength: Float
+        get() = Util.estimateStepLength(height, legLength)
 
     var stepLength: Float
         get() = runBlocking { stepLengthFlow().first() }
@@ -256,27 +280,6 @@ object AppPreferences {
         get() = runBlocking { vehicleFilterEnabledFlow().first() }
         set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.VEHICLE_FILTER_ENABLED] = value } }
 
-    // Dialogs
-
-    @OptIn(DelicateCoroutinesApi::class)
-    fun welcomeDialog(context: Context) {
-        val dialogTargetVersion = 8
-
-        GlobalScope.launch(Dispatchers.IO) {
-            val lastShownVersion = dataStore.data.map {
-                it[PreferenceKeys.ALERTDIALOG_LAST_VERSION_CODE] ?: 0
-            }.first()
-
-            val currentVersion = BuildConfig.VERSION_CODE
-
-            if (lastShownVersion < dialogTargetVersion && currentVersion == dialogTargetVersion) {
-                withContext(Dispatchers.Main) {
-                    showDialogAndUpdateVersion(context, dialogTargetVersion)
-                }
-            }
-        }
-    }
-
     @OptIn(DelicateCoroutinesApi::class)
     private fun stepDataStoreMigration(context: Context) {
         val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -295,28 +298,5 @@ object AppPreferences {
                 sharedPrefs2.edit().clear().apply()
             }
         }
-    }
-
-    @OptIn(DelicateCoroutinesApi::class)
-    private fun showDialogAndUpdateVersion(context: Context, dialogVersion: Int) {
-        val version = BuildConfig.VERSION_NAME
-        val html = "".trimIndent()
-
-        val textView = TextView(context).apply {
-            text = HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_LEGACY)
-            movementMethod = LinkMovementMethod.getInstance()
-            setPadding(50, 30, 50, 10)
-            setLinkTextColor(ContextCompat.getColor(context, R.color.colorAccent))
-        }
-
-        AlertDialog.Builder(context)
-            .setTitle("Stepsy v$version")
-            .setView(textView)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                GlobalScope.launch(Dispatchers.IO) {
-                    dataStore.edit { it[PreferenceKeys.ALERTDIALOG_LAST_VERSION_CODE] = dialogVersion }
-                }
-            }
-            .show()
     }
 }

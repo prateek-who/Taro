@@ -1,6 +1,9 @@
 package com.nvllz.stepsy.util
 
+import android.content.Context
 import androidx.appcompat.app.AppCompatDelegate
+import com.nvllz.stepsy.R
+import java.text.NumberFormat
 import java.util.*
 
 object Util {
@@ -76,6 +79,24 @@ object Util {
             UnitSystem.IMPERIAL -> meters * 0.621371f
         }
     }
+
+    private const val STEP_TO_HEIGHT = 0.415f
+    private const val INSEAM_TO_HEIGHT = 0.46f
+
+    fun estimateStepLength(heightCm: Int, legLengthCm: Int?): Float {
+        val fromHeight = heightCm * STEP_TO_HEIGHT
+        val leg = legLengthCm ?: return fromHeight
+        val plausibleLeg = heightCm * 0.35f..heightCm * 0.6f
+        if (leg.toFloat() !in plausibleLeg) return fromHeight
+        val fromLeg = leg * STEP_TO_HEIGHT / INSEAM_TO_HEIGHT
+        return (fromHeight + fromLeg) / 2
+    }
+
+    internal fun formatSteps(steps: Int): String =
+        if (steps >= 10_000) NumberFormat.getIntegerInstance().format(steps) else steps.toString()
+
+    internal fun stepsPlural(context: Context, steps: Int): String =
+        context.resources.getQuantityString(R.plurals.steps_formatted, steps, formatSteps(steps))
 
     internal fun stepsToCalories(steps: Number): Int {
         return (steps.toInt() * AppPreferences.weight * 0.0005).toInt()

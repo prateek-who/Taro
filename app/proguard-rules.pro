@@ -23,8 +23,9 @@
 -optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
 
 # Keep data classes used for serialization
--keep class com.nvllz.stepsy.ui.AchievementsActivity$MilestoneAchievement { *; }
--keep class com.nvllz.stepsy.ui.AchievementsActivity$ComputedResults { *; }
+-keep class com.nvllz.stepsy.ui.MilestoneAchievement { *; }
+-keep class com.nvllz.stepsy.ui.ComputedResults { *; }
+-keep class com.nvllz.stepsy.ui.Top3DayEntry { *; }
 
 # Keep Gson related classes
 -keepattributes Signature
