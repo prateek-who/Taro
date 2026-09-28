@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.annotation.StringRes
 import androidx.core.content.edit
 import com.nvllz.stepsy.R
+import com.nvllz.stepsy.energy.ActivityEnergy
 import com.nvllz.stepsy.util.AppPreferences
 import com.nvllz.stepsy.util.Database
 import com.nvllz.stepsy.util.StreakCalculator
@@ -13,6 +14,7 @@ import java.time.LocalDate
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 enum class StepRange(val key: String, @StringRes val label: Int, @StringRes val header: Int) {
     TODAY("TODAY", R.string.label_today, R.string.header_today),
@@ -85,8 +87,8 @@ fun firstEntryDate(context: Context): LocalDate =
 
 private fun dateFormat() = SimpleDateFormat(AppPreferences.dateFormatString, Locale.getDefault())
 
-private fun distance(context: Context, steps: Int) =
-    context.getString(R.string.distance_today, Util.stepsToDistance(steps), Util.distanceUnit())
+private fun distance(context: Context, meters: Double) =
+    context.getString(R.string.distance_today, Util.metersToDistance(meters), Util.distanceUnit())
 
 private fun stepsWithDistance(context: Context, steps: Int) =
     context.getString(R.string.steps_format, Util.formatSteps(steps), Util.stepsToDistance(steps), Util.distanceUnit())
@@ -123,11 +125,12 @@ private fun rangeDates(range: StepRange, db: Database): Pair<String, String> {
 
 fun summary(context: Context, selection: Selection, todaySteps: Int): Summary {
     if (selection == Selection.Range(StepRange.TODAY)) {
+        val today = ActivityEnergy.day(context, Util.todayDateString(), liveTodaySteps = todaySteps)
         return Summary(
             header = context.getString(R.string.header_today),
             steps = Util.stepsPlural(context, todaySteps),
-            distance = distance(context, todaySteps),
-            calories = context.getString(R.string.calories, Util.stepsToCalories(todaySteps)),
+            distance = distance(context, today.distanceM),
+            calories = context.getString(R.string.calories, today.activeKcal.roundToInt()),
             average = null,
         )
     }
@@ -148,11 +151,11 @@ fun summary(context: Context, selection: Selection, todaySteps: Int): Summary {
         }
     }
 
-    val total = db.getSumSteps(dates.first, dates.second)
+    val totals = ActivityEnergy.range(context, dates.first, dates.second)
     return Summary(
         header = header,
-        steps = Util.stepsPlural(context, total),
-        distance = distance(context, total),
+        steps = Util.stepsPlural(context, totals.steps),
+        distance = distance(context, totals.distanceM),
         calories = null,
         average = stepsWithDistance(context, db.avgSteps(dates.first, dates.second)),
     )
@@ -198,7 +201,8 @@ fun chartData(context: Context, past7Days: Boolean, selected: LocalDate, todaySt
 fun dayStats(context: Context, selected: LocalDate): DayStats {
     val db = Database.getInstance(context)
     val date = selected.toString()
-    val steps = db.getEntries(date, date).firstOrNull()?.steps ?: 0
+    val day = ActivityEnergy.day(context, date)
+    val steps = day.steps
     val monthStart = selected.withDayOfMonth(1).toString()
     val monthEnd = selected.withDayOfMonth(selected.lengthOfMonth()).toString()
 
@@ -207,9 +211,9 @@ fun dayStats(context: Context, selected: LocalDate): DayStats {
         details = context.getString(
             R.string.steps_day_display,
             Util.stepsPlural(context, steps),
-            Util.stepsToDistance(steps),
+            Util.metersToDistance(day.distanceM),
             Util.distanceUnit(),
-            Util.stepsToCalories(steps),
+            day.activeKcal.roundToInt(),
         ),
         monthTotal = stepsWithDistance(context, db.getSumSteps(monthStart, monthEnd)),
         monthAverage = stepsWithDistance(context, db.avgSteps(monthStart, monthEnd)),

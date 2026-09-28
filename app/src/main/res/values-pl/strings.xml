@@ -61,8 +61,6 @@
     <string name="notification_description_paused">Powiadamiaj gdy liczenie kroków jest wstrzymane</string>
     <string name="notification_description_steps_day">Kroki dzisiaj</string>
     <string name="notification_step_counting_paused">Liczenie kroków jest wstrzymane</string>
-    <string name="notification_step_goal_progress_title">%1$s / %2$.2f %3$s [%4$d%%]</string>
-    <string name="notification_step_goal_progress">Cel: %1$s — zostało %2$s</string>
     <string name="notification_step_goal_completed">Cel kroków osiągnięty!</string>
     <string name="step_counting_paused">Wstrzymano liczenie kroków</string>
     <string name="step_counting_resumed">Wznowiono liczenie kroków</string>
@@ -110,16 +108,6 @@
     <string name="about_stepsy">O aplikacji</string>
     <string name="about_version">Wersja</string>
     <string name="about_license">Licencja</string>
-    <string name="about_html">
-    <![CDATA[
-        Stepsy <a href="https://github.com/nvllz/stepsy/releases">v%s</a><br><br>
-        Projekt prowadzony przez <a href="https://github.com/nvllz"><b>nvllz</b></a><br>
-        Oparty na <a href="https://github.com/0xf4b1/motionmate">MotionMate</a> od <a href="https://github.com/0xf4b1">0xf4b1</a><br><br>
-        <a href="https://github.com/nvllz/stepsy/issues">Zgłoś błąd</a><br><br>
-        <a href="https://github.com/nvllz/stepsy">Strona projektu</a><br>
-        <a href="https://www.gnu.org/licenses/gpl-3.0.html">Licencja GPL-3.0</a>
-    ]]>
-    </string>
 
     <!-- Toasts -->
     <string name="enter_valid_value">Wprowadź poprawną wartość</string>

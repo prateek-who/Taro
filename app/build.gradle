@@ -2,17 +2,30 @@ plugins {
     id 'com.android.application'
     id 'kotlin-android'
     id 'org.jetbrains.kotlin.plugin.compose'
+    id 'com.google.devtools.ksp'
 }
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('_local/keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
+def signingValue = { String property, String environment ->
+    keystoreProperties.getProperty(property) ?: System.getenv(environment)
+}
+
+def releaseStoreFile = signingValue('storeFile', 'KEYSTORE_FILE') ?: (file('keystore.jks').exists() ? 'keystore.jks' : null)
 
 android {
     namespace 'com.nvllz.stepsy'
     compileSdk 35
     defaultConfig {
-        applicationId "com.nvllz.stepsy"
+        applicationId "com.prateek.stepsytoo"
         minSdkVersion 26
         targetSdkVersion 35
-        versionCode 20
-        versionName "1.6.2"
+        versionCode 21
+        versionName "1.7.0"
         proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
     }
     flavorDimensions += "distribution"
@@ -29,10 +42,12 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file("keystore.jks")
-            storePassword System.getenv("KEYSTORE_PASSWORD")
-            keyAlias System.getenv("KEY_ALIAS")
-            keyPassword System.getenv("KEY_PASSWORD")
+            if (releaseStoreFile) {
+                storeFile file(releaseStoreFile)
+                storePassword signingValue('storePassword', 'KEYSTORE_PASSWORD')
+                keyAlias signingValue('keyAlias', 'KEY_ALIAS')
+                keyPassword signingValue('keyPassword', 'KEY_PASSWORD')
+            }
         }
     }
     buildTypes {
@@ -46,7 +61,9 @@ android {
             manifestPlaceholders = [icon: "@drawable/ic_launcher"]
             minifyEnabled true
             shrinkResources true
-            signingConfig signingConfigs.release
+            if (releaseStoreFile) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     compileOptions {
@@ -71,6 +88,10 @@ kotlin {
     jvmToolchain(21)
 }
 
+ksp {
+    arg('room.schemaLocation', "$projectDir/schemas")
+}
+
 dependencies {
     implementation platform('androidx.compose:compose-bom:2025.06.00')
     implementation 'androidx.compose.material3:material3'
@@ -81,7 +102,12 @@ dependencies {
     debugImplementation 'androidx.compose.ui:ui-tooling'
     implementation 'cafe.adriel.voyager:voyager-navigator:1.1.0-beta03'
     implementation 'cafe.adriel.voyager:voyager-transitions:1.1.0-beta03'
+    implementation 'cafe.adriel.voyager:voyager-tab-navigator:1.1.0-beta03'
     implementation 'androidx.glance:glance-appwidget:1.1.1'
+    implementation 'androidx.room:room-runtime:2.7.2'
+    implementation 'androidx.room:room-ktx:2.7.2'
+    ksp 'androidx.room:room-compiler:2.7.2'
+    testImplementation 'androidx.room:room-testing:2.7.2'
 
     implementation 'androidx.preference:preference-ktx:1.2.1'
     implementation 'androidx.appcompat:appcompat:1.7.1'

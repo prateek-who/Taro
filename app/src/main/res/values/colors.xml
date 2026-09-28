@@ -6,6 +6,8 @@
     <color name="colorSurface">#FFFFFF</color>
     <color name="colorOnSurface">#121212</color>
     <color name="colorBackground">#FFFFFF</color>
+    <color name="colorGoal">#2E7D32</color>
+    <color name="colorFlame">#E65100</color>
     <color name="colorSpecial">#CCAA3F</color>
 
     <color name="widgetPrimary">#161616</color>

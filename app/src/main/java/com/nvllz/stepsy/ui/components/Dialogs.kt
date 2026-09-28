@@ -111,11 +111,17 @@ fun SingleChoiceDialog(
 }
 
 @Composable
-fun MessageDialog(title: String, message: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+fun MessageDialog(
+    title: String,
+    message: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    confirmText: String = stringResource(android.R.string.ok),
+) {
     StepsyDialog(
         title = title,
         onDismiss = onDismiss,
-        confirmText = stringResource(android.R.string.ok),
+        confirmText = confirmText,
         onConfirm = onConfirm,
     ) {
         Text(message)
@@ -133,6 +139,25 @@ fun stepsyTextFieldColors(): TextFieldColors {
         unfocusedLabelColor = accent,
         cursorColor = onSurface,
         selectionColors = TextSelectionColors(handleColor = onSurface, backgroundColor = accent.copy(alpha = 0.4f)),
+    )
+}
+
+@Composable
+fun StepsyTextField(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        shape = RoundedCornerShape(8.dp),
+        colors = stepsyTextFieldColors(),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        modifier = modifier,
     )
 }
 

@@ -17,9 +17,17 @@ class StepsyControlReceiver : BroadcastReceiver() {
                 else -> return
             }
 
-            putExtras(intent)
+            if (intent.hasExtra(TIMED_PAUSE)) putExtra(TIMED_PAUSE, intent.getBooleanExtra(TIMED_PAUSE, false))
+            if (intent.hasExtra(END_TIME)) putExtra(END_TIME, intent.getLongExtra(END_TIME, 0L))
+            if (intent.hasExtra(DURATION_MINUTES)) putExtra(DURATION_MINUTES, intent.getIntExtra(DURATION_MINUTES, 0))
         }
 
         ContextCompat.startForegroundService(context, serviceIntent)
+    }
+
+    private companion object {
+        const val TIMED_PAUSE = "TIMED_PAUSE"
+        const val END_TIME = "END_TIME"
+        const val DURATION_MINUTES = "DURATION_MINUTES"
     }
 }

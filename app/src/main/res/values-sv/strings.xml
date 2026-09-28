@@ -55,8 +55,6 @@
     <string name="notification_description_paused">Avisera när stegräkning är pausad</string>
     <string name="notification_description_steps_day">Steg idag</string>
     <string name="notification_step_counting_paused">Stegräkning är pausad</string>
-    <string name="notification_step_goal_progress_title">%1$s / %2$.2f %3$s [%4$d%%]</string>
-    <string name="notification_step_goal_progress">Mål: %1$s — %2$s kvar</string>
     <string name="notification_step_goal_completed">Stegmål uppnått!</string>
     <string name="step_counting_paused">Pausat stegräkning</string>
     <string name="step_counting_resumed">Återupptagit stegräkning</string>
@@ -104,16 +102,6 @@
     <string name="about_stepsy">Om</string>
     <string name="about_version">Version</string>
     <string name="about_license">Licens</string>
-    <string name="about_html">
-    <![CDATA[
-        Stepsy <a href="https://github.com/nvllz/stepsy/releases">v%s</a><br><br>
-        Underhållen av <a href="https://github.com/nvllz"><b>nvllz</b></a><br>
-        Baserad på <a href="https://github.com/0xf4b1/motionmate">MotionMate</a> by <a href="https://github.com/0xf4b1">0xf4b1</a><br><br>
-        <a href="https://github.com/nvllz/stepsy/issues">Rapportera en bugg</a><br><br>
-        <a href="https://github.com/nvllz/stepsy">Projektets webbsida</a><br>
-        <a href="https://www.gnu.org/licenses/gpl-3.0.html">Licens GPL-3.0</a>
-    ]]>
-    </string>
 
     <!-- Toasts -->
     <string name="enter_valid_value">Vänligen ange ett giltigt värde</string>

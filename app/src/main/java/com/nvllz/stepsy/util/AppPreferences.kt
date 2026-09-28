@@ -3,7 +3,7 @@ package com.nvllz.stepsy.util
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
-import androidx.datastore.preferences.preferencesDataStore
+import com.nvllz.stepsy.energy.Sex
 import com.nvllz.stepsy.util.Util.UnitSystem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -20,7 +20,20 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val Context.appDataStore: DataStore<Preferences> by preferencesDataStore(name = "app_preferences")
+data class StepCalibration(
+    val walkingStepCm: Float,
+    val walkingSlope: Float,
+    val referenceCadence: Float,
+    val runningStepCm: Float?,
+    val samples: Int,
+)
+
+data class AccuracyResults(
+    val stepError: Float?,
+    val stepDate: String?,
+    val distanceError: Float?,
+    val distanceDate: String?,
+)
 
 object AppPreferences {
     object PreferenceKeys {
@@ -45,7 +58,22 @@ object AppPreferences {
         val ENCOURAGING_NOTIFICATIONS            = booleanPreferencesKey("encouraging_notifications")
         val DAILY_GOAL_CHART_LINE                = booleanPreferencesKey("daily_goal_chart_line")
         val LEG_LENGTH                           = stringPreferencesKey("leg_length")
+        val BIRTH_YEAR                           = intPreferencesKey("birth_year")
+        val SEX                                  = stringPreferencesKey("sex")
         val ONBOARDING_DONE                      = booleanPreferencesKey("onboarding_done")
+        val CALIBRATED_WALK_STEP_CM              = floatPreferencesKey("calibrated_walk_step_cm")
+        val CALIBRATED_WALK_SLOPE                = floatPreferencesKey("calibrated_walk_slope")
+        val CALIBRATED_REFERENCE_CADENCE         = floatPreferencesKey("calibrated_reference_cadence")
+        val CALIBRATED_RUN_STEP_CM               = floatPreferencesKey("calibrated_run_step_cm")
+        val CALIBRATION_SAMPLES                  = intPreferencesKey("calibration_samples")
+        val ACCURACY_STEP_ERROR                  = floatPreferencesKey("accuracy_step_error")
+        val ACCURACY_STEP_DATE                   = stringPreferencesKey("accuracy_step_date")
+        val ACCURACY_DISTANCE_ERROR              = floatPreferencesKey("accuracy_distance_error")
+        val ACCURACY_DISTANCE_DATE               = stringPreferencesKey("accuracy_distance_date")
+        val LAST_CELEBRATION_DATE                = stringPreferencesKey("last_celebration_date")
+        val SENSOR_BASELINE                      = intPreferencesKey("sensor_baseline")
+        val SENSOR_BOOT_COUNT                    = intPreferencesKey("sensor_boot_count")
+        val SENSOR_BOOT_TIME                     = longPreferencesKey("sensor_boot_time")
     }
 
     lateinit var dataStore: DataStore<Preferences>
@@ -53,7 +81,7 @@ object AppPreferences {
 
     fun init(context: Context) {
         if (!::dataStore.isInitialized) {
-            dataStore = context.appDataStore
+            dataStore = AppDataStore.create(context)
         }
         runBlocking {
             updateAppVersion()
@@ -69,6 +97,27 @@ object AppPreferences {
     }
 
     // Steps
+
+    fun saveStepState(context: Context, steps: Int, date: String, sensorBaseline: Int) = runBlocking {
+        dataStore.edit {
+            it[PreferenceKeys.STEPS] = steps
+            it[PreferenceKeys.DATE] = date
+            it[PreferenceKeys.SENSOR_BASELINE] = sensorBaseline
+            it[PreferenceKeys.SENSOR_BOOT_COUNT] = BootSession.bootCount(context)
+            it[PreferenceKeys.SENSOR_BOOT_TIME] = BootSession.bootTime()
+        }
+    }
+
+    fun restoreSensorBaseline(context: Context): Int? = runBlocking {
+        val prefs = dataStore.data.first()
+        val baseline = prefs[PreferenceKeys.SENSOR_BASELINE]?.takeIf { it >= 0 } ?: return@runBlocking null
+        val sameBoot = BootSession.isSameBoot(
+            context,
+            prefs[PreferenceKeys.SENSOR_BOOT_COUNT] ?: -1,
+            prefs[PreferenceKeys.SENSOR_BOOT_TIME] ?: 0L,
+        )
+        baseline.takeIf { sameBoot }
+    }
 
     fun stepsFlow(): Flow<Int> = dataStore.data.map { it[PreferenceKeys.STEPS] ?: 0 }
 
@@ -104,17 +153,17 @@ object AppPreferences {
 
     // Height
 
-    fun heightFlow(): Flow<Int> = dataStore.data.map { it[PreferenceKeys.HEIGHT]?.toIntOrNull() ?: 180 }
+    fun heightFlow(): Flow<Double> = dataStore.data.map { it[PreferenceKeys.HEIGHT]?.toDoubleOrNull() ?: 180.0 }
 
-    var height: Int
+    var height: Double
         get() = runBlocking { heightFlow().first() }
         set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.HEIGHT] = value.toString() } }
 
     // Weight
 
-    fun weightFlow(): Flow<Int> = dataStore.data.map { it[PreferenceKeys.WEIGHT]?.toIntOrNull() ?: 70 }
+    fun weightFlow(): Flow<Double> = dataStore.data.map { it[PreferenceKeys.WEIGHT]?.toDoubleOrNull() ?: 70.0 }
 
-    var weight: Int
+    var weight: Double
         get() = runBlocking { weightFlow().first() }
         set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.WEIGHT] = value.toString() } }
 
@@ -128,6 +177,62 @@ object AppPreferences {
             dataStore.edit {
                 if (value == null) it.remove(PreferenceKeys.LEG_LENGTH) else it[PreferenceKeys.LEG_LENGTH] = value.toString()
             }
+        }
+
+    // Accuracy checks
+
+    fun accuracyFlow(): Flow<AccuracyResults> = dataStore.data.map {
+        AccuracyResults(
+            stepError = it[PreferenceKeys.ACCURACY_STEP_ERROR],
+            stepDate = it[PreferenceKeys.ACCURACY_STEP_DATE],
+            distanceError = it[PreferenceKeys.ACCURACY_DISTANCE_ERROR],
+            distanceDate = it[PreferenceKeys.ACCURACY_DISTANCE_DATE],
+        )
+    }
+
+    fun saveStepAccuracy(error: Float, date: String) = runBlocking {
+        dataStore.edit {
+            it[PreferenceKeys.ACCURACY_STEP_ERROR] = error
+            it[PreferenceKeys.ACCURACY_STEP_DATE] = date
+        }
+    }
+
+    fun saveDistanceAccuracy(error: Float, date: String) = runBlocking {
+        dataStore.edit {
+            it[PreferenceKeys.ACCURACY_DISTANCE_ERROR] = error
+            it[PreferenceKeys.ACCURACY_DISTANCE_DATE] = date
+        }
+    }
+
+    // Celebration
+
+    var lastCelebrationDate: String?
+        get() = runBlocking { dataStore.data.first()[PreferenceKeys.LAST_CELEBRATION_DATE] }
+        set(value) = runBlocking {
+            dataStore.edit { if (value == null) it.remove(PreferenceKeys.LAST_CELEBRATION_DATE) else it[PreferenceKeys.LAST_CELEBRATION_DATE] = value }
+        }
+
+    // Age and sex
+
+    fun ageFlow(): Flow<Int?> = dataStore.data.map { prefs ->
+        prefs[PreferenceKeys.BIRTH_YEAR]?.let { Calendar.getInstance().get(Calendar.YEAR) - it }
+    }
+
+    var age: Int?
+        get() = runBlocking { ageFlow().first() }
+        set(value) = runBlocking {
+            dataStore.edit {
+                if (value == null) it.remove(PreferenceKeys.BIRTH_YEAR)
+                else it[PreferenceKeys.BIRTH_YEAR] = Calendar.getInstance().get(Calendar.YEAR) - value
+            }
+        }
+
+    fun sexFlow(): Flow<Sex?> = dataStore.data.map { Sex.fromKey(it[PreferenceKeys.SEX]) }
+
+    var sex: Sex?
+        get() = runBlocking { sexFlow().first() }
+        set(value) = runBlocking {
+            dataStore.edit { if (value == null) it.remove(PreferenceKeys.SEX) else it[PreferenceKeys.SEX] = value.key }
         }
 
     // Onboarding
@@ -150,11 +255,49 @@ object AppPreferences {
     }
 
     fun stepLengthFlow(): Flow<Float> = dataStore.data.map {
-        it[PreferenceKeys.STEP_LENGTH] ?: Util.estimateStepLength(
-            it[PreferenceKeys.HEIGHT]?.toIntOrNull() ?: 180,
+        it[PreferenceKeys.STEP_LENGTH] ?: it[PreferenceKeys.CALIBRATED_WALK_STEP_CM] ?: Util.estimateStepLength(
+            it[PreferenceKeys.HEIGHT]?.toDoubleOrNull() ?: 180.0,
             it[PreferenceKeys.LEG_LENGTH]?.toIntOrNull(),
         )
     }
+
+    val manualStepLength: Float?
+        get() = runBlocking { dataStore.data.first()[PreferenceKeys.STEP_LENGTH] }
+
+    fun stepCalibrationFlow(): Flow<StepCalibration?> = dataStore.data.map { prefs ->
+        prefs[PreferenceKeys.CALIBRATED_WALK_STEP_CM]?.let { walk ->
+            StepCalibration(
+                walkingStepCm = walk,
+                walkingSlope = prefs[PreferenceKeys.CALIBRATED_WALK_SLOPE] ?: 0f,
+                referenceCadence = prefs[PreferenceKeys.CALIBRATED_REFERENCE_CADENCE] ?: 100f,
+                runningStepCm = prefs[PreferenceKeys.CALIBRATED_RUN_STEP_CM],
+                samples = prefs[PreferenceKeys.CALIBRATION_SAMPLES] ?: 0,
+            )
+        }
+    }
+
+    var stepCalibration: StepCalibration?
+        get() = runBlocking { stepCalibrationFlow().first() }
+        set(value) = runBlocking {
+            dataStore.edit { prefs ->
+                val keys = listOf(
+                    PreferenceKeys.CALIBRATED_WALK_STEP_CM,
+                    PreferenceKeys.CALIBRATED_WALK_SLOPE,
+                    PreferenceKeys.CALIBRATED_REFERENCE_CADENCE,
+                    PreferenceKeys.CALIBRATED_RUN_STEP_CM,
+                )
+                keys.forEach { prefs.remove(it) }
+                prefs.remove(PreferenceKeys.CALIBRATION_SAMPLES)
+                if (value != null) {
+                    prefs[PreferenceKeys.CALIBRATED_WALK_STEP_CM] = value.walkingStepCm
+                    prefs[PreferenceKeys.CALIBRATED_WALK_SLOPE] = value.walkingSlope
+                    prefs[PreferenceKeys.CALIBRATED_REFERENCE_CADENCE] = value.referenceCadence
+                    value.runningStepCm?.let { prefs[PreferenceKeys.CALIBRATED_RUN_STEP_CM] = it }
+                    prefs[PreferenceKeys.CALIBRATION_SAMPLES] = value.samples
+                    prefs.remove(PreferenceKeys.STEP_LENGTH)
+                }
+            }
+        }
 
     val estimatedStepLength: Float
         get() = Util.estimateStepLength(height, legLength)

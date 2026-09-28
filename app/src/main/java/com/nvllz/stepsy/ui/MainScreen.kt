@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,11 +37,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Stable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
@@ -53,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -66,7 +69,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cafe.adriel.voyager.navigator.tab.CurrentTab
+import cafe.adriel.voyager.navigator.tab.Tab
+import cafe.adriel.voyager.navigator.tab.TabNavigator
+import cafe.adriel.voyager.navigator.tab.TabOptions
+import com.nvllz.stepsy.ui.components.LocalToast
+import com.nvllz.stepsy.ui.components.StepsyNavigationBar
+import com.nvllz.stepsy.ui.components.ToastKind
 import com.nvllz.stepsy.R
+import com.nvllz.stepsy.ui.components.ConfettiBurst
+import com.nvllz.stepsy.ui.components.GlowingIcon
+import com.nvllz.stepsy.ui.components.GoalProgressBar
 import com.nvllz.stepsy.ui.components.MessageDialog
 import com.nvllz.stepsy.ui.components.MonthCalendar
 import com.nvllz.stepsy.ui.components.NumberInputDialog
@@ -75,17 +88,18 @@ import com.nvllz.stepsy.ui.components.RangeChip
 import com.nvllz.stepsy.ui.components.StepsBarChart
 import com.nvllz.stepsy.ui.theme.StepsyTheme
 import com.nvllz.stepsy.util.AppPreferences
+import com.nvllz.stepsy.util.Util
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
 
-@Stable
-class TrackingState(steps: Int, paused: Boolean, showOnboarding: Boolean) {
-    var steps by mutableIntStateOf(steps)
-    var paused by mutableStateOf(paused)
-    var refreshKey by mutableIntStateOf(0)
-    var showOnboarding by mutableStateOf(showOnboarding)
-}
+@Immutable
+data class TrackingState(
+    val steps: Int,
+    val paused: Boolean,
+    val refreshKey: Int,
+    val showOnboarding: Boolean,
+)
 
 class MainActions(
     val onTogglePause: () -> Unit,
@@ -95,15 +109,47 @@ class MainActions(
     val onOnboardingDone: () -> Unit,
 )
 
-val LocalTracking = staticCompositionLocalOf<TrackingState> { error("TrackingState not provided") }
+val LocalTracking = compositionLocalOf<TrackingState> { error("TrackingState not provided") }
 val LocalMainActions = staticCompositionLocalOf<MainActions> { error("MainActions not provided") }
 
-object HomeScreen : Screen {
+object HomeTab : Tab {
+    override val options: TabOptions
+        @Composable get() = TabOptions(
+            index = 0u,
+            title = stringResource(R.string.tab_home),
+            icon = painterResource(R.drawable.ic_home),
+        )
+
     @Composable
     override fun Content() {
-        val tracking = LocalTracking.current
-        val navigator = LocalNavigator.currentOrThrow
-        MainScreen(tracking, LocalMainActions.current, onOpen = { navigator.push(it) })
+        MainScreen(LocalTracking.current, LocalMainActions.current)
+    }
+}
+
+private val BOTTOM_BAR_HEIGHT = 80.dp
+
+object RootScreen : Screen {
+    @Composable
+    override fun Content() {
+        val toast = LocalToast.current
+        DisposableEffect(Unit) {
+            toast.bottomOffset = BOTTOM_BAR_HEIGHT
+            onDispose { toast.bottomOffset = 0.dp }
+        }
+        TabNavigator(HomeTab) {
+            Scaffold(
+                containerColor = StepsyTheme.colors.background,
+                bottomBar = { StepsyNavigationBar(listOf(HomeTab, EnergyTab)) },
+            ) { padding ->
+                Box(
+                    modifier = Modifier
+                        .padding(padding)
+                        .consumeWindowInsets(padding),
+                ) {
+                    CurrentTab()
+                }
+            }
+        }
     }
 }
 
@@ -119,13 +165,13 @@ private val calendarDayOfWeek = listOf(
 )
 
 @Composable
-private fun MainScreen(tracking: TrackingState, actions: MainActions, onOpen: (Screen) -> Unit) {
+private fun MainScreen(tracking: TrackingState, actions: MainActions) {
     val steps = tracking.steps
     val paused = tracking.paused
     val refreshKey = tracking.refreshKey
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val snackbar = remember { SnackbarHostState() }
+    val toast = LocalToast.current
 
     var selection by remember { mutableStateOf(loadSelection(context)) }
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -144,9 +190,19 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions, onOpen: (S
     val day = remember(selectedDate, steps, refreshKey) { dayStats(context, selectedDate) }
     val goal = remember(goalTarget, refreshKey) { goalLine(context, goalTarget) }
     val isToday = selection == Selection.Range(StepRange.TODAY)
+    val goalMet = goalTarget > 0 && steps >= goalTarget
+    var celebrate by remember { mutableStateOf(false) }
 
-    fun showMessage(textRes: Int) {
-        scope.launch { snackbar.showSnackbar(context.getString(textRes)) }
+    LaunchedEffect(goalMet) {
+        val today = Util.todayDateString()
+        if (goalMet && AppPreferences.lastCelebrationDate != today) {
+            AppPreferences.lastCelebrationDate = today
+            celebrate = true
+        }
+    }
+
+    fun showMessage(textRes: Int, kind: ToastKind) {
+        toast.show(context.getString(textRes), kind)
     }
 
     fun resetCalendarToToday() {
@@ -166,7 +222,6 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions, onOpen: (S
     Scaffold(
         containerColor = StepsyTheme.colors.background,
         contentWindowInsets = WindowInsets(0),
-        snackbarHost = { SnackbarHost(snackbar, modifier = Modifier.navigationBarsPadding()) },
         floatingActionButton = {
             PauseFab(
                 paused = paused,
@@ -183,7 +238,7 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions, onOpen: (S
                 .verticalScroll(rememberScrollState())
                 .statusBarsPadding(),
         ) {
-            OverflowMenu(onOpen)
+            AppOverflowMenu()
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -193,8 +248,16 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions, onOpen: (S
             ) {
                 SummarySection(
                     summary = summary,
+                    lit = isToday && goalMet,
                     onStepsLongClick = { if (isToday) dialog = MainDialog.EditSteps },
                 )
+                if (isToday) {
+                    GoalProgressBar(
+                        steps = steps,
+                        goal = goalTarget,
+                        modifier = Modifier.padding(start = 32.dp, end = 32.dp, bottom = 8.dp),
+                    )
+                }
                 RangePicker(
                     expanded = expanded,
                     onToggle = { expanded = !expanded },
@@ -241,6 +304,7 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions, onOpen: (S
                     values = chart.values,
                     labels = chart.labels,
                     goal = if (goalTarget > 0 && goalChartLine) goalTarget else 0,
+                    highlightGoal = goalTarget,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
@@ -266,6 +330,10 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions, onOpen: (S
         }
     }
 
+    if (celebrate) {
+        ConfettiBurst(onFinished = { celebrate = false })
+    }
+
     when (val current = dialog) {
         MainDialog.EditSteps -> NumberInputDialog(
             title = stringResource(R.string.edit_step_count),
@@ -275,11 +343,11 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions, onOpen: (S
                 dialog = null
                 val newSteps = input.toIntOrNull()
                 when {
-                    newSteps == null -> showMessage(R.string.invalid_step_count)
+                    newSteps == null -> showMessage(R.string.invalid_step_count, ToastKind.ERROR)
                     newSteps < steps -> dialog = MainDialog.ConfirmDecrease(newSteps)
                     else -> {
                         actions.onUpdateSteps(newSteps)
-                        showMessage(R.string.steps_updated)
+                        showMessage(R.string.steps_updated, ToastKind.SUCCESS)
                     }
                 }
             },
@@ -291,7 +359,7 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions, onOpen: (S
             onConfirm = {
                 dialog = null
                 actions.onUpdateSteps(current.steps)
-                showMessage(R.string.steps_updated)
+                showMessage(R.string.steps_updated, ToastKind.SUCCESS)
             },
             onDismiss = { dialog = null },
         )
@@ -314,49 +382,9 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions, onOpen: (S
     }
 }
 
-@Composable
-private fun OverflowMenu(onOpen: (Screen) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    val items = listOf(
-        Triple(R.string.achievements_title, R.drawable.ic_small_trophy, AchievementsScreen),
-        Triple(R.string.header_data_backup, R.drawable.ic_small_backup, BackupScreen),
-        Triple(R.string.daily_goals, R.drawable.ic_small_target, DailyGoalsScreen),
-        Triple(R.string.settings, R.drawable.ic_small_settings, SettingsScreen),
-    )
-
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
-        Box {
-            IconButton(onClick = { open = true }) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_more_vert),
-                    contentDescription = stringResource(androidx.appcompat.R.string.abc_action_menu_overflow_description),
-                )
-            }
-            DropdownMenu(
-                expanded = open,
-                onDismissRequest = { open = false },
-                containerColor = MaterialTheme.colorScheme.surface,
-            ) {
-                items.forEach { (label, icon, screen) ->
-                    DropdownMenuItem(
-                        text = { Text(stringResource(label)) },
-                        leadingIcon = {
-                            Icon(painterResource(icon), contentDescription = null)
-                        },
-                        onClick = {
-                            open = false
-                            onOpen(screen)
-                        },
-                    )
-                }
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SummarySection(summary: Summary, onStepsLongClick: () -> Unit) {
+private fun SummarySection(summary: Summary, lit: Boolean, onStepsLongClick: () -> Unit) {
     CenteredText(
         text = summary.header.uppercase(),
         fontSize = 14.sp,
@@ -376,8 +404,8 @@ private fun SummarySection(summary: Summary, onStepsLongClick: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(20.dp),
         modifier = Modifier.padding(bottom = 14.dp),
     ) {
-        IconStat(R.drawable.ic_steps, summary.distance)
-        summary.calories?.let { IconStat(R.drawable.ic_calories, it) }
+        IconStat(R.drawable.ic_steps, summary.distance, lit, StepsyTheme.colors.goal)
+        summary.calories?.let { IconStat(R.drawable.ic_calories, it, lit, StepsyTheme.colors.flame) }
     }
     summary.average?.let {
         Text(stringResource(R.string.avg_distance), fontSize = 20.sp, color = StepsyTheme.colors.accent)
@@ -386,17 +414,10 @@ private fun SummarySection(summary: Summary, onStepsLongClick: () -> Unit) {
 }
 
 @Composable
-private fun IconStat(icon: Int, text: String) {
+private fun IconStat(icon: Int, text: String, lit: Boolean, litColor: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = null,
-            tint = StepsyTheme.colors.accent,
-            modifier = Modifier
-                .padding(end = 6.dp)
-                .size(24.dp),
-        )
-        Text(text, fontSize = 18.sp, color = StepsyTheme.colors.accent)
+        GlowingIcon(icon = icon, lit = lit, litColor = litColor, modifier = Modifier.padding(end = 4.dp))
+        Text(text, fontSize = 18.sp, color = litColor)
     }
 }
 

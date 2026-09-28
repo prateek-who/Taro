@@ -1,0 +1,139 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 4,
+    "identityHash": "e18d76d3ab7bd07a95d4b548329128d3",
+    "entities": [
+      {
+        "tableName": "History",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`date` TEXT NOT NULL, `stepsy` INTEGER NOT NULL, PRIMARY KEY(`date`))",
+        "fields": [
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "steps",
+            "columnName": "stepsy",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "date"
+          ]
+        }
+      },
+      {
+        "tableName": "minute_steps",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`minute_start` INTEGER NOT NULL, `date` TEXT NOT NULL, `steps` INTEGER NOT NULL, `ascent_m` REAL NOT NULL DEFAULT 0, PRIMARY KEY(`minute_start`))",
+        "fields": [
+          {
+            "fieldPath": "minuteStart",
+            "columnName": "minute_start",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "steps",
+            "columnName": "steps",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ascentMeters",
+            "columnName": "ascent_m",
+            "affinity": "REAL",
+            "notNull": true,
+            "defaultValue": "0"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "minute_start"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_minute_steps_date",
+            "unique": false,
+            "columnNames": [
+              "date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_minute_steps_date` ON `${TABLE_NAME}` (`date`)"
+          }
+        ]
+      },
+      {
+        "tableName": "calibration_points",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `recorded_at` INTEGER NOT NULL, `cadence` REAL NOT NULL, `step_length_m` REAL NOT NULL, `distance_m` REAL NOT NULL, `steps` INTEGER NOT NULL, `source` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recordedAt",
+            "columnName": "recorded_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cadence",
+            "columnName": "cadence",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stepLengthM",
+            "columnName": "step_length_m",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanceM",
+            "columnName": "distance_m",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "steps",
+            "columnName": "steps",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e18d76d3ab7bd07a95d4b548329128d3')"
+    ]
+  }
+}

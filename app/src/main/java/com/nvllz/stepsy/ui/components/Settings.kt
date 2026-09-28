@@ -147,7 +147,7 @@ fun StepsySlider(
 @Composable
 fun <T> ToggleGroup(
     options: List<Pair<T, String>>,
-    selected: T,
+    selected: T?,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
 ) {

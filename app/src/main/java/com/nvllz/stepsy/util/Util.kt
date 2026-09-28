@@ -83,13 +83,23 @@ object Util {
     private const val STEP_TO_HEIGHT = 0.415f
     private const val INSEAM_TO_HEIGHT = 0.46f
 
-    fun estimateStepLength(heightCm: Int, legLengthCm: Int?): Float {
-        val fromHeight = heightCm * STEP_TO_HEIGHT
+    fun estimateStepLength(heightCm: Double, legLengthCm: Int?): Float {
+        val fromHeight = (heightCm * STEP_TO_HEIGHT).toFloat()
         val leg = legLengthCm ?: return fromHeight
-        val plausibleLeg = heightCm * 0.35f..heightCm * 0.6f
+        val plausibleLeg = (heightCm * 0.35).toFloat()..(heightCm * 0.6).toFloat()
         if (leg.toFloat() !in plausibleLeg) return fromHeight
         val fromLeg = leg * STEP_TO_HEIGHT / INSEAM_TO_HEIGHT
         return (fromHeight + fromLeg) / 2
+    }
+
+    fun formatMeasure(value: Double): String =
+        if (value % 1.0 == 0.0) value.toLong().toString() else "%.1f".format(Locale.getDefault(), value)
+
+    fun parseMeasure(text: String): Double? = text.trim().replace(',', '.').toDoubleOrNull()
+
+    fun goalMultiplier(steps: Int, goal: Int): String? {
+        if (goal <= 0 || steps < goal * 1.05) return null
+        return "×%.1f".format(Locale.getDefault(), steps.toFloat() / goal)
     }
 
     internal fun formatSteps(steps: Int): String =
@@ -98,8 +108,9 @@ object Util {
     internal fun stepsPlural(context: Context, steps: Int): String =
         context.resources.getQuantityString(R.plurals.steps_formatted, steps, formatSteps(steps))
 
-    internal fun stepsToCalories(steps: Number): Int {
-        return (steps.toInt() * AppPreferences.weight * 0.0005).toInt()
+    internal fun metersToDistance(meters: Double): Float {
+        val km = (meters / 1000.0).toFloat()
+        return if (AppPreferences.unitSystem == UnitSystem.IMPERIAL) km * 0.621371f else km
     }
 
     internal fun applyTheme(theme: String) {

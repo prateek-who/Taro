@@ -19,6 +19,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.os.ResultReceiver
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import android.util.Log
 import android.widget.Toast
@@ -31,6 +32,12 @@ import com.nvllz.stepsy.util.Util
 import java.util.*
 import com.nvllz.stepsy.util.AppPreferences
 import com.nvllz.stepsy.util.GoalNotificationWorker
+import com.nvllz.stepsy.util.MinuteRecorder
+import com.nvllz.stepsy.energy.ActivityEnergy
+import com.nvllz.stepsy.energy.ActivityTotals
+import com.nvllz.stepsy.energy.AscentTracker
+import com.nvllz.stepsy.energy.EnergyModel
+import kotlin.math.roundToInt
 import com.nvllz.stepsy.util.TimedPauseManager
 import com.nvllz.stepsy.util.Util.distanceUnit
 import com.nvllz.stepsy.util.WidgetManager
@@ -82,6 +89,8 @@ internal class MotionService : Service() {
             AppPreferences.date = mCurrentDate
         }
 
+        mLastSteps = if (isCountingPaused) -1 else AppPreferences.restoreSensorBaseline(this) ?: -1
+
         val mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
             ?: throw IllegalStateException("Could not get sensor service")
 
@@ -99,13 +108,17 @@ internal class MotionService : Service() {
 
             mListener = object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent) {
-                    handleEvent(event.values[0].toInt())
+                    handleEvent(event.values[0].toInt(), eventWallTime(event))
                 }
 
                 override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}
             }
 
             mSensorManager.registerListener(mListener, mStepSensor, SensorManager.SENSOR_DELAY_UI, 1000000)
+
+            mSensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE)?.let { barometer ->
+                mSensorManager.registerListener(pressureListener, barometer, BAROMETER_PERIOD_US, BAROMETER_BATCH_US)
+            }
         } else {
             Toast.makeText(this, getString(R.string.no_activity_permission), Toast.LENGTH_LONG).show()
             stopSelf()
@@ -120,7 +133,10 @@ internal class MotionService : Service() {
         handleStepUpdate(delayedTrigger = true)
     }
 
-    private fun handleEvent(value: Int) {
+    private fun handleEvent(value: Int, eventTimeMs: Long) {
+        val previousEventTimeMs = lastEventTimeMs
+        lastEventTimeMs = eventTimeMs
+
         if (!isCountingPaused) {
             if (mLastSteps == -1 || value < mLastSteps) {
                 mLastSteps = value
@@ -133,6 +149,7 @@ internal class MotionService : Service() {
                 return
             }
             mTodaysSteps += delta
+            minuteRecorder.record(delta, previousEventTimeMs, eventTimeMs)
 
             val target = AppPreferences.dailyGoalTarget
             if (target > 0 && mTodaysSteps >= target && !goalReachedToday) {
@@ -154,6 +171,39 @@ internal class MotionService : Service() {
         }
     }
 
+    private fun eventWallTime(event: SensorEvent): Long {
+        val ageMs = (SystemClock.elapsedRealtimeNanos() - event.timestamp) / 1_000_000L
+        val now = System.currentTimeMillis()
+        return if (ageMs in 0..MAX_SENSOR_BATCH_AGE_MS) now - ageMs else now
+    }
+
+    private val minuteRecorder = MinuteRecorder()
+    private val ascentTracker = AscentTracker()
+    private var lastEventTimeMs: Long? = null
+
+    private val pressureListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            val altitude = SensorManager.getAltitude(SensorManager.PRESSURE_STANDARD_ATMOSPHERE, event.values[0])
+            ascentTracker.addAltitude(eventWallTime(event), altitude.toDouble())
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}
+    }
+
+    private fun flushMinutes() {
+        val database = Database.getInstance(this)
+        val ascent = ascentTracker.drain()
+        val steps = minuteRecorder.drain()
+        (steps.keys + ascent.keys).forEach { minute ->
+            val newSteps = steps[minute] ?: 0
+            val stepsInMinute = newSteps + if (minute in steps) 0 else database.stepsInMinute(minute)
+            val climbed = AscentTracker.credited(ascent[minute] ?: 0.0, stepsInMinute)
+            if (newSteps > 0 || climbed > 0.0) {
+                database.addMinuteSteps(minute, Util.millisToDateString(minute), newSteps, climbed.toFloat())
+            }
+        }
+    }
+
     private var lastSharedPrefsWriteTime: Long = 0
     private var lastDbWriteTime: Long = 0
     private var lastWidgetUpdateTime: Long = 0
@@ -170,13 +220,13 @@ internal class MotionService : Service() {
         val todayStr = Util.todayDateString()
 
         if (todayStr != mCurrentDate) {
+            flushMinutes()
             Database.getInstance(this).addEntry(mCurrentDate, mTodaysSteps)
 
             val existingSteps = Database.getInstance(this).getSumSteps(todayStr, todayStr)
             val isNewDay = existingSteps == 0
 
             mTodaysSteps = existingSteps
-            mLastSteps = -1
 
             if (todayStr > mCurrentDate) {
                 if (isNewDay) {
@@ -192,17 +242,17 @@ internal class MotionService : Service() {
             }
 
             mCurrentDate = todayStr
-            AppPreferences.date = mCurrentDate
-            AppPreferences.steps = mTodaysSteps
+            persistState()
             lastSharedPrefsWriteTime = currentTime.also { lastDbWriteTime = it }
         }
 
         if (currentTime - lastSharedPrefsWriteTime >= dataStoreWriteInterval && !manualStepCountChange) {
-            AppPreferences.steps = mTodaysSteps
+            persistState()
             lastSharedPrefsWriteTime = currentTime
         }
 
-        if (currentTime - lastDbWriteTime >= dbWriteInterval || manualStepCountChange) {
+        if (currentTime - lastDbWriteTime >= dbWriteInterval || manualStepCountChange || delayedTrigger) {
+            flushMinutes()
             Database.getInstance(this).addEntry(mCurrentDate, mTodaysSteps)
             lastDbWriteTime = currentTime
         }
@@ -213,6 +263,34 @@ internal class MotionService : Service() {
         }
 
         sendUpdate()
+    }
+
+    private var cachedEnergy: ActivityTotals? = null
+    private var cachedEnergySteps = -1
+    private var cachedEnergyTime = 0L
+
+    private fun todayEnergy(): ActivityTotals {
+        val now = System.currentTimeMillis()
+        val cached = cachedEnergy
+        if (cached != null && cachedEnergySteps == mTodaysSteps) return cached
+        if (cached != null && now - cachedEnergyTime < ENERGY_REFRESH_MS) {
+            val extraSteps = mTodaysSteps - cachedEnergySteps
+            val body = ActivityEnergy.body()
+            return ActivityTotals(
+                steps = mTodaysSteps,
+                activeKcal = cached.activeKcal + EnergyModel.walkingStepsKcal(body, extraSteps),
+                distanceM = cached.distanceM + extraSteps.coerceAtLeast(0) * body.walkingStepM,
+            )
+        }
+        return ActivityEnergy.day(this, mCurrentDate.ifEmpty { Util.todayDateString() }, liveTodaySteps = mTodaysSteps).also {
+            cachedEnergy = it
+            cachedEnergySteps = mTodaysSteps
+            cachedEnergyTime = now
+        }
+    }
+
+    private fun persistState() {
+        AppPreferences.saveStepState(this, mTodaysSteps, mCurrentDate, mLastSteps)
     }
 
     private fun updateAllWidgets() {
@@ -247,28 +325,23 @@ internal class MotionService : Service() {
         dailyTarget: Int = AppPreferences.dailyGoalTarget
     ): NotificationCompat.Builder {
 
-        fun formatNumber(number: Int) = if (number >= 10_000) {
-            NumberFormat.getIntegerInstance(Locale.getDefault()).format(number)
-        } else {
-            number.toString()
+        val stepsText = Util.stepsPlural(this, mTodaysSteps)
+        val energy = todayEnergy()
+        val stats = getString(R.string.notification_stats, Util.metersToDistance(energy.distanceM), distanceUnit(), energy.activeKcal.roundToInt())
+        val hasGoal = showProgressbar && dailyTarget > 0
+        val goalMet = hasGoal && mTodaysSteps >= dailyTarget
+        val progress = if (hasGoal) (mTodaysSteps.toLong() * 100 / dailyTarget).toInt() else 0
+
+        val title = when {
+            goalMet -> Util.goalMultiplier(mTodaysSteps, dailyTarget)?.let { getString(R.string.notification_title_goal_met, stepsText, it) } ?: stepsText
+            hasGoal -> getString(R.string.notification_title_progress, stepsText, progress)
+            else -> stepsText
         }
-
-        val formattedSteps = formatNumber(mTodaysSteps)
-        val formattedTarget = formatNumber(dailyTarget)
-
-        val stepsPlural = resources.getQuantityString(R.plurals.steps_formatted, mTodaysSteps, formattedSteps)
-        val stepGoalPercentage = (mTodaysSteps.toFloat() / dailyTarget * 100).toInt()
-        val stepGoalLeft = dailyTarget - mTodaysSteps
-
-        val notificationTextProgress = getString(R.string.notification_step_goal_progress)
-            .format(Locale.getDefault(), formattedTarget, stepGoalLeft)
-
-        val notificationTitleRaw = getString(R.string.steps_format)
-            .format(Locale.getDefault(), stepsPlural, Util.stepsToDistance(mTodaysSteps), distanceUnit())
-
-        val notificationTitleProgress = getString(R.string.notification_step_goal_progress_title)
-            .format(Locale.getDefault(), stepsPlural, Util.stepsToDistance(mTodaysSteps),
-                distanceUnit(), stepGoalPercentage)
+        val text = when {
+            goalMet -> "$stats · ${getString(R.string.notification_step_goal_completed)}"
+            hasGoal -> "$stats · ${getString(R.string.notification_to_go, Util.formatSteps(dailyTarget - mTodaysSteps))}"
+            else -> stats
+        }
 
         val pausePendingIntent = PendingIntent.getService(
             this, 1,
@@ -289,19 +362,12 @@ internal class MotionService : Service() {
             .setContentIntent(notificationPendingIntent)
             .setAutoCancel(false)
             .addAction(R.drawable.ic_notification, getString(R.string.action_pause), pausePendingIntent)
+            .setContentTitle(title)
+            .setContentText(text)
             .apply {
-                if (showProgressbar && dailyTarget > 0) {
-                    val progress = stepGoalPercentage.coerceIn(0, 100)
-                    if (progress < 100) {
-                        setContentTitle(notificationTitleProgress)
-                        setContentText(notificationTextProgress)
-                        setProgress(100, progress, false)
-                    } else {
-                        setContentTitle(notificationTitleRaw)
-                        setContentText(getString(R.string.notification_step_goal_completed))
-                    }
-                } else {
-                    setContentText(notificationTitleRaw)
+                if (hasGoal) {
+                    setProgress(100, progress.coerceIn(0, 100), false)
+                    if (goalMet) setColor(ContextCompat.getColor(this@MotionService, R.color.colorGoal))
                 }
             }
     }
@@ -337,10 +403,10 @@ internal class MotionService : Service() {
         intent?.let {
             when (it.action) {
                 ACTION_SUBSCRIBE -> receiver = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    it.getParcelableExtra(MainActivity.RECEIVER_TAG, ResultReceiver::class.java)
+                    it.getParcelableExtra(EXTRA_RECEIVER, ResultReceiver::class.java)
                 } else {
                     @Suppress("DEPRECATION")
-                    it.getParcelableExtra(MainActivity.RECEIVER_TAG)
+                    it.getParcelableExtra(EXTRA_RECEIVER)
                 }
                 ACTION_PAUSE_COUNTING -> {
                     isCountingPaused = true
@@ -389,16 +455,13 @@ internal class MotionService : Service() {
                 mTodaysSteps = it.getIntExtra(KEY_STEPS, mTodaysSteps)
                 val dateExtra = it.getStringExtra(KEY_DATE)
                 if (!dateExtra.isNullOrEmpty()) mCurrentDate = dateExtra
-                mLastSteps = -1
-                AppPreferences.steps = mTodaysSteps
-                AppPreferences.date = mCurrentDate
+                persistState()
                 handleStepUpdate()
             }
 
             if (it.hasExtra("MANUAL_STEP_COUNT_CHANGE")) {
                 mTodaysSteps = it.getIntExtra(KEY_STEPS, mTodaysSteps)
-                mLastSteps = -1
-                AppPreferences.steps = mTodaysSteps
+                persistState()
                 handleStepUpdate(manualStepCountChange = true)
             }
 
@@ -544,6 +607,15 @@ internal class MotionService : Service() {
     }
 
     override fun onDestroy() {
+        if (::mListener.isInitialized) {
+            (getSystemService(SENSOR_SERVICE) as? SensorManager)?.run {
+                unregisterListener(mListener)
+                unregisterListener(pressureListener)
+            }
+        }
+        flushMinutes()
+        Database.getInstance(this).addEntry(mCurrentDate, mTodaysSteps)
+        persistState()
         stopTimedPauseMonitoring()
         MidnightResetReceiver.cancelMidnightAlarm(this)
         if (::activityRecognitionManager.isInitialized) activityRecognitionManager.stop()
@@ -553,12 +625,17 @@ internal class MotionService : Service() {
     companion object {
         private val TAG = MotionService::class.java.simpleName
         internal const val ACTION_SUBSCRIBE = "ACTION_SUBSCRIBE"
+        internal const val EXTRA_RECEIVER = "RECEIVER_TAG"
         internal const val KEY_STEPS = "STEPS"
         internal const val KEY_DATE = "DATE"
         internal const val KEY_IS_PAUSED = "IS_PAUSED"
         internal const val ACTION_PAUSE_COUNTING = "com.nvllz.stepsy.action.PAUSE_COUNTING"
         internal const val ACTION_RESUME_COUNTING = "com.nvllz.stepsy.action.RESUME_COUNTING"
         private const val FOREGROUND_ID = 3843
+        private const val BAROMETER_PERIOD_US = 1_000_000
+        private const val ENERGY_REFRESH_MS = 15_000L
+        private const val MAX_SENSOR_BATCH_AGE_MS = 10 * 60_000L
+        private const val BAROMETER_BATCH_US = 30_000_000
         private const val STEP_CHANNEL_ID = "com.nvllz.stepsy.STEP_CHANNEL_ID"
     }
 }

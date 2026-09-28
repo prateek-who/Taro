@@ -12,7 +12,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +35,8 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.nvllz.stepsy.R
+import com.nvllz.stepsy.ui.components.LocalToast
+import com.nvllz.stepsy.ui.components.ToastKind
 import com.nvllz.stepsy.service.MotionService
 import com.nvllz.stepsy.service.MotionService.Companion.KEY_DATE
 import com.nvllz.stepsy.service.MotionService.Companion.KEY_STEPS
@@ -81,7 +82,7 @@ private sealed interface BackupDialog {
 private fun BackupContent(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val snackbar = remember { SnackbarHostState() }
+    val toast = LocalToast.current
 
     val frequency by AppPreferences.backupFrequencyFlow().collectAsStateWithLifecycle(AppPreferences.backupFrequency)
     val retention by AppPreferences.backupRetentionFlow().collectAsStateWithLifecycle(AppPreferences.backupRetention)
@@ -94,8 +95,8 @@ private fun BackupContent(onBack: () -> Unit) {
     val frequencyValues = stringArrayResource(R.array.backup_frequency_values)
     val locationSet = locationUri != null
 
-    fun showMessage(textRes: Int) {
-        scope.launch { snackbar.showSnackbar(context.getString(textRes)) }
+    fun showMessage(textRes: Int, kind: ToastKind = ToastKind.ERROR) {
+        toast.show(context.getString(textRes), kind)
     }
 
     LifecycleResumeEffect(frequency, locationUri) {
@@ -134,7 +135,7 @@ private fun BackupContent(onBack: () -> Unit) {
         if (result.resultCode == Activity.RESULT_OK && uri != null) {
             scope.launch {
                 val success = withContext(Dispatchers.IO) { exportToUri(context, uri) }
-                showMessage(if (success) R.string.manual_backup_successful else R.string.cannot_open_file)
+                if (success) showMessage(R.string.manual_backup_successful, ToastKind.SUCCESS) else showMessage(R.string.cannot_open_file)
             }
         }
     }
@@ -142,7 +143,6 @@ private fun BackupContent(onBack: () -> Unit) {
     StepsyScaffold(
         title = stringResource(R.string.header_data_backup),
         onBack = onBack,
-        snackbarHostState = snackbar,
     ) { padding ->
         ScrollingColumn(padding) {
             SectionHeader(stringResource(R.string.import_data))

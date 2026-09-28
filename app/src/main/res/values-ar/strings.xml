@@ -66,8 +66,6 @@
     <string name="notification_description_paused">إشعار عند إيقاف عد الخطوات</string>
     <string name="notification_description_steps_day">خطوات اليوم</string>
     <string name="notification_step_counting_paused">تم إيقاف عد الخطوات</string>
-    <string name="notification_step_goal_progress_title">%1$s / %2$.2f %3$s [%4$d%%]</string>
-    <string name="notification_step_goal_progress">الهدف: %1$s — تبقّى %2$s</string>
     <string name="notification_step_goal_completed">تم الوصول لهدف الخطوات!</string>
     <string name="step_counting_paused">إيقاف عد الخطوات</string>
     <string name="step_counting_resumed">استئناف عد الخطوات</string>
@@ -115,16 +113,6 @@
     <string name="about_stepsy">حول</string>
     <string name="about_version">الإصدار</string>
     <string name="about_license">الرخصة</string>
-    <string name="about_html">
-    <![CDATA[
-        Stepsy <a href="https://github.com/nvllz/stepsy/releases">الإصدار v%s</a><br><br>
-        مشروع يُدار بواسطة <a href="https://github.com/nvllz"><b>nvllz</b></a><br>
-        مبني على <a href="https://github.com/0xf4b1/motionmate">MotionMate</a> لـ <a href="https://github.com/0xf4b1">0xf4b1</a><br><br>
-        <a href="https://github.com/nvllz/stepsy/issues">الإبلاغ عن مشكلة</a><br><br>
-        <a href="https://github.com/nvllz/stepsy">صفحة المشروع</a><br>
-        <a href="https://www.gnu.org/licenses/gpl-3.0.html">رخصة GPL-3.0</a>
-    ]]>
-    </string>
 
     <!-- Toasts -->
     <string name="enter_valid_value">يرجى إدخال قيمة صحيحة</string>

@@ -24,8 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
 import com.nvllz.stepsy.R
+import com.nvllz.stepsy.ui.components.PrimaryButton
 import com.nvllz.stepsy.ui.components.SwitchRow
 import com.nvllz.stepsy.ui.components.StepsySlider
 import com.nvllz.stepsy.ui.components.ToggleGroup
@@ -197,7 +196,8 @@ private fun WidgetConfigureScreen(style: WidgetStyle, appWidgetId: Int, onSave: 
                 valueRange = 0f..100f,
             )
 
-            Button(
+            PrimaryButton(
+                text = stringResource(R.string.widget_pref_btn_save),
                 onClick = {
                     prefs.edit(commit = true) {
                         putInt("opacity", opacity.toInt())
@@ -206,16 +206,10 @@ private fun WidgetConfigureScreen(style: WidgetStyle, appWidgetId: Int, onSave: 
                     }
                     onSave()
                 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
                 modifier = Modifier
                     .align(Alignment.End)
                     .padding(top = 54.dp, bottom = 20.dp),
-            ) {
-                Text(stringResource(R.string.widget_pref_btn_save))
-            }
+            )
         }
     }
 }

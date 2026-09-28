@@ -72,3 +72,12 @@ fastlane/readme.md
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Release signing
+keystore.properties
+
+# Claude Code project notes
+CLAUDE.md
+
+# Local only files (docs, signing secrets)
+_local/

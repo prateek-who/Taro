@@ -6,7 +6,6 @@ import androidx.activity.compose.LocalActivity
 import androidx.annotation.ArrayRes
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +27,8 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.nvllz.stepsy.R
+import com.nvllz.stepsy.ui.components.LocalToast
+import com.nvllz.stepsy.ui.components.ToastKind
 import com.nvllz.stepsy.service.MotionService
 import com.nvllz.stepsy.service.isPlayServicesAvailable
 import com.nvllz.stepsy.ui.components.FeetInchesDialog
@@ -58,6 +59,8 @@ object SettingsScreen : Screen {
         val activity = LocalActivity.current
         SettingsContent(
             onBack = { navigator.pop() },
+            onOpenCalibration = { navigator.push(CalibrationScreen) },
+            onOpenAccuracy = { navigator.push(AccuracyScreen) },
             onFirstDayChanged = {
                 navigator.popUntilRoot()
                 activity?.recreate()
@@ -66,7 +69,7 @@ object SettingsScreen : Screen {
     }
 }
 
-private enum class SettingsDialog { HEIGHT, LEG_LENGTH, STEP_LENGTH, WEIGHT, LANGUAGE, THEME, UNIT_SYSTEM, DATE_FORMAT, FIRST_DAY, ABOUT }
+private enum class SettingsDialog { HEIGHT, AGE, SEX, LEG_LENGTH, STEP_LENGTH, WEIGHT, LANGUAGE, THEME, UNIT_SYSTEM, DATE_FORMAT, FIRST_DAY, ABOUT }
 
 private class Choices(val entries: List<String>, val values: List<String>) {
     fun label(value: String) = entries.getOrNull(values.indexOf(value)) ?: value
@@ -84,23 +87,27 @@ private val twoDecimals: NumberFormat
         isGroupingUsed = false
     }
 
-private fun cmToInches(cm: Int) = (cm / 2.54).roundToInt()
+private fun cmToInches(cm: Double) = (cm / 2.54).roundToInt()
 
-private fun heightLabel(cm: Int, imperial: Boolean) = if (imperial) {
+private const val LBS_PER_KG = 2.20462
+
+private fun heightLabel(cm: Double, imperial: Boolean) = if (imperial) {
     val inches = cmToInches(cm)
     "${inches / 12}′${inches % 12}″"
 } else {
-    "$cm ${Util.heightUnit()}"
+    "${Util.formatMeasure(cm)} ${Util.heightUnit()}"
 }
 
 private fun legLengthLabel(cm: Int, imperial: Boolean) =
-    if (imperial) "${cmToInches(cm)} ${Util.stepLengthUnit()}" else "$cm ${Util.heightUnit()}"
+    if (imperial) "${cmToInches(cm.toDouble())} ${Util.stepLengthUnit()}" else "$cm ${Util.heightUnit()}"
 
 private fun stepLengthLabel(cm: Float, imperial: Boolean) =
     "${twoDecimals.format(if (imperial) cm / 2.54f else cm)} ${Util.stepLengthUnit()}"
 
-private fun weightLabel(kg: Int, imperial: Boolean) =
-    "${if (imperial) (kg * 2.20462).roundToInt() else kg} ${Util.weightUnit()}"
+private fun weightLabel(kg: Double, imperial: Boolean) =
+    "${Util.formatMeasure(if (imperial) roundOne(kg * LBS_PER_KG) else kg)} ${Util.weightUnit()}"
+
+private fun roundOne(value: Double) = (value * 10).roundToInt() / 10.0
 
 private fun currentLanguage(): String {
     val locales = AppCompatDelegate.getApplicationLocales()
@@ -114,13 +121,22 @@ private fun restartMotionService(context: Context) {
 }
 
 @Composable
-private fun SettingsContent(onBack: () -> Unit, onFirstDayChanged: () -> Unit) {
+private fun SettingsContent(
+    onBack: () -> Unit,
+    onOpenCalibration: () -> Unit,
+    onOpenAccuracy: () -> Unit,
+    onFirstDayChanged: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val snackbar = remember { SnackbarHostState() }
+    val toast = LocalToast.current
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
 
     val height by AppPreferences.heightFlow().collectAsStateWithLifecycle(AppPreferences.height)
+    val calibration by AppPreferences.stepCalibrationFlow().collectAsStateWithLifecycle(AppPreferences.stepCalibration)
+    val manualStepLength = AppPreferences.manualStepLength
+    val age by AppPreferences.ageFlow().collectAsStateWithLifecycle(AppPreferences.age)
+    val sex by AppPreferences.sexFlow().collectAsStateWithLifecycle(AppPreferences.sex)
     val legLength by AppPreferences.legLengthFlow().collectAsStateWithLifecycle(AppPreferences.legLength)
     val weight by AppPreferences.weightFlow().collectAsStateWithLifecycle(AppPreferences.weight)
     val stepLength by AppPreferences.stepLengthFlow().collectAsStateWithLifecycle(AppPreferences.stepLength)
@@ -143,7 +159,7 @@ private fun SettingsContent(onBack: () -> Unit, onFirstDayChanged: () -> Unit) {
     val weekdays = choices(R.array.weekdays, R.array.weekdays_values)
 
     fun invalid() {
-        scope.launch { snackbar.showSnackbar(context.getString(R.string.enter_valid_value)) }
+        toast.show(context.getString(R.string.enter_valid_value), ToastKind.ERROR)
     }
 
     fun <T> save(key: Preferences.Key<T>, value: T, afterSave: () -> Unit = {}) {
@@ -155,14 +171,14 @@ private fun SettingsContent(onBack: () -> Unit, onFirstDayChanged: () -> Unit) {
 
     fun onVehicleFilterChange(checked: Boolean) {
         if (checked && !isPlayServicesAvailable(context)) {
-            scope.launch { snackbar.showSnackbar(context.getString(R.string.vehicle_filter_unavailable)) }
+            toast.show(context.getString(R.string.vehicle_filter_unavailable), ToastKind.ERROR)
             save(PreferenceKeys.VEHICLE_FILTER_ENABLED, false)
         } else {
             save(PreferenceKeys.VEHICLE_FILTER_ENABLED, checked)
         }
     }
 
-    StepsyScaffold(title = stringResource(R.string.settings), onBack = onBack, snackbarHostState = snackbar) { padding ->
+    StepsyScaffold(title = stringResource(R.string.settings), onBack = onBack) { padding ->
         ScrollingColumn(padding) {
             SectionHeader(stringResource(R.string.header_personal_data))
             SettingsCard {
@@ -171,6 +187,30 @@ private fun SettingsContent(onBack: () -> Unit, onFirstDayChanged: () -> Unit) {
                     title = stringResource(R.string.pref_height),
                     summary = heightLabel(height, imperial),
                     onClick = { dialog = SettingsDialog.HEIGHT },
+                    showChevron = false,
+                )
+                PreferenceDivider()
+                PreferenceRow(
+                    icon = R.drawable.ic_weight,
+                    title = stringResource(R.string.pref_weight),
+                    summary = weightLabel(weight, imperial),
+                    onClick = { dialog = SettingsDialog.WEIGHT },
+                    showChevron = false,
+                )
+                PreferenceDivider()
+                PreferenceRow(
+                    icon = R.drawable.ic_age,
+                    title = stringResource(R.string.pref_age),
+                    summary = age?.toString() ?: stringResource(R.string.pref_not_set),
+                    onClick = { dialog = SettingsDialog.AGE },
+                    showChevron = false,
+                )
+                PreferenceDivider()
+                PreferenceRow(
+                    icon = R.drawable.ic_sex,
+                    title = stringResource(R.string.pref_sex),
+                    summary = sex?.let { sexLabel(it) } ?: stringResource(R.string.pref_not_set),
+                    onClick = { dialog = SettingsDialog.SEX },
                     showChevron = false,
                 )
                 PreferenceDivider()
@@ -185,21 +225,30 @@ private fun SettingsContent(onBack: () -> Unit, onFirstDayChanged: () -> Unit) {
                 PreferenceRow(
                     icon = R.drawable.ic_step_length,
                     title = stringResource(R.string.pref_step_length),
-                    summary = if (abs(stepLength - estimatedStepLength) < 0.01f) {
-                        "~${stepLengthLabel(estimatedStepLength, imperial)}"
-                    } else {
-                        stepLengthLabel(stepLength, imperial)
+                    summary = when {
+                        manualStepLength == null && calibration != null ->
+                            "${stepLengthLabel(stepLength, imperial)} · ${stringResource(R.string.pref_step_length_calibrated)}"
+                        abs(stepLength - estimatedStepLength) < 0.01f -> "~${stepLengthLabel(estimatedStepLength, imperial)}"
+                        else -> stepLengthLabel(stepLength, imperial)
                     },
                     onClick = { dialog = SettingsDialog.STEP_LENGTH },
                     showChevron = false,
                 )
                 PreferenceDivider()
                 PreferenceRow(
-                    icon = R.drawable.ic_weight,
-                    title = stringResource(R.string.pref_weight),
-                    summary = weightLabel(weight, imperial),
-                    onClick = { dialog = SettingsDialog.WEIGHT },
-                    showChevron = false,
+                    icon = R.drawable.ic_calibrate,
+                    title = stringResource(R.string.calibration_title),
+                    summary = calibration?.let {
+                        stringResource(R.string.calibration_status, stepLengthLabel(it.walkingStepCm, imperial), it.samples)
+                    } ?: stringResource(R.string.calibration_not_calibrated),
+                    onClick = onOpenCalibration,
+                )
+                PreferenceDivider()
+                PreferenceRow(
+                    icon = R.drawable.ic_accuracy,
+                    title = stringResource(R.string.accuracy_title),
+                    summary = stringResource(R.string.accuracy_summary),
+                    onClick = onOpenAccuracy,
                 )
             }
 
@@ -305,7 +354,7 @@ private fun SettingsContent(onBack: () -> Unit, onFirstDayChanged: () -> Unit) {
                     dialog = null
                     val total = feet * 12 + extraInches
                     if (total in 12..98) {
-                        save(PreferenceKeys.HEIGHT, (total * 2.54).roundToInt().coerceIn(1, 250).toString())
+                        save(PreferenceKeys.HEIGHT, roundOne(total * 2.54).coerceIn(1.0, 250.0).toString())
                     } else {
                         invalid()
                     }
@@ -315,20 +364,43 @@ private fun SettingsContent(onBack: () -> Unit, onFirstDayChanged: () -> Unit) {
         } else {
             NumberInputDialog(
                 title = stringResource(R.string.pref_height),
-                initial = height.toString(),
+                initial = Util.formatMeasure(height),
                 hint = "${Util.heightUnit()} (1-250)",
+                decimal = true,
                 onConfirm = { input ->
                     dialog = null
-                    val cm = input.toIntOrNull()
-                    if (cm != null && cm in 1..250) save(PreferenceKeys.HEIGHT, cm.toString()) else invalid()
+                    val cm = Util.parseMeasure(input)?.let(::roundOne)
+                    if (cm != null && cm in 1.0..250.0) save(PreferenceKeys.HEIGHT, cm.toString()) else invalid()
                 },
                 onDismiss = dismiss,
             )
         }
 
+        SettingsDialog.AGE -> AgeDialog(
+            current = age,
+            onConfirm = {
+                dialog = null
+                AppPreferences.age = it
+            },
+            onInvalid = {
+                dialog = null
+                invalid()
+            },
+            onDismiss = dismiss,
+        )
+
+        SettingsDialog.SEX -> SexDialog(
+            current = sex,
+            onSelect = {
+                dialog = null
+                AppPreferences.sex = it
+            },
+            onDismiss = dismiss,
+        )
+
         SettingsDialog.LEG_LENGTH -> NumberInputDialog(
             title = stringResource(R.string.pref_leg_length),
-            initial = legLength?.let { if (imperial) cmToInches(it).toString() else it.toString() }.orEmpty(),
+            initial = legLength?.let { if (imperial) cmToInches(it.toDouble()).toString() else it.toString() }.orEmpty(),
             hint = if (imperial) "${Util.stepLengthUnit()} (12-60)" else "${Util.heightUnit()} (30-150)",
             supportingText = stringResource(R.string.leg_length_hint),
             onConfirm = { input ->
@@ -367,16 +439,17 @@ private fun SettingsContent(onBack: () -> Unit, onFirstDayChanged: () -> Unit) {
 
         SettingsDialog.WEIGHT -> NumberInputDialog(
             title = stringResource(R.string.pref_weight),
-            initial = if (imperial) (weight * 2.20462).roundToInt().toString() else weight.toString(),
+            initial = Util.formatMeasure(if (imperial) roundOne(weight * LBS_PER_KG) else weight),
             hint = "${Util.weightUnit()} (${if (imperial) "1-1100" else "1-500"})",
+            decimal = true,
             onConfirm = { input ->
                 dialog = null
-                val value = input.toIntOrNull()
+                val value = Util.parseMeasure(input)?.let(::roundOne)
                 when {
                     value == null -> invalid()
-                    imperial && value in 1..1100 ->
-                        save(PreferenceKeys.WEIGHT, (value / 2.20462).roundToInt().coerceIn(1, 500).toString())
-                    !imperial && value in 1..500 -> save(PreferenceKeys.WEIGHT, value.toString())
+                    imperial && value in 1.0..1100.0 ->
+                        save(PreferenceKeys.WEIGHT, (value / LBS_PER_KG).coerceIn(1.0, 500.0).toString())
+                    !imperial && value in 1.0..500.0 -> save(PreferenceKeys.WEIGHT, value.toString())
                     else -> invalid()
                 }
             },
