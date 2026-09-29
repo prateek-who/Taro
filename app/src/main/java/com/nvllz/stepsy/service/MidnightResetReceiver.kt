@@ -1,5 +1,7 @@
 package com.nvllz.stepsy.service
 
+import com.nvllz.stepsy.util.Util
+
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -35,16 +37,7 @@ class MidnightResetReceiver : BroadcastReceiver() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            val calendar = Calendar.getInstance().apply {
-                timeInMillis = System.currentTimeMillis()
-                add(Calendar.DAY_OF_YEAR, 1)
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 1)
-                set(Calendar.MILLISECOND, 0)
-            }
-
-            val triggerTime = calendar.timeInMillis
+            val triggerTime = Util.nextDayStartMillis() + 1_000L
 
             // Using setWindow for battery efficiency
             alarmManager.setWindow(
@@ -54,7 +47,7 @@ class MidnightResetReceiver : BroadcastReceiver() {
                 pendingIntent
             )
 
-            Log.d(TAG, "Scheduled next midnight alarm for: ${calendar.time}")
+            Log.d(TAG, "Scheduled next day start alarm for: ${java.util.Date(triggerTime)}")
         }
 
         fun cancelMidnightAlarm(context: Context) {

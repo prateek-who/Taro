@@ -39,3 +39,28 @@ data class LoggedActivity(
     @ColumnInfo(name = "duration_minutes") val durationMinutes: Int?,
     @ColumnInfo(name = "logged_at") val loggedAt: Long,
 )
+
+@Entity(tableName = "weight_entries")
+data class WeightLog(
+    @PrimaryKey val date: String,
+    val kg: Double,
+    @ColumnInfo(name = "logged_at") val loggedAt: Long,
+)
+
+@Entity(tableName = "sleep_sessions", indices = [Index(value = ["wake_date"], unique = true)])
+data class SleepSession(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "start_at") val startAt: Long,
+    @ColumnInfo(name = "end_at") val endAt: Long,
+    @ColumnInfo(name = "wake_date") val wakeDate: String,
+    val source: String,
+    val confirmed: Boolean,
+) {
+    val durationMinutes: Long get() = (endAt - startAt) / 60_000L
+}
+
+@Entity(tableName = "screen_events")
+data class ScreenEvent(
+    @PrimaryKey val at: Long,
+    @ColumnInfo(name = "screen_on") val screenOn: Boolean,
+)

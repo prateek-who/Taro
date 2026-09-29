@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d kcal</string>
     <string name="week_display_format">Vecka%1$d</string>
     <string name="no_entry">Ingen data för %1$s</string>
-    <string name="calories">%1$d kcal</string>
     <string name="steps_month">Denna månad</string>
-    <string name="avg_distance">Dagligt genomsnitt</string>
-    <string name="total_distance">Sammanlagt avstånd</string>
     <string name="goal_streak_line">Mål: %1$s · %2$s %3$s streak</string>
     <string name="goal_streak_dead_line">Dagsmål: %1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">Saknar tillåtelse för ACTIVITY_RECOGNITION</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">Utvidga/Slå ihop</string>
     <string name="header_today">Idag</string>
     <string name="header_week">Denna vecka</string>
     <string name="header_month">Denna månad</string>

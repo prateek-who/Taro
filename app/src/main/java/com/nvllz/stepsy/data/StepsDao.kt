@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Update
 import androidx.room.Upsert
 
 @Dao
@@ -82,4 +83,46 @@ interface StepsDao {
 
     @Query("SELECT COALESCE(SUM(kcal), 0) FROM logged_activities WHERE date >= :from AND date <= :to")
     fun activityKcal(from: String, to: String): Double
+
+    @Upsert
+    fun upsertWeight(entry: WeightLog)
+
+    @Query("DELETE FROM weight_entries WHERE date = :date")
+    fun deleteWeight(date: String)
+
+    @Query("SELECT * FROM weight_entries WHERE date >= :from ORDER BY date ASC")
+    fun weightsSince(from: String): List<WeightLog>
+
+    @Insert
+    fun insertSleep(session: SleepSession): Long
+
+    @Update
+    fun updateSleep(session: SleepSession)
+
+    @Query("SELECT * FROM sleep_sessions WHERE wake_date = :wakeDate")
+    fun sleepOn(wakeDate: String): SleepSession?
+
+    @Query("SELECT * FROM sleep_sessions WHERE wake_date >= :from ORDER BY wake_date ASC")
+    fun sleepsSince(from: String): List<SleepSession>
+
+    @Query("DELETE FROM sleep_sessions WHERE id = :id")
+    fun deleteSleep(id: Long)
+
+    @Transaction
+    fun saveSleep(session: SleepSession) {
+        val existing = sleepOn(session.wakeDate)
+        if (existing == null) insertSleep(session.copy(id = 0)) else updateSleep(session.copy(id = existing.id))
+    }
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertScreenEvent(event: ScreenEvent)
+
+    @Query("SELECT * FROM screen_events WHERE at >= :from AND at <= :to ORDER BY at ASC")
+    fun screenEvents(from: Long, to: Long): List<ScreenEvent>
+
+    @Query("SELECT * FROM screen_events WHERE at < :before ORDER BY at DESC LIMIT 1")
+    fun lastScreenEventBefore(before: Long): ScreenEvent?
+
+    @Query("DELETE FROM screen_events WHERE at < :before")
+    fun pruneScreenEvents(before: Long)
 }

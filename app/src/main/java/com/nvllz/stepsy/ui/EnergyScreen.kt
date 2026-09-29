@@ -44,7 +44,16 @@ import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import com.nvllz.stepsy.R
 import com.nvllz.stepsy.energy.DailyEnergy
-import com.nvllz.stepsy.ui.components.EnergyRing
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
+import com.nvllz.stepsy.energy.WeightJournal
+import com.nvllz.stepsy.energy.WeightTrend
+import com.nvllz.stepsy.ui.components.SecondaryButton
+import com.nvllz.stepsy.ui.components.WeightChart
+import com.nvllz.stepsy.util.WeightReminderScheduler
+import com.nvllz.stepsy.energy.Metabolism
+import com.nvllz.stepsy.ui.components.HeroRing
+import com.nvllz.stepsy.ui.components.RollingText
 import com.nvllz.stepsy.ui.components.LegendItem
 import com.nvllz.stepsy.ui.components.PrimaryButton
 import com.nvllz.stepsy.ui.components.SettingsCard
@@ -106,6 +115,13 @@ private fun EnergyContent(tracking: TrackingState) {
 
     var profileStep by remember { mutableStateOf<ProfileStep?>(null) }
     var logging by remember { mutableStateOf(false) }
+    var editingGoal by remember { mutableStateOf(false) }
+    var loggingWeight by remember { mutableStateOf(false) }
+    var weightVersion by remember { mutableIntStateOf(0) }
+    val weightPoints = remember(weightVersion, tracking.refreshKey) { WeightJournal.points(context) }
+    val navigator = LocalNavigator.currentOrThrow
+    val rootNavigator = navigator.parent ?: navigator
+    val calorieGoal by AppPreferences.calorieGoalFlow().collectAsStateWithLifecycle(AppPreferences.calorieGoal)
 
     Column(
         modifier = Modifier
@@ -154,16 +170,24 @@ private fun EnergyContent(tracking: TrackingState) {
                     }
                 }
             } else {
-                EnergyRing(
+                HeroRing(
                     segments = listOf(
                         RingSegment(todayBurn.resting, StepsyTheme.colors.accent),
                         RingSegment(todayBurn.active, StepsyTheme.colors.flame),
                         RingSegment(todayBurn.logged, StepsyTheme.colors.special),
+                        RingSegment(todayBurn.digestion, StepsyTheme.colors.accent.copy(alpha = 0.45f)),
                     ),
                     target = history.dailyNeed,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(kcal(todayBurn.total), fontSize = 40.sp, fontWeight = FontWeight.Bold)
+                        RollingText(
+                            text = kcal(todayBurn.total),
+                            style = MaterialTheme.typography.displaySmall.copy(
+                                fontSize = 40.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            ),
+                        )
                         Text(stringResource(R.string.energy_burned_so_far), fontSize = 14.sp, color = StepsyTheme.colors.accent)
                         Text(
                             text = stringResource(R.string.energy_caption),
@@ -190,15 +214,92 @@ private fun EnergyContent(tracking: TrackingState) {
                     LegendItem(StepsyTheme.colors.accent, stringResource(R.string.energy_resting), kcal(todayBurn.resting))
                     LegendItem(StepsyTheme.colors.flame, stringResource(R.string.energy_steps_label), kcal(todayBurn.active))
                     LegendItem(StepsyTheme.colors.special, stringResource(R.string.energy_logged), kcal(todayBurn.logged))
+                    LegendItem(StepsyTheme.colors.accent.copy(alpha = 0.45f), stringResource(R.string.energy_digestion), kcal(todayBurn.digestion))
                 }
 
                 SettingsCard {
                     val kcalLabel = @Composable { value: Double -> stringResource(R.string.energy_kcal, kcal(value)) }
                     StatRow(stringResource(R.string.energy_daily_need), kcalLabel(history.dailyNeed))
                     SettingsDivider()
-                    StatRow(stringResource(R.string.energy_projected), kcalLabel(history.restingPerDay + todayBurn.active + todayBurn.logged))
+                    StatRow(
+                        label = stringResource(R.string.calorie_goal),
+                        value = if (calorieGoal == null) stringResource(R.string.calorie_goal_set) else calorieGoalSummary(calorieGoal),
+                        onClick = { editingGoal = true },
+                    )
+                    calorieGoal?.let { goal ->
+                        val target = Metabolism.calorieTarget(history.dailyNeed, goal.goal, goal.adjustment)
+                        SettingsDivider()
+                        StatRow(stringResource(R.string.calorie_goal_eat_today), kcalLabel(target))
+                        if (target < history.restingPerDay) {
+                            Text(
+                                text = stringResource(R.string.calorie_goal_below_resting),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
+                            )
+                        }
+                    }
+                    SettingsDivider()
+                    StatRow(
+                        stringResource(R.string.energy_projected),
+                        kcalLabel(Metabolism.withDigestion(history.restingPerDay + todayBurn.active + todayBurn.logged)),
+                    )
                     SettingsDivider()
                     StatRow(stringResource(R.string.energy_total_so_far), kcalLabel(todayBurn.total))
+                }
+
+                SectionTitle(R.string.weight_title)
+                SettingsCard {
+                    if (weightPoints.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.weight_empty),
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp)
+                                .alpha(0.7f),
+                        )
+                    } else {
+                        val latest = weightPoints.last()
+                        StatRow(stringResource(R.string.weight_trend), Util.formatWeight(latest.trend))
+                        weekChange(weightPoints)?.let {
+                            SettingsDivider()
+                            StatRow(stringResource(R.string.weight_change_week), Util.formatWeightChange(it))
+                        }
+                        WeightChart(
+                            points = weightPoints.filter { !it.date.isBefore(Util.logicalToday().minusDays(30)) },
+                            toDisplay = Util::kgToDisplay,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp)
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                        PaceMessage(
+                            assessment = WeightTrend.assess(
+                                WeightTrend.weeklyRate(weightPoints),
+                                calorieGoal?.goal,
+                                calorieGoal?.adjustment ?: 0,
+                                latest.trend,
+                            ),
+                            goal = calorieGoal?.goal,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        )
+                    }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                    ) {
+                        PrimaryButton(
+                            text = stringResource(R.string.weight_log),
+                            onClick = { loggingWeight = true },
+                            modifier = Modifier.weight(1f),
+                        )
+                        SecondaryButton(stringResource(R.string.weight_history), onClick = { rootNavigator.push(WeightScreen) })
+                    }
                 }
 
                 SectionTitle(R.string.energy_logged_title)
@@ -234,6 +335,14 @@ private fun EnergyContent(tracking: TrackingState) {
 
                 val week = history.pastDays + todayBurn
                 SectionTitle(R.string.energy_last_7_days)
+                Text(
+                    text = stringResource(R.string.energy_last_7_days_caption),
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
+                        .alpha(0.6f),
+                )
                 StepsBarChart(
                     values = week.map { it.total.roundToInt() },
                     labels = week.map { day ->
@@ -256,6 +365,34 @@ private fun EnergyContent(tracking: TrackingState) {
                 )
             }
         }
+    }
+
+    if (loggingWeight) {
+        LogWeightDialog(
+            title = stringResource(R.string.weight_dialog_title),
+            initialKg = weightPoints.lastOrNull()?.kg ?: AppPreferences.weight,
+            onSave = {
+                WeightJournal.log(context, Util.todayDateString(), it)
+                WeightReminderScheduler.dismissNotification(context)
+                loggingWeight = false
+                weightVersion++
+                activityVersion++
+                toast.show(context.getString(R.string.weight_saved), ToastKind.SUCCESS)
+            },
+            onDismiss = { loggingWeight = false },
+        )
+    }
+
+    if (editingGoal) {
+        CalorieGoalDialog(
+            current = calorieGoal,
+            onSave = {
+                AppPreferences.calorieGoal = it
+                editingGoal = false
+                toast.show(context.getString(R.string.calorie_goal_saved), ToastKind.SUCCESS)
+            },
+            onDismiss = { editingGoal = false },
+        )
     }
 
     if (logging) {

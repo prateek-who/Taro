@@ -1,6 +1,14 @@
 package com.nvllz.stepsy.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import com.nvllz.stepsy.ui.theme.StepsyMotion
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +57,7 @@ fun MonthCalendar(
     jumpKey: Int,
     onSelect: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
+    heat: Map<LocalDate, Float> = emptyMap(),
 ) {
     val firstMonth = YearMonth.from(minDate)
     val monthCount = ChronoUnit.MONTHS.between(firstMonth, YearMonth.from(maxDate)).toInt() + 1
@@ -108,6 +117,7 @@ fun MonthCalendar(
                 selected = selected,
                 minDate = minDate,
                 maxDate = maxDate,
+                heat = heat,
                 onSelect = onSelect,
             )
         }
@@ -121,10 +131,11 @@ private fun MonthGrid(
     selected: LocalDate,
     minDate: LocalDate,
     maxDate: LocalDate,
+    heat: Map<LocalDate, Float>,
     onSelect: (LocalDate) -> Unit,
 ) {
     val leading = (month.atDay(1).dayOfWeek.value - firstDayOfWeek.value + 7) % 7
-    val today = LocalDate.now()
+    val today = maxDate
 
     Column {
         repeat(6) { week ->
@@ -144,6 +155,7 @@ private fun MonthGrid(
                                 selected = date == selected,
                                 today = date == today,
                                 enabled = date in minDate..maxDate,
+                                heat = heat[date] ?: 0f,
                                 onClick = { onSelect(date) },
                             )
                         }
@@ -155,20 +167,44 @@ private fun MonthGrid(
 }
 
 @Composable
-private fun DayCell(day: Int, selected: Boolean, today: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun DayCell(day: Int, selected: Boolean, today: Boolean, enabled: Boolean, heat: Float, onClick: () -> Unit) {
+    val goal = StepsyTheme.colors.goal
+    val met = heat >= 1f
+    val fill by animateColorAsState(
+        when {
+            met -> goal
+            heat > 0f -> goal.copy(alpha = 0.1f + 0.45f * heat)
+            else -> Color.Transparent
+        },
+        label = "heat",
+    )
+    val ring by animateDpAsState(if (selected) 2.dp else 0.dp, StepsyMotion.snappy(), label = "selected ring")
+    val onSurface = MaterialTheme.colorScheme.onSurface
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(40.dp)
-            .then(if (selected) Modifier.background(StepsyTheme.colors.accent, CircleShape) else Modifier)
+            .size(38.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(fill)
+            .border(ring, onSurface, RoundedCornerShape(12.dp))
             .clickable(enabled = enabled, onClick = onClick)
             .alpha(if (enabled) 1f else 0.3f),
     ) {
         Text(
             text = day.toString(),
             fontSize = 14.sp,
-            fontWeight = if (today || selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface,
+            fontWeight = if (today || selected || met) FontWeight.Bold else FontWeight.Normal,
+            color = if (met) StepsyTheme.colors.background else onSurface,
         )
+        if (today) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 4.dp)
+                    .size(4.dp)
+                    .background(if (met) StepsyTheme.colors.background else StepsyTheme.colors.special, CircleShape),
+            )
+        }
     }
 }

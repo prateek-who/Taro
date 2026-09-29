@@ -1,13 +1,24 @@
 package com.nvllz.stepsy.ui.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseOutBack
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -33,6 +44,7 @@ import kotlin.math.max
 import kotlin.math.sin
 
 private val AxisGray = Color(0xFF888888)
+private const val STAGGER = 0.07f
 
 private fun barColor(base: Color, value: Int, min: Int, max: Int, dark: Boolean): Color {
     if (max == min) return base
@@ -64,10 +76,23 @@ fun StepsBarChart(
     goal: Int,
     modifier: Modifier = Modifier,
     highlightGoal: Int = goal,
+    valueLabel: (Int) -> String = { it.toString() },
+    showMultiplier: Boolean = true,
+    appearKey: Any? = Unit,
+    selectedIndex: Int? = null,
+    onBarClick: ((Int) -> Unit)? = null,
 ) {
+    val appear = remember { Animatable(0f) }
+    LaunchedEffect(appearKey) {
+        appear.snapTo(0f)
+        appear.animateTo(1f, tween(900, easing = LinearEasing))
+    }
     val animated = values.map {
         animateFloatAsState(it.toFloat(), tween(200, easing = FastOutSlowInEasing), label = "bar").value
     }
+    val stagger = if (values.size > 1) minOf(STAGGER, 0.5f / (values.size - 1)) else 0f
+    fun growth(index: Int) =
+        EaseOutBack.transform(((appear.value - index * stagger) / (1f - stagger * (values.size - 1))).coerceIn(0f, 1f))
     val dataMax = animated.maxOrNull() ?: 0f
     val axisMax = if (goal > 0) max(dataMax, goal * 1.1f) * 1.05f else max(dataMax * 1.05f, 1f)
 
@@ -88,13 +113,24 @@ fun StepsBarChart(
     val multiplierStyle = valueStyle.copy(color = goalMetColor, fontWeight = FontWeight.Bold)
     val description = labels.zip(values).joinToString { (label, value) -> "$label $value" }
 
-    Canvas(modifier = modifier.semantics { contentDescription = description }) {
+    val tap = if (onBarClick != null) {
+        Modifier.pointerInput(values.size) {
+            detectTapGestures { offset ->
+                onBarClick((offset.x / (size.width / values.size)).toInt().coerceIn(0, values.size - 1))
+            }
+        }
+    } else {
+        Modifier
+    }
+
+    Canvas(modifier = modifier.then(tap).semantics { contentDescription = description }) {
         val bottomLabelHeight = 24.dp.toPx()
         val top = (if (anyGoalMet) 44.dp else 20.dp).toPx()
         val baseline = size.height - bottomLabelHeight
         val plotHeight = baseline - top
         val slot = size.width / values.size
-        val barWidth = slot * 0.92f
+        val barWidth = slot * 0.62f
+        val corner = CornerRadius(minOf(barWidth / 2, 8.dp.toPx()))
         val gap = 2.dp.toPx()
 
         if (goal > 0) {
@@ -112,17 +148,48 @@ fun StepsBarChart(
 
         animated.forEachIndexed { index, value ->
             val slotStart = index * slot
-            val height = value / axisMax * plotHeight
+            labels.getOrNull(index)?.let { label ->
+                val layout = measurer.measure(label, labelStyle)
+                drawText(
+                    layout,
+                    topLeft = Offset(slotStart + (slot - layout.size.width) / 2, baseline + gap * 2),
+                )
+            }
+            val grown = growth(index)
+            val height = value / axisMax * plotHeight * grown
             val metGoal = highlightGoal > 0 && values[index] >= highlightGoal
-            drawRect(
-                color = if (metGoal) goalMetColor else colors[index],
-                topLeft = Offset(slotStart + (slot - barWidth) / 2, baseline - height),
-                size = Size(barWidth, height),
+            val dim = if (selectedIndex != null && selectedIndex != index) 0.3f else 1f
+            val barTop = baseline - height
+            val barLeft = slotStart + (slot - barWidth) / 2
+            val top = CornerRadius(minOf(corner.x, height))
+            val bar = Path().apply {
+                addRoundRect(
+                    RoundRect(
+                        rect = Rect(barLeft, barTop, barLeft + barWidth, baseline),
+                        topLeft = top,
+                        topRight = top,
+                        bottomRight = CornerRadius.Zero,
+                        bottomLeft = CornerRadius.Zero,
+                    ),
+                )
+            }
+            drawPath(
+                path = bar,
+                brush = if (metGoal) {
+                    Brush.verticalGradient(listOf(goalMetColor, goalMetColor.copy(alpha = 0.45f)), startY = barTop, endY = baseline)
+                } else {
+                    SolidColor(colors[index])
+                },
+                alpha = dim,
             )
+            if (grown < 0.98f) return@forEachIndexed
 
             var labelTop = baseline - height - gap
             if (value >= 1f) {
-                val layout = measurer.measure(value.toInt().toString(), valueStyle)
+                val layout = measurer.measure(
+                    valueLabel(value.toInt()),
+                    if (selectedIndex == index) valueStyle.copy(color = starColor, fontWeight = FontWeight.Bold) else valueStyle,
+                )
                 labelTop -= layout.size.height
                 drawText(layout, topLeft = Offset(slotStart + (slot - layout.size.width) / 2, labelTop))
             }
@@ -131,7 +198,7 @@ fun StepsBarChart(
                 val starRadius = 6.dp.toPx()
                 val starCenter = Offset(slotStart + slot / 2, labelTop - gap - starRadius)
                 drawStar(starCenter, starRadius, starColor)
-                Util.goalMultiplier(values[index], highlightGoal)?.let { multiplier ->
+                Util.goalMultiplier(values[index], highlightGoal)?.takeIf { showMultiplier }?.let { multiplier ->
                     val layout = measurer.measure(multiplier, multiplierStyle)
                     drawText(
                         layout,
@@ -141,14 +208,6 @@ fun StepsBarChart(
                         ),
                     )
                 }
-            }
-
-            labels.getOrNull(index)?.let { label ->
-                val layout = measurer.measure(label, labelStyle)
-                drawText(
-                    layout,
-                    topLeft = Offset(slotStart + (slot - layout.size.width) / 2, baseline + gap * 2),
-                )
             }
         }
     }

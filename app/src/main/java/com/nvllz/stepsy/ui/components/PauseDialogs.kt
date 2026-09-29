@@ -1,10 +1,5 @@
 package com.nvllz.stepsy.ui.components
 
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.TimePickerDefaults
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,27 +39,20 @@ fun PauseDialogs(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ResumeTimeDialog(
     onConfirm: (durationMinutes: Int, specificEndTime: Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val now = remember { Calendar.getInstance() }
-    val state = rememberTimePickerState(
+    TimePickerDialog(
+        title = stringResource(R.string.resume_at_time),
         initialHour = now.get(Calendar.HOUR_OF_DAY),
         initialMinute = (now.get(Calendar.MINUTE) + 1).coerceAtMost(59),
-        is24Hour = true,
-    )
-
-    StepsyDialog(
-        title = stringResource(R.string.resume_at_time),
-        onDismiss = onDismiss,
-        confirmText = stringResource(android.R.string.ok),
-        onConfirm = {
+        onConfirm = { hour, minute ->
             val resumeTime = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, state.hour)
-                set(Calendar.MINUTE, state.minute)
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
                 if (before(now)) add(Calendar.DAY_OF_MONTH, 1)
@@ -72,16 +60,6 @@ private fun ResumeTimeDialog(
             val durationMinutes = ((resumeTime.timeInMillis - now.timeInMillis) / 60_000L).toInt()
             onConfirm(durationMinutes, resumeTime.timeInMillis)
         },
-    ) {
-        TimePicker(
-            state = state,
-            colors = TimePickerDefaults.colors(
-                clockDialColor = MaterialTheme.colorScheme.surface,
-                selectorColor = MaterialTheme.colorScheme.primary,
-                timeSelectorSelectedContainerColor = MaterialTheme.colorScheme.primary,
-                timeSelectorSelectedContentColor = MaterialTheme.colorScheme.onPrimary,
-                timeSelectorUnselectedContainerColor = MaterialTheme.colorScheme.surface,
-            ),
-        )
-    }
+        onDismiss = onDismiss,
+    )
 }

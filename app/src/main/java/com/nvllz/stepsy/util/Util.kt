@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.appcompat.app.AppCompatDelegate
 import com.nvllz.stepsy.R
 import java.text.NumberFormat
+import java.time.LocalDate
 import java.util.*
 
 object Util {
@@ -12,24 +13,22 @@ object Util {
     }
 
     internal val calendar: Calendar
-        get() {
-            val calendar = Calendar.getInstance()
-            calendar.firstDayOfWeek = AppPreferences.firstDayOfWeek
-            calendar.set(Calendar.HOUR_OF_DAY, 0)
-            calendar.set(Calendar.MINUTE, 0)
-            calendar.set(Calendar.SECOND, 0)
-            calendar.set(Calendar.MILLISECOND, 0)
-            return calendar
-        }
+        get() = todayCalendar()
 
-    internal fun todayDateString(): String {
-        val cal = Calendar.getInstance()
-        return "%04d-%02d-%02d".format(
-            cal.get(Calendar.YEAR),
-            cal.get(Calendar.MONTH) + 1,
-            cal.get(Calendar.DAY_OF_MONTH)
-        )
+    internal fun todayDateString(): String = millisToDateString(System.currentTimeMillis())
+
+    internal fun todayCalendar(): Calendar = Calendar.getInstance().apply {
+        timeInMillis = dateStringToCalendarMillis(todayDateString())
+        firstDayOfWeek = AppPreferences.firstDayOfWeek
     }
+
+    internal fun logicalToday(): LocalDate = LocalDate.parse(todayDateString())
+
+    internal fun fractionOfToday(nowMs: Long = System.currentTimeMillis()): Double =
+        DayClock.fractionOfDay(nowMs, AppPreferences.dayStartMinutes)
+
+    internal fun nextDayStartMillis(nowMs: Long = System.currentTimeMillis()): Long =
+        DayClock.nextStart(nowMs, AppPreferences.dayStartMinutes)
 
     internal fun dateStringToCalendarMillis(date: String): Long {
         return try {
@@ -50,14 +49,7 @@ object Util {
         }
     }
 
-    internal fun millisToDateString(millis: Long): String {
-        val cal = Calendar.getInstance().apply { timeInMillis = millis }
-        return "%04d-%02d-%02d".format(
-            cal.get(Calendar.YEAR),
-            cal.get(Calendar.MONTH) + 1,
-            cal.get(Calendar.DAY_OF_MONTH)
-        )
-    }
+    internal fun millisToDateString(millis: Long): String = DayClock.dateOf(millis, AppPreferences.dayStartMinutes)
 
     internal fun calendarToDateString(cal: Calendar): String {
         return "%04d-%02d-%02d".format(
@@ -91,6 +83,16 @@ object Util {
         val fromLeg = leg * STEP_TO_HEIGHT / INSEAM_TO_HEIGHT
         return (fromHeight + fromLeg) / 2
     }
+
+    private const val LBS_PER_KG = 2.20462
+
+    fun kgToDisplay(kg: Double): Double = if (AppPreferences.unitSystem == UnitSystem.IMPERIAL) kg * LBS_PER_KG else kg
+
+    fun displayToKg(value: Double): Double = if (AppPreferences.unitSystem == UnitSystem.IMPERIAL) value / LBS_PER_KG else value
+
+    fun formatWeight(kg: Double): String = "%.1f %s".format(Locale.getDefault(), kgToDisplay(kg), weightUnit())
+
+    fun formatWeightChange(kg: Double): String = "%+.2f %s".format(Locale.getDefault(), kgToDisplay(kg), weightUnit())
 
     fun formatMeasure(value: Double): String =
         if (value % 1.0 == 0.0) value.toLong().toString() else "%.1f".format(Locale.getDefault(), value)

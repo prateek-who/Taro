@@ -32,15 +32,19 @@ sealed interface Selection {
 
 data class Summary(
     val header: String,
-    val steps: String,
+    val steps: Int,
     val distance: String,
-    val calories: String?,
-    val average: String?,
+    val calories: String,
+    val averageSteps: Int?,
 )
 
-data class ChartData(val header: String, val range: String, val values: List<Int>, val labels: List<String>)
-
-data class DayStats(val header: String, val details: String, val monthTotal: String, val monthAverage: String)
+data class ChartData(
+    val header: String,
+    val range: String,
+    val values: List<Int>,
+    val labels: List<String>,
+    val dates: List<LocalDate>,
+)
 
 data class GoalLine(val text: String, val streak: Boolean)
 
@@ -77,7 +81,7 @@ fun savePast7DaysMode(context: Context, enabled: Boolean) = context.rangePrefs()
 fun yearsWithData(context: Context): List<Int> {
     val db = Database.getInstance(context)
     val firstYear = db.firstEntry?.take(4)?.toIntOrNull() ?: return emptyList()
-    return (firstYear..Calendar.getInstance().get(Calendar.YEAR)).filter { year ->
+    return (firstYear..Util.logicalToday().year).filter { year ->
         db.getSumSteps("%04d-01-01".format(year), "%04d-12-31".format(year)) > 0
     }
 }
@@ -90,11 +94,11 @@ private fun dateFormat() = SimpleDateFormat(AppPreferences.dateFormatString, Loc
 private fun distance(context: Context, meters: Double) =
     context.getString(R.string.distance_today, Util.metersToDistance(meters), Util.distanceUnit())
 
-private fun stepsWithDistance(context: Context, steps: Int) =
-    context.getString(R.string.steps_format, Util.formatSteps(steps), Util.stepsToDistance(steps), Util.distanceUnit())
+private fun kcal(context: Context, kcal: Double) =
+    context.getString(R.string.kcal_short, Util.formatSteps(kcal.roundToInt()))
 
 private fun rangeDates(range: StepRange, db: Database): Pair<String, String> {
-    val calendar = Calendar.getInstance()
+    val calendar = Util.todayCalendar()
     fun start(days: Int): Pair<String, String> {
         val end = Util.calendarToDateString(calendar)
         calendar.add(Calendar.DAY_OF_YEAR, -days)
@@ -128,10 +132,10 @@ fun summary(context: Context, selection: Selection, todaySteps: Int): Summary {
         val today = ActivityEnergy.day(context, Util.todayDateString(), liveTodaySteps = todaySteps)
         return Summary(
             header = context.getString(R.string.header_today),
-            steps = Util.stepsPlural(context, todaySteps),
+            steps = todaySteps,
             distance = distance(context, today.distanceM),
-            calories = context.getString(R.string.calories, today.activeKcal.roundToInt()),
-            average = null,
+            calories = kcal(context, today.activeKcal),
+            averageSteps = null,
         )
     }
 
@@ -154,15 +158,15 @@ fun summary(context: Context, selection: Selection, todaySteps: Int): Summary {
     val totals = ActivityEnergy.range(context, dates.first, dates.second)
     return Summary(
         header = header,
-        steps = Util.stepsPlural(context, totals.steps),
+        steps = totals.steps,
         distance = distance(context, totals.distanceM),
-        calories = null,
-        average = stepsWithDistance(context, db.avgSteps(dates.first, dates.second)),
+        calories = kcal(context, totals.activeKcal),
+        averageSteps = db.avgSteps(dates.first, dates.second),
     )
 }
 
 fun chartData(context: Context, past7Days: Boolean, selected: LocalDate, todaySteps: Int): ChartData {
-    val start = Calendar.getInstance().apply {
+    val start = Util.todayCalendar().apply {
         if (past7Days) {
             add(Calendar.DAY_OF_YEAR, -6)
         } else {
@@ -195,28 +199,17 @@ fun chartData(context: Context, past7Days: Boolean, selected: LocalDate, todaySt
         format.format(days.first().time),
         format.format(days.last().time),
     )
-    return ChartData(header.uppercase(), range, values, labels)
+    return ChartData(header.uppercase(), range, values, labels, dates.map(LocalDate::parse))
 }
 
-fun dayStats(context: Context, selected: LocalDate): DayStats {
-    val db = Database.getInstance(context)
-    val date = selected.toString()
-    val day = ActivityEnergy.day(context, date)
-    val steps = day.steps
-    val monthStart = selected.withDayOfMonth(1).toString()
-    val monthEnd = selected.withDayOfMonth(selected.lengthOfMonth()).toString()
-
-    return DayStats(
-        header = dateFormat().format(Date(Util.dateStringToCalendarMillis(date))),
-        details = context.getString(
-            R.string.steps_day_display,
-            Util.stepsPlural(context, steps),
-            Util.metersToDistance(day.distanceM),
-            Util.distanceUnit(),
-            day.activeKcal.roundToInt(),
-        ),
-        monthTotal = stepsWithDistance(context, db.getSumSteps(monthStart, monthEnd)),
-        monthAverage = stepsWithDistance(context, db.avgSteps(monthStart, monthEnd)),
+fun daySummary(context: Context, date: LocalDate): Summary {
+    val day = ActivityEnergy.day(context, date.toString())
+    return Summary(
+        header = dateFormat().format(Date(Util.dateStringToCalendarMillis(date.toString()))),
+        steps = day.steps,
+        distance = distance(context, day.distanceM),
+        calories = kcal(context, day.activeKcal),
+        averageSteps = null,
     )
 }
 
@@ -226,4 +219,17 @@ fun goalLine(context: Context, target: Int): GoalLine? {
     }
     if (target <= 0) return null
     return GoalLine(context.getString(R.string.goal_streak_dead_line, Util.stepsPlural(context, target)), streak = false)
+}
+
+fun stepsByDay(context: Context): Map<LocalDate, Int> {
+    val db = Database.getInstance(context)
+    return db.getEntries(db.firstEntry, db.lastEntry)
+        .mapNotNull { entry -> runCatching { LocalDate.parse(entry.date) }.getOrNull()?.let { it to entry.steps } }
+        .toMap()
+}
+
+fun heatFractions(steps: Map<LocalDate, Int>, goal: Int): Map<LocalDate, Float> {
+    val scale = if (goal > 0) goal.toFloat() else (steps.values.maxOrNull() ?: 0).toFloat()
+    if (scale <= 0f) return emptyMap()
+    return steps.mapValues { (_, value) -> (value / scale).coerceAtMost(1f) }
 }

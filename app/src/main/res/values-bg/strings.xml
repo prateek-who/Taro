@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d ккал</string>
     <string name="week_display_format">Седмица %1$d</string>
     <string name="no_entry">Няма данни за %1$s</string>
-    <string name="calories">%1$d ккал</string>
     <string name="steps_month">Този месец</string>
-    <string name="avg_distance">Средно на ден</string>
-    <string name="total_distance">Общо разстояние</string>
     <string name="goal_streak_line">Цел: %1$s · %2$s %3$s поредица</string>
     <string name="goal_streak_dead_line">Дневна цел: %1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">Липсва разрешение ACTIVITY_RECOGNITION</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">Разгъване/сгъване</string>
     <string name="header_today">Днес</string>
     <string name="header_week">Тази седмица</string>
     <string name="header_month">Този месец</string>

@@ -3,6 +3,7 @@ package com.nvllz.stepsy.util
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
+import com.nvllz.stepsy.energy.DietGoal
 import com.nvllz.stepsy.energy.Sex
 import com.nvllz.stepsy.util.Util.UnitSystem
 import kotlinx.coroutines.flow.Flow
@@ -35,6 +36,10 @@ data class AccuracyResults(
     val distanceDate: String?,
 )
 
+data class CalorieGoal(val goal: DietGoal, val adjustment: Int)
+
+data class WeightReminder(val enabled: Boolean, val weekly: Boolean, val dayOfWeek: Int, val minuteOfDay: Int)
+
 object AppPreferences {
     object PreferenceKeys {
         val STEPS                                = intPreferencesKey("STEPS")
@@ -60,6 +65,13 @@ object AppPreferences {
         val LEG_LENGTH                           = stringPreferencesKey("leg_length")
         val BIRTH_YEAR                           = intPreferencesKey("birth_year")
         val SEX                                  = stringPreferencesKey("sex")
+        val DIET_GOAL                            = stringPreferencesKey("diet_goal")
+        val DAY_START_MINUTES                    = intPreferencesKey("day_start_minutes")
+        val WEIGHT_REMINDER_ENABLED              = booleanPreferencesKey("weight_reminder_enabled")
+        val WEIGHT_REMINDER_WEEKLY               = booleanPreferencesKey("weight_reminder_weekly")
+        val WEIGHT_REMINDER_DAY                  = intPreferencesKey("weight_reminder_day")
+        val WEIGHT_REMINDER_MINUTES              = intPreferencesKey("weight_reminder_minutes")
+        val CALORIE_ADJUSTMENT                   = intPreferencesKey("calorie_adjustment")
         val ONBOARDING_DONE                      = booleanPreferencesKey("onboarding_done")
         val CALIBRATED_WALK_STEP_CM              = floatPreferencesKey("calibrated_walk_step_cm")
         val CALIBRATED_WALK_SLOPE                = floatPreferencesKey("calibrated_walk_slope")
@@ -233,6 +245,56 @@ object AppPreferences {
         get() = runBlocking { sexFlow().first() }
         set(value) = runBlocking {
             dataStore.edit { if (value == null) it.remove(PreferenceKeys.SEX) else it[PreferenceKeys.SEX] = value.key }
+        }
+
+    // Weigh-in reminder
+
+    fun weightReminderFlow(): Flow<WeightReminder> = dataStore.data.map {
+        WeightReminder(
+            enabled = it[PreferenceKeys.WEIGHT_REMINDER_ENABLED] ?: true,
+            weekly = it[PreferenceKeys.WEIGHT_REMINDER_WEEKLY] ?: false,
+            dayOfWeek = it[PreferenceKeys.WEIGHT_REMINDER_DAY] ?: Calendar.MONDAY,
+            minuteOfDay = it[PreferenceKeys.WEIGHT_REMINDER_MINUTES] ?: 8 * 60,
+        )
+    }
+
+    var weightReminder: WeightReminder
+        get() = runBlocking { weightReminderFlow().first() }
+        set(value) = runBlocking {
+            dataStore.edit {
+                it[PreferenceKeys.WEIGHT_REMINDER_ENABLED] = value.enabled
+                it[PreferenceKeys.WEIGHT_REMINDER_WEEKLY] = value.weekly
+                it[PreferenceKeys.WEIGHT_REMINDER_DAY] = value.dayOfWeek
+                it[PreferenceKeys.WEIGHT_REMINDER_MINUTES] = value.minuteOfDay
+            }
+        }
+
+    // Start of day
+
+    fun dayStartMinutesFlow(): Flow<Int> = dataStore.data.map { it[PreferenceKeys.DAY_START_MINUTES] ?: 0 }
+
+    var dayStartMinutes: Int
+        get() = runBlocking { dayStartMinutesFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.DAY_START_MINUTES] = value.coerceIn(0, 1439) } }
+
+    // Calorie goal
+
+    fun calorieGoalFlow(): Flow<CalorieGoal?> = dataStore.data.map { prefs ->
+        DietGoal.fromKey(prefs[PreferenceKeys.DIET_GOAL])?.let { CalorieGoal(it, prefs[PreferenceKeys.CALORIE_ADJUSTMENT] ?: 0) }
+    }
+
+    var calorieGoal: CalorieGoal?
+        get() = runBlocking { calorieGoalFlow().first() }
+        set(value) = runBlocking {
+            dataStore.edit {
+                if (value == null) {
+                    it.remove(PreferenceKeys.DIET_GOAL)
+                    it.remove(PreferenceKeys.CALORIE_ADJUSTMENT)
+                } else {
+                    it[PreferenceKeys.DIET_GOAL] = value.goal.key
+                    it[PreferenceKeys.CALORIE_ADJUSTMENT] = value.adjustment
+                }
+            }
         }
 
     // Onboarding

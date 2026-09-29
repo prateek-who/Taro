@@ -11,7 +11,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.nvllz.stepsy.util.Database as LegacyDatabase
 
-@Database(entities = [DailySteps::class, MinuteSteps::class, CalibrationPoint::class, LoggedActivity::class], version = 5, exportSchema = true)
+@Database(entities = [DailySteps::class, MinuteSteps::class, CalibrationPoint::class, LoggedActivity::class, WeightLog::class, SleepSession::class, ScreenEvent::class], version = 7, exportSchema = true)
 abstract class StepsDatabase : RoomDatabase() {
 
     abstract fun steps(): StepsDao
@@ -29,7 +29,7 @@ abstract class StepsDatabase : RoomDatabase() {
 
         internal fun build(context: Context, name: String): StepsDatabase =
             Room.databaseBuilder(context.applicationContext, StepsDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .allowMainThreadQueries()
                 .build()
 
@@ -116,6 +116,27 @@ abstract class StepsDatabase : RoomDatabase() {
                         "kcal REAL NOT NULL, duration_minutes INTEGER, logged_at INTEGER NOT NULL)"
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_logged_activities_date ON logged_activities (date)")
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS weight_entries (" +
+                        "date TEXT NOT NULL, kg REAL NOT NULL, logged_at INTEGER NOT NULL, PRIMARY KEY(date))"
+                )
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS sleep_sessions (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, start_at INTEGER NOT NULL, end_at INTEGER NOT NULL, " +
+                        "wake_date TEXT NOT NULL, source TEXT NOT NULL, confirmed INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_sleep_sessions_wake_date ON sleep_sessions (wake_date)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS screen_events (at INTEGER NOT NULL, screen_on INTEGER NOT NULL, PRIMARY KEY(at))")
             }
         }
     }

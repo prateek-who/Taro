@@ -3,6 +3,9 @@ package com.nvllz.stepsy.util
 import android.content.Context
 import com.nvllz.stepsy.data.DailySteps
 import com.nvllz.stepsy.data.LoggedActivity
+import com.nvllz.stepsy.data.ScreenEvent
+import com.nvllz.stepsy.data.SleepSession
+import com.nvllz.stepsy.data.WeightLog
 import com.nvllz.stepsy.data.MinuteSteps
 import com.nvllz.stepsy.data.StepsDao
 import com.nvllz.stepsy.data.StepsDatabase
@@ -43,6 +46,27 @@ internal class Database private constructor(private val dao: StepsDao) {
     internal fun activitiesOn(date: String): List<LoggedActivity> = dao.activitiesOn(date)
 
     internal fun activityKcal(from: String, to: String): Double = dao.activityKcal(from, to)
+
+    internal fun saveWeight(entry: WeightLog) = dao.upsertWeight(entry)
+
+    internal fun deleteWeight(date: String) = dao.deleteWeight(date)
+
+    internal fun weightsSince(from: String): List<WeightLog> = dao.weightsSince(from)
+
+    internal fun saveSleep(session: SleepSession) = dao.saveSleep(session)
+
+    internal fun sleepOn(wakeDate: String): SleepSession? = dao.sleepOn(wakeDate)
+
+    internal fun sleepsSince(from: String): List<SleepSession> = dao.sleepsSince(from)
+
+    internal fun deleteSleep(id: Long) = dao.deleteSleep(id)
+
+    internal fun recordScreen(at: Long, screenOn: Boolean) = dao.insertScreenEvent(ScreenEvent(at, screenOn))
+
+    internal fun screenEvents(from: Long, to: Long): List<ScreenEvent> =
+        listOfNotNull(dao.lastScreenEventBefore(from)) + dao.screenEvents(from, to)
+
+    internal fun pruneScreenEvents(before: Long) = dao.pruneScreenEvents(before)
 
     fun clearAllAndImport(entries: List<Pair<String, Int>>) =
         dao.replaceHistory(entries.map { (date, steps) -> DailySteps(date, steps) })

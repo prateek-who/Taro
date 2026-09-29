@@ -1,6 +1,7 @@
 package com.nvllz.stepsy.ui
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import com.nvllz.stepsy.ui.components.PauseDialogs
@@ -15,11 +16,11 @@ class TileDialogActivity : AppCompatActivity() {
             StepsyTheme {
                 PauseDialogs(
                     onPauseFor = { minutes, endTime ->
-                        PauseController.pauseFor(this, minutes, endTime)
+                        Toast.makeText(this, PauseController.pauseFor(this, minutes, endTime), Toast.LENGTH_LONG).show()
                         finish()
                     },
                     onPauseIndefinitely = {
-                        PauseController.pauseIndefinitely(this)
+                        Toast.makeText(this, PauseController.pauseIndefinitely(this), Toast.LENGTH_SHORT).show()
                         finish()
                     },
                     onDismiss = ::finish,

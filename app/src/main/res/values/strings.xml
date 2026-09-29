@@ -5,15 +5,19 @@
 
     <!-- General UI Labels -->
     <string name="distance_today" translatable="false">%1$.2f %2$s</string>
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d active kcal</string>
-    <string name="steps_format" translatable="false">%1$s / %2$.2f %3$s</string>
     <string name="week_display_format">Week %1$d</string>
     <string name="week_display_range" translatable="false">%1$s - %2$s</string>
     <string name="no_entry">No record for %1$s</string>
-    <string name="calories">%1$d active kcal</string>
     <string name="steps_month">This month</string>
-    <string name="avg_distance">Average per day</string>
-    <string name="total_distance">Total distance</string>
+    <string name="kcal_short" translatable="false">%1$s kcal</string>
+    <string name="ring_of_goal">of %1$s steps</string>
+    <string name="ring_average">%1$s avg per day</string>
+    <string name="ring_steps">steps</string>
+    <string name="menu_achievements_hint">Badges, streaks and records</string>
+    <string name="menu_goals_hint">Your daily step target</string>
+    <string name="menu_backup_hint">Export or import your history</string>
+    <string name="menu_settings_hint">Profile, units and tracking</string>
+    <string name="back_to_range">Back to %1$s</string>
     <string name="goal_streak_line">Goal: %1$s · %2$s %3$s streak</string>
     <string name="goal_streak_dead_line">Daily Goal: %1$s</string>
 
@@ -21,7 +25,6 @@
     <string name="no_activity_permission">Missing ACTIVITY_RECOGNITION permission</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">Expand/Collapse</string>
     <string name="header_today">Today</string>
     <string name="header_week">This week</string>
     <string name="header_month">This month</string>
@@ -147,7 +150,7 @@
     <string name="energy_projected">Projected total today</string>
     <string name="energy_kcal">%1$s kcal</string>
     <string name="energy_last_7_days">Total burn, last 7 days</string>
-    <string name="energy_footnote">Resting burn uses the Mifflin-St Jeor equation. Active burn covers walking and running measured by steps, so gym, cycling and swimming are not included. Logged activities use the calories you enter. Daily need adds about 10% for digesting food and uses your average active burn, including logged activities, from the last 14 days.</string>
+    <string name="energy_footnote">Resting burn uses the Mifflin-St Jeor equation and your profile, so update your weight when it changes. Active burn covers walking and running measured by steps, plus the activities you log. Every number adds about 10% for digesting food. Daily need uses your average active burn over the last 14 tracked days.</string>
     <string name="energy_missing_title">See your total calories</string>
     <string name="energy_missing_message">Add your age and sex so Stepsytoo can estimate your resting burn and daily calorie need.</string>
     <string name="energy_add_details">Add details</string>
@@ -170,7 +173,7 @@
     <string name="activity_rowing">Rowing</string>
     <string name="activity_hiit">HIIT</string>
     <string name="activity_other">Other</string>
-    <string name="energy_caption">resting + activity</string>
+    <string name="energy_caption">resting + activity + digestion</string>
     <string name="energy_steps_label">Steps</string>
     <string name="energy_logged">Logged</string>
     <string name="energy_logged_title">Logged activities today</string>
@@ -203,6 +206,95 @@
     <string name="calibration_pace_range_value">%1$d to %2$d steps/min</string>
     <string name="calibration_pace_ok">Enough pace variety to learn how your stride changes</string>
     <string name="calibration_pace_more">Vary your pace a little more to learn how your stride changes</string>
+    <string name="energy_last_7_days_caption">Resting + steps + logged activities + digestion. Days Stepsytoo didn\'t track stay empty.</string>
+    <string name="energy_digestion">Digestion</string>
+    <string name="calorie_goal">Calorie goal</string>
+    <string name="calorie_goal_not_set">Not set</string>
+    <string name="calorie_goal_set">Set a goal</string>
+    <string name="calorie_goal_cut">Cut</string>
+    <string name="calorie_goal_maintain">Maintain</string>
+    <string name="calorie_goal_bulk">Bulk</string>
+    <string name="calorie_goal_cut_summary">Cut, %1$s kcal below need</string>
+    <string name="calorie_goal_bulk_summary">Bulk, %1$s kcal above need</string>
+    <string name="calorie_goal_maintain_summary">Maintain</string>
+    <string name="calorie_goal_adjustment_cut">Eat less per day (kcal)</string>
+    <string name="calorie_goal_adjustment_bulk">Eat more per day (kcal)</string>
+    <string name="calorie_goal_help">Cutting 300 to 500 kcal a day loses weight steadily. Bulking usually needs 200 to 400 kcal a day extra.</string>
+    <string name="calorie_goal_weekly">About %1$s kg per week</string>
+    <string name="calorie_goal_eat_today">Eat today</string>
+    <string name="calorie_goal_below_resting">This is below your resting burn. Eating that little for long is not recommended without medical advice.</string>
+    <string name="calorie_goal_saved">Calorie goal saved</string>
+    <string name="pref_day_start">Start of day</string>
+    <string name="pref_day_start_summary">%1$s. Steps before this count toward the previous day.</string>
+    <string name="pref_day_start_saved">Start of day updated</string>
+    <string name="weight_title">Weight</string>
+    <string name="weight_log">Log weight</string>
+    <string name="weight_history">History</string>
+    <string name="weight_trend">Trend weight</string>
+    <string name="weight_change_week">Change over 7 days</string>
+    <string name="weight_empty">Weigh yourself regularly, ideally each morning, to see your real trend and keep your calorie numbers accurate.</string>
+    <string name="weight_dialog_title">Log weight</string>
+    <string name="weight_dialog_edit_title">Edit weight for %1$s</string>
+    <string name="weight_dialog_label">Weight (%1$s)</string>
+    <string name="weight_dialog_hint">Weigh at the same time each day, ideally in the morning before eating. The trend smooths out daily ups and downs.</string>
+    <string name="weight_saved">Weight logged</string>
+    <string name="weight_deleted">Entry removed</string>
+    <string name="weight_delete">Remove entry for %1$s</string>
+    <string name="weight_range_month">30 days</string>
+    <string name="weight_range_quarter">90 days</string>
+    <string name="weight_range_year">1 year</string>
+    <string name="weight_entries">Entries</string>
+    <string name="weight_pace_not_enough">Keep logging. Pace feedback starts after about 10 days of weigh-ins.</string>
+    <string name="weight_pace_on_track">On track: %1$s per week, right where you planned.</string>
+    <string name="weight_pace_slower">Slower than planned: %1$s per week against %2$s. Your real calorie need may differ from the estimate.</string>
+    <string name="weight_pace_faster">Faster than planned: %1$s per week against %2$s.</string>
+    <string name="weight_pace_too_fast_cut">Losing fast: %1$s per week. Consider eating a bit more to protect muscle.</string>
+    <string name="weight_pace_too_fast_bulk">Gaining fast: %1$s per week, likely more fat than muscle. Consider eating a bit less.</string>
+    <string name="weight_pace_wrong_way_cut">Your trend is going up (%1$s per week) while you are cutting.</string>
+    <string name="weight_pace_wrong_way_bulk">Your trend is going down (%1$s per week) while you are bulking.</string>
+    <string name="weight_pace_steady">Steady: %1$s per week.</string>
+    <string name="weight_pace_drifting">Drifting %1$s per week. Set a calorie goal if this is intended.</string>
+    <string name="weight_reminder">Weigh-in reminder</string>
+    <string name="weight_reminder_daily">Daily</string>
+    <string name="weight_reminder_weekly">Weekly</string>
+    <string name="weight_reminder_time">Reminder time</string>
+    <string name="weight_reminder_notification_title">Time to weigh in</string>
+    <string name="weight_reminder_notification_text">Log today\'s weight to keep your trend accurate.</string>
+    <string name="weight_reminder_channel">Weigh-in reminders</string>
+    <string name="tab_sleep">Sleep</string>
+    <string name="sleep_header">Sleep</string>
+    <string name="sleep_last_night">Last night</string>
+    <string name="sleep_duration">%1$dh %2$02dm</string>
+    <string name="sleep_range">%1$s to %2$s</string>
+    <string name="sleep_confirm_title">Looks like you slept %1$s to %2$s</string>
+    <string name="sleep_confirm_message">That is %1$s. Is this right?</string>
+    <string name="sleep_confirm">Yes, that\'s right</string>
+    <string name="sleep_edit">Edit</string>
+    <string name="sleep_add">Add sleep</string>
+    <string name="sleep_empty">No sleep recorded for last night yet. Stepsytoo estimates it from when your screen was off and you weren\'t walking, or you can add it yourself.</string>
+    <string name="sleep_average">Average, last 7 nights</string>
+    <string name="sleep_consistency">Bedtime consistency</string>
+    <string name="sleep_consistency_value">within about %1$d min</string>
+    <string name="sleep_streak">Nights in the 7 to 9 h range</string>
+    <string name="sleep_last_7">Last 7 nights</string>
+    <string name="sleep_last_7_caption">The line marks 7 hours. Stars show nights in the healthy range.</string>
+    <string name="sleep_nights">Nights</string>
+    <string name="sleep_status_short">Averaging %1$s. Aim for 7 to 9 hours. Short sleep makes cutting harder and costs muscle.</string>
+    <string name="sleep_status_a_bit_short">Averaging %1$s, a little short. An extra 30 to 60 minutes would help recovery and appetite.</string>
+    <string name="sleep_status_healthy">Averaging %1$s, right in the healthy range. Keep it up.</string>
+    <string name="sleep_status_long">Averaging %1$s. That\'s on the long side. Worth checking if this is typical for you.</string>
+    <string name="sleep_consistency_tip">Your bedtime varies by about %1$d minutes. A steadier schedule helps sleep quality.</string>
+    <string name="sleep_bedtime">Bedtime</string>
+    <string name="sleep_wake">Wake time</string>
+    <string name="sleep_edit_title">Sleep ending %1$s</string>
+    <string name="sleep_saved">Sleep saved</string>
+    <string name="sleep_deleted">Sleep removed</string>
+    <string name="sleep_confirmed">Sleep confirmed</string>
+    <string name="sleep_source_google">Detected</string>
+    <string name="sleep_source_phone">Estimated</string>
+    <string name="sleep_source_manual">Added by you</string>
+    <string name="sleep_unconfirmed">not confirmed</string>
+    <string name="sleep_delete">Remove sleep for %1$s</string>
     <string name="onboarding_title">Welcome to Stepsytoo</string>
     <string name="onboarding_message">Your height, weight, age and leg length make distance and calorie estimates more accurate. You can change them later in Settings.</string>
     <string name="onboarding_estimated_step">Estimated step length: %1$s</string>

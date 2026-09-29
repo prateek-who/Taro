@@ -37,4 +37,40 @@ class MetabolismTest {
     fun sexKeysRoundTrip() {
         Sex.entries.forEach { assertEquals(it, Sex.fromKey(it.key)) }
     }
+
+    @Test
+    fun cutEatsBelowNeed() {
+        assertEquals(1_800.0, Metabolism.calorieTarget(2_300.0, DietGoal.CUT, 500), 1e-9)
+    }
+
+    @Test
+    fun bulkEatsAboveNeed() {
+        assertEquals(2_600.0, Metabolism.calorieTarget(2_300.0, DietGoal.BULK, 300), 1e-9)
+    }
+
+    @Test
+    fun maintainIgnoresAdjustment() {
+        assertEquals(2_300.0, Metabolism.calorieTarget(2_300.0, DietGoal.MAINTAIN, 500), 1e-9)
+    }
+
+    @Test
+    fun fiveHundredDeficitIsAboutHalfAKiloAWeek() {
+        assertEquals(-0.4545, Metabolism.weeklyChangeKg(DietGoal.CUT, 500), 1e-4)
+    }
+
+    @Test
+    fun digestionIsTenPercentOfTotal() {
+        val total = Metabolism.withDigestion(1_800.0)
+        assertEquals(total * 0.1, total - 1_800.0, 1e-9)
+    }
+
+    @Test
+    fun eightHoursOfSleepSavesFivePercentOfAThird() {
+        assertEquals(1_680.0 / 3 * 0.05, Metabolism.sleepSaving(1_680.0, 8 * 60L), 1e-9)
+    }
+
+    @Test
+    fun noSleepSavesNothing() {
+        assertEquals(0.0, Metabolism.sleepSaving(1_680.0, 0), 1e-9)
+    }
 }

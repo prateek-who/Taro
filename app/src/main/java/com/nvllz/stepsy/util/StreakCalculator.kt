@@ -36,7 +36,7 @@ internal object StreakCalculator {
         database: Database,
         dailyGoalTarget: Int
     ): Int {
-        val calendar = Calendar.getInstance()
+        val calendar = Util.todayCalendar()
         var streakCount = 0
 
         try {

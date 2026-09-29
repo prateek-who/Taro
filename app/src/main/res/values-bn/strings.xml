@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d কিলোক্যালরি</string>
     <string name="week_display_format">সপ্তাহ %1$d</string>
     <string name="no_entry">%1$s এর জন্য কোন রেকর্ড নেই</string>
-    <string name="calories">%1$d কিলোক্যালরি</string>
     <string name="steps_month">এই মাসে</string>
-    <string name="avg_distance">প্রতিদিনের গড়</string>
-    <string name="total_distance">মোট দূরত্ব</string>
     <string name="goal_streak_line">লক্ষ্য: %1$s · %2$s %3$s স্ট্রিক</string>
     <string name="goal_streak_dead_line">দৈনিক লক্ষ্য: %1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">ACTIVITY_RECOGNITION অনুমতি নেই</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">বিস্তার/সংকোচন</string>
     <string name="header_today">আজ</string>
     <string name="header_week">এই সপ্তাহ</string>
     <string name="header_month">এই মাস</string>

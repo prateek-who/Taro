@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d kcal</string>
     <string name="week_display_format">Semaine %1$d</string>
     <string name="no_entry">Aucun enregistrement pour %1$s</string>
-    <string name="calories">%1$d kcal</string>
     <string name="steps_month">Ce mois-ci</string>
-    <string name="avg_distance">Moyenne par jour</string>
-    <string name="total_distance">Distance totale</string>
     <string name="goal_streak_line">Objectif : %1$s · %2$s série de %3$s</string>
     <string name="goal_streak_dead_line">Objectif quotidien : %1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">Permission ACTIVITY_RECOGNITION manquante</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">Déplier/Replier</string>
     <string name="header_today">Aujourd\'hui</string>
     <string name="header_week">Semaine en cours</string>
     <string name="header_month">Mois en cours</string>

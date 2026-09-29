@@ -126,4 +126,45 @@ class StepsDatabaseMigrationTest {
         assertEquals(520.0, total, 1e-9)
         assertEquals(listOf("Swim"), remaining.map { it.name })
     }
+
+    @Test
+    fun weightEntriesAreOnePerDayAfterUpgrade() {
+        legacyDatabase("v2weight.db", 2) {
+            execSQL("CREATE TABLE History (date TEXT PRIMARY KEY, stepsy INT NOT NULL)")
+        }
+
+        val db = StepsDatabase.build(context, "v2weight.db")
+        val dao = db.steps()
+        dao.upsertWeight(WeightLog("2026-09-28", 80.4, 1L))
+        dao.upsertWeight(WeightLog("2026-09-29", 80.1, 2L))
+        dao.upsertWeight(WeightLog("2026-09-29", 79.9, 3L))
+        dao.deleteWeight("2026-09-28")
+        val weights = dao.weightsSince("2026-01-01")
+        db.close()
+
+        assertEquals(listOf(WeightLog("2026-09-29", 79.9, 3L)), weights)
+    }
+
+    @Test
+    fun sleepIsOnePerWakeDateAndScreenEventsPrune() {
+        legacyDatabase("v2sleep.db", 2) {
+            execSQL("CREATE TABLE History (date TEXT PRIMARY KEY, stepsy INT NOT NULL)")
+        }
+
+        val db = StepsDatabase.build(context, "v2sleep.db")
+        val dao = db.steps()
+        dao.saveSleep(SleepSession(startAt = 1_000L, endAt = 25_000_000L, wakeDate = "2026-09-29", source = "phone", confirmed = false))
+        dao.saveSleep(SleepSession(startAt = 2_000L, endAt = 27_000_000L, wakeDate = "2026-09-29", source = "manual", confirmed = true))
+        dao.insertScreenEvent(ScreenEvent(100L, false))
+        dao.insertScreenEvent(ScreenEvent(5_000L, true))
+        dao.pruneScreenEvents(1_000L)
+        val sleeps = dao.sleepsSince("2026-01-01")
+        val events = dao.screenEvents(0L, 10_000L)
+        db.close()
+
+        assertEquals(1, sleeps.size)
+        assertEquals("manual", sleeps.single().source)
+        assertEquals(true, sleeps.single().confirmed)
+        assertEquals(listOf(ScreenEvent(5_000L, true)), events)
+    }
 }

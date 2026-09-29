@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -126,6 +128,14 @@ internal class MotionService : Service() {
 
         activityRecognitionManager = ActivityRecognitionManager(this)
         activityRecognitionManager.start()
+
+        registerReceiver(screenReceiver, IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        })
+        val interactive = (getSystemService(POWER_SERVICE) as PowerManager).isInteractive
+        Database.getInstance(this).recordScreen(System.currentTimeMillis(), interactive)
+        Database.getInstance(this).pruneScreenEvents(System.currentTimeMillis() - SCREEN_EVENT_RETENTION_MS)
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -175,6 +185,13 @@ internal class MotionService : Service() {
         val ageMs = (SystemClock.elapsedRealtimeNanos() - event.timestamp) / 1_000_000L
         val now = System.currentTimeMillis()
         return if (ageMs in 0..MAX_SENSOR_BATCH_AGE_MS) now - ageMs else now
+    }
+
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val screenOn = intent.action == Intent.ACTION_SCREEN_ON
+            Database.getInstance(context).recordScreen(System.currentTimeMillis(), screenOn)
+        }
     }
 
     private val minuteRecorder = MinuteRecorder()
@@ -426,14 +443,12 @@ internal class MotionService : Service() {
                     } else {
                         stopTimedPauseMonitoring()
                         TimedPauseManager.clearPauseEndTime(this)
-                        Toast.makeText(this, R.string.step_counting_paused, Toast.LENGTH_SHORT).show()
                     }
                 }
                 ACTION_RESUME_COUNTING -> {
                     isCountingPaused = false
                     stopTimedPauseMonitoring()
                     TimedPauseManager.clearPauseEndTime(this)
-                    Toast.makeText(this, R.string.step_counting_resumed, Toast.LENGTH_SHORT).show()
                 }
                 "UPDATE_NOTIFICATION" -> {
                     mCachedShowProgressbar = intent.getBooleanExtra("show_progressbar", mCachedShowProgressbar)
@@ -607,6 +622,7 @@ internal class MotionService : Service() {
     }
 
     override fun onDestroy() {
+        runCatching { unregisterReceiver(screenReceiver) }
         if (::mListener.isInitialized) {
             (getSystemService(SENSOR_SERVICE) as? SensorManager)?.run {
                 unregisterListener(mListener)
@@ -634,6 +650,7 @@ internal class MotionService : Service() {
         private const val FOREGROUND_ID = 3843
         private const val BAROMETER_PERIOD_US = 1_000_000
         private const val ENERGY_REFRESH_MS = 15_000L
+        private const val SCREEN_EVENT_RETENTION_MS = 8L * 24 * 60 * 60 * 1000
         private const val MAX_SENSOR_BATCH_AGE_MS = 10 * 60_000L
         private const val BAROMETER_BATCH_US = 30_000_000
         private const val STEP_CHANNEL_ID = "com.nvllz.stepsy.STEP_CHANNEL_ID"

@@ -3,7 +3,6 @@ package com.nvllz.stepsy.util
 import android.content.Context
 import android.content.Intent
 import android.text.format.DateFormat
-import android.widget.Toast
 import androidx.core.content.edit
 import com.nvllz.stepsy.R
 import com.nvllz.stepsy.service.MotionService
@@ -17,25 +16,27 @@ object PauseController {
     fun isPaused(context: Context): Boolean =
         context.getSharedPreferences(STATE_PREFS, Context.MODE_PRIVATE).getBoolean(MotionService.KEY_IS_PAUSED, false)
 
-    fun pause(context: Context) {
+    fun pause(context: Context): String {
         TimedPauseManager.clearPauseEndTime(context)
         send(context, paused = true) { action = MotionService.ACTION_PAUSE_COUNTING }
+        return context.getString(R.string.step_counting_paused)
     }
 
-    fun resume(context: Context) {
+    fun resume(context: Context): String {
         TimedPauseManager.clearPauseEndTime(context)
         send(context, paused = false) { action = MotionService.ACTION_RESUME_COUNTING }
+        return context.getString(R.string.step_counting_resumed)
     }
 
-    fun pauseIndefinitely(context: Context) {
+    fun pauseIndefinitely(context: Context): String {
         send(context, paused = true) {
             action = MotionService.ACTION_PAUSE_COUNTING
             putExtra("TIMED_PAUSE", false)
         }
-        Toast.makeText(context, R.string.step_counting_paused, Toast.LENGTH_SHORT).show()
+        return context.getString(R.string.step_counting_paused)
     }
 
-    fun pauseFor(context: Context, durationMinutes: Int, specificEndTime: Long = 0L) {
+    fun pauseFor(context: Context, durationMinutes: Int, specificEndTime: Long = 0L): String {
         val endTime = if (specificEndTime > 0L) specificEndTime
         else System.currentTimeMillis() + durationMinutes * 60_000L
 
@@ -47,7 +48,7 @@ object PauseController {
         }
 
         val formatted = DateFormat.getTimeFormat(context).format(Date(endTime))
-        Toast.makeText(context, context.getString(R.string.step_counting_paused_until, formatted), Toast.LENGTH_LONG).show()
+        return context.getString(R.string.step_counting_paused_until, formatted)
     }
 
     private fun send(context: Context, paused: Boolean, configure: Intent.() -> Unit) {

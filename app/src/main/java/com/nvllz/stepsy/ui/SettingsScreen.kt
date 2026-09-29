@@ -29,7 +29,9 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.nvllz.stepsy.R
 import com.nvllz.stepsy.ui.components.LocalToast
 import com.nvllz.stepsy.ui.components.ToastKind
+import com.nvllz.stepsy.service.MidnightResetReceiver
 import com.nvllz.stepsy.service.MotionService
+import com.nvllz.stepsy.ui.components.TimePickerDialog
 import com.nvllz.stepsy.service.isPlayServicesAvailable
 import com.nvllz.stepsy.ui.components.FeetInchesDialog
 import com.nvllz.stepsy.ui.components.HtmlDialog
@@ -48,6 +50,7 @@ import com.nvllz.stepsy.util.Util
 import com.nvllz.stepsy.util.Util.UnitSystem
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
+import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -69,7 +72,7 @@ object SettingsScreen : Screen {
     }
 }
 
-private enum class SettingsDialog { HEIGHT, AGE, SEX, LEG_LENGTH, STEP_LENGTH, WEIGHT, LANGUAGE, THEME, UNIT_SYSTEM, DATE_FORMAT, FIRST_DAY, ABOUT }
+private enum class SettingsDialog { DAY_START, HEIGHT, AGE, SEX, CALORIE_GOAL, LEG_LENGTH, STEP_LENGTH, WEIGHT, LANGUAGE, THEME, UNIT_SYSTEM, DATE_FORMAT, FIRST_DAY, ABOUT }
 
 private class Choices(val entries: List<String>, val values: List<String>) {
     fun label(value: String) = entries.getOrNull(values.indexOf(value)) ?: value
@@ -137,6 +140,15 @@ private fun SettingsContent(
     val manualStepLength = AppPreferences.manualStepLength
     val age by AppPreferences.ageFlow().collectAsStateWithLifecycle(AppPreferences.age)
     val sex by AppPreferences.sexFlow().collectAsStateWithLifecycle(AppPreferences.sex)
+    val calorieGoal by AppPreferences.calorieGoalFlow().collectAsStateWithLifecycle(AppPreferences.calorieGoal)
+    val dayStart by AppPreferences.dayStartMinutesFlow().collectAsStateWithLifecycle(AppPreferences.dayStartMinutes)
+    val dayStartLabel = remember(dayStart) {
+        val time = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, dayStart / 60)
+            set(Calendar.MINUTE, dayStart % 60)
+        }
+        android.text.format.DateFormat.getTimeFormat(context).format(time.time)
+    }
     val legLength by AppPreferences.legLengthFlow().collectAsStateWithLifecycle(AppPreferences.legLength)
     val weight by AppPreferences.weightFlow().collectAsStateWithLifecycle(AppPreferences.weight)
     val stepLength by AppPreferences.stepLengthFlow().collectAsStateWithLifecycle(AppPreferences.stepLength)
@@ -211,6 +223,14 @@ private fun SettingsContent(
                     title = stringResource(R.string.pref_sex),
                     summary = sex?.let { sexLabel(it) } ?: stringResource(R.string.pref_not_set),
                     onClick = { dialog = SettingsDialog.SEX },
+                    showChevron = false,
+                )
+                PreferenceDivider()
+                PreferenceRow(
+                    icon = R.drawable.ic_calorie_goal,
+                    title = stringResource(R.string.calorie_goal),
+                    summary = calorieGoalSummary(calorieGoal),
+                    onClick = { dialog = SettingsDialog.CALORIE_GOAL },
                     showChevron = false,
                 )
                 PreferenceDivider()
@@ -295,6 +315,13 @@ private fun SettingsContent(
                     title = stringResource(R.string.first_day_of_the_week),
                     summary = weekdays.label(firstDay.toString()),
                     onClick = { dialog = SettingsDialog.FIRST_DAY },
+                )
+                PreferenceDivider()
+                PreferenceRow(
+                    icon = R.drawable.ic_day_start,
+                    title = stringResource(R.string.pref_day_start),
+                    summary = stringResource(R.string.pref_day_start_summary, dayStartLabel),
+                    onClick = { dialog = SettingsDialog.DAY_START },
                 )
             }
 
@@ -385,6 +412,31 @@ private fun SettingsContent(
             onInvalid = {
                 dialog = null
                 invalid()
+            },
+            onDismiss = dismiss,
+        )
+
+        SettingsDialog.DAY_START -> TimePickerDialog(
+            title = stringResource(R.string.pref_day_start),
+            initialHour = dayStart / 60,
+            initialMinute = dayStart % 60,
+            is24Hour = android.text.format.DateFormat.is24HourFormat(context),
+            onConfirm = { hour, minute ->
+                dialog = null
+                AppPreferences.dayStartMinutes = hour * 60 + minute
+                MidnightResetReceiver.scheduleNextMidnightAlarm(context)
+                context.startService(Intent(context, MotionService::class.java).putExtra("FORCE_UPDATE", true))
+                toast.show(context.getString(R.string.pref_day_start_saved), ToastKind.SUCCESS)
+            },
+            onDismiss = dismiss,
+        )
+
+        SettingsDialog.CALORIE_GOAL -> CalorieGoalDialog(
+            current = calorieGoal,
+            onSave = {
+                dialog = null
+                AppPreferences.calorieGoal = it
+                toast.show(context.getString(R.string.calorie_goal_saved), ToastKind.SUCCESS)
             },
             onDismiss = dismiss,
         )

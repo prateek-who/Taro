@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d kcal</string>
     <string name="week_display_format">Hafta %1$d</string>
     <string name="no_entry">%1$s için kayıt yok</string>
-    <string name="calories">%1$d kcal</string>
     <string name="steps_month">Bu ay</string>
-    <string name="avg_distance">Günlük ortalama</string>
-    <string name="total_distance">Toplam mesafe</string>
     <string name="goal_streak_line">Hedef: %1$s · %2$s %3$s serisi</string>
     <string name="goal_streak_dead_line">Günlük hedef: %1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">ACTIVITY_RECOGNITION izni eksik</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">Genişlet/Daralt</string>
     <string name="header_today">Bugün</string>
     <string name="header_week">Bu hafta</string>
     <string name="header_month">Bu ay</string>

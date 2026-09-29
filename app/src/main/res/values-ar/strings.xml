@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d سعرة حرارية</string>
     <string name="week_display_format">الأسبوع %1$d</string>
     <string name="no_entry">لا يوجد سجل لـ %1$s</string>
-    <string name="calories">%1$d سعرة حرارية</string>
     <string name="steps_month">هذا الشهر</string>
-    <string name="avg_distance">المعدل اليومي</string>
-    <string name="total_distance">المسافة الكلية</string>
     <string name="goal_streak_line">الهدف: %1$s · %2$s %3$s متتالية</string>
     <string name="goal_streak_dead_line">الهدف اليومي: %1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">إذن ACTIVITY_RECOGNITION مفقود</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">توسيع/تصغير</string>
     <string name="header_today">اليوم</string>
     <string name="header_week">هذا الأسبوع</string>
     <string name="header_month">هذا الشهر</string>

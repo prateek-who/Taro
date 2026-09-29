@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d kcal</string>
     <string name="week_display_format">Semana %1$d</string>
     <string name="no_entry">No hay registro para %1$s</string>
-    <string name="calories">%1$d kcal</string>
     <string name="steps_month">Este mes</string>
-    <string name="avg_distance">Promedio por día</string>
-    <string name="total_distance">Distancia total</string>
     <string name="goal_streak_line">Meta: %1$s · %2$s racha de %3$s</string>
     <string name="goal_streak_dead_line">Meta diaria: %1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">Falta permiso ACTIVITY_RECOGNITION</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">Expandir/Colapsar</string>
     <string name="header_today">Hoy</string>
     <string name="header_week">Esta semana</string>
     <string name="header_month">Este mes</string>
