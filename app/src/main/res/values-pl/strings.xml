@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d kcal</string>
     <string name="week_display_format">Tydzień %1$d</string>
     <string name="no_entry">Brak danych dla %1$s</string>
-    <string name="calories">%1$d kcal</string>
     <string name="steps_month">Ten miesiąc</string>
-    <string name="avg_distance">Średnio dziennie</string>
-    <string name="total_distance">Całkowity dystans</string>
     <string name="goal_streak_line">Cel: %1$s · seria %2$s %3$s</string>
     <string name="goal_streak_dead_line">Cel dzienny: %1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">Brak uprawnienia ACTIVITY_RECOGNITION</string>
 
     <!-- Labels -->
-    <string name="expand_collapse">Zwiń/Rozwiń</string>
     <string name="header_today">Dziś</string>
     <string name="header_week">Ten tydzień</string>
     <string name="header_month">Ten miesiąc</string>
@@ -61,8 +56,6 @@
     <string name="notification_description_paused">Powiadamiaj gdy liczenie kroków jest wstrzymane</string>
     <string name="notification_description_steps_day">Kroki dzisiaj</string>
     <string name="notification_step_counting_paused">Liczenie kroków jest wstrzymane</string>
-    <string name="notification_step_goal_progress_title">%1$s / %2$.2f %3$s [%4$d%%]</string>
-    <string name="notification_step_goal_progress">Cel: %1$s — zostało %2$s</string>
     <string name="notification_step_goal_completed">Cel kroków osiągnięty!</string>
     <string name="step_counting_paused">Wstrzymano liczenie kroków</string>
     <string name="step_counting_resumed">Wznowiono liczenie kroków</string>
@@ -103,23 +96,12 @@
     <string name="import_warning_message">Spowoduje to usunięcie wszystkich bieżących danych i zastąpienie ich danymi z importu. Kontynuować?</string>
     <string name="pref_vehicle_filter_title">Dokładne filtrowanie kroków</string>
     <string name="pref_vehicle_filter_summary">Użyj Activity Recognition API, aby ignorować kroki podczas jazdy samochodem, autobusem lub rowerem. Wymaga Usług Google Play.</string>
-    <string name="pref_vehicle_filter_summary_foss">Dokładniejsze rozpoznawanie kroków dzięki Google Play Services API, dostępne tylko w pełnej wersji. Pobierz z Github (github.com/nvllz/stepsy)</string>
     <string name="vehicle_filter_unavailable">Activity Recognition API nie jest dostępne na tym urządzeniu</string>
 
     <string name="header_about">Informacje o aplikacji</string>
     <string name="about_stepsy">O aplikacji</string>
     <string name="about_version">Wersja</string>
     <string name="about_license">Licencja</string>
-    <string name="about_html">
-    <![CDATA[
-        Stepsy <a href="https://github.com/nvllz/stepsy/releases">v%s</a><br><br>
-        Projekt prowadzony przez <a href="https://github.com/nvllz"><b>nvllz</b></a><br>
-        Oparty na <a href="https://github.com/0xf4b1/motionmate">MotionMate</a> od <a href="https://github.com/0xf4b1">0xf4b1</a><br><br>
-        <a href="https://github.com/nvllz/stepsy/issues">Zgłoś błąd</a><br><br>
-        <a href="https://github.com/nvllz/stepsy">Strona projektu</a><br>
-        <a href="https://www.gnu.org/licenses/gpl-3.0.html">Licencja GPL-3.0</a>
-    ]]>
-    </string>
 
     <!-- Toasts -->
     <string name="enter_valid_value">Wprowadź poprawną wartość</string>

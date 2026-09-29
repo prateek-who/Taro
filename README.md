@@ -1,70 +1,70 @@
 <div align="center">
-  <img src="images/github-banner.png" alt="stepsy banner"/>
+
+<img src="images/taro-logo.png" alt="Taro" width="180"/>
+
+# Taro
+
+**Steps, energy, weight and sleep in one calm, offline Android app.**
+
+[![Latest release](https://img.shields.io/github/v/release/prateek-who/stepsytoo?label=latest&style=for-the-badge)](https://github.com/prateek-who/stepsytoo/releases/latest)
+[![License](https://img.shields.io/github/license/prateek-who/stepsytoo?style=for-the-badge)](LICENSE)
+
 </div>
 
-<div align="center">
-  
-  [![GitHub latest ver](https://img.shields.io/github/v/release/nvllz/stepsy.svg?label=latest&labelColor=A41E84&color=C51684&style=for-the-badge)](https://github.com/nvllz/stepsy/releases/latest)
-  [![Downloads](https://img.shields.io/github/downloads/nvllz/stepsy/total?label=downloads&logo=GitHub&link=https%3A%2F%2Fgithub.com%2Fnvllz%2Fstepsy%2Freleases&labelColor=A41E84&color=C51684&style=for-the-badge)](https://github.com/nvllz/stepsy/releases)
-  [![License](https://img.shields.io/github/license/nvllz/stepsy.svg?labelColor=A41E84&color=C51684&style=for-the-badge)](LICENSE)
-  
-</div>
+Taro counts your steps with the phone's own step sensor and turns them into distance, calories and daily goals you actually want to hit. It also estimates your total daily energy, tracks your weight trend and logs your sleep. Everything stays on your phone.
 
-A lightweight step counter that efficiently uses your phone's sensors.
+## Features
 
-- **Daily Goals & Streaks**: set a daily step target and build consistent walking streaks
-- **Milestones**: walk consistently to earn all the badges
-- **Privacy-first design**: Stepsy works completely offline with no internet access in any build. All data stays on your device
-- **Reliable backups**: advanced auto-backup system will help you avoid data loss and keep your step history safe
-- **Widgets & Notifications**: customizable widgets and cozy notifications to keep your progress always at hand
-- **Long-term tracking**: easily view and compare your activity across months and years
+- **Steps and goals**: a live goal ring, streaks, a heatmap calendar and charts for any day, week, month or year
+- **Accurate distance**: step length from your height and leg length, refined by guided GPS calibration and barometer climb
+- **Energy**: resting burn (Mifflin-St Jeor), active burn from your steps, logged workouts including your own custom activities, and a daily calorie target for cutting, maintaining or bulking
+- **Weight**: a smoothed trend line, weekly rate and honest feedback on whether your pace matches your goal, with optional weigh-in reminders
+- **Sleep**: nights estimated from when your phone was idle, confirmed or edited by you, with averages, bedtime consistency and streaks
+- **Backfill anything**: add or fix past weigh-ins, workouts and nights with a date picker
+- **Full backups**: one file holds every step, weigh-in, night, workout and setting, with automatic scheduled backups to a folder you choose
+- **Widgets, quick settings tile and notifications** to keep progress at hand
 
-&nbsp;
+## Privacy
 
-|               Feature               |                        FOSS build                        |                                                                  Full build                                                                  |
-|:-----------------------------------:|:--------------------------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------:|
-|               Privacy               |                      Fully offline                       |                                                                Fully offline                                                                 |
-|Proprietary libraries / dependencies |                           None                           |      Google Play Services ([Activity Recognition API](https://developers.google.com/location-context/activity-recognition/)) – optional      |
-|       Step counting accuracy        |        Device sensor tracking, moderate accuracy         | Sensor tracking with periodic Google Services calls to locally estimate current activity and filter out false steps (when biking/in vehicle) |
-|        Battery optimization         | Highly optimized sensor tracking and database operations |                                    Same as FOSS; API calls should have negligible effect on battery usage                                    |
-|            Availability             |              IzzyOnDroid / F-Droid / Github              |                                                         Obtainium / Github releases                                                          |
+Taro has no internet permission, so it cannot send your data anywhere. There are no accounts, no analytics and no ads.
 
-&nbsp;
+## Google Play Services
 
-💾 [Paseo database to Stepsy migration](https://github.com/nvllz/stepsy/issues/51#issuecomment-3140281948)
+Taro is open source under GPL-3.0. If your phone has Google Play Services, Taro uses it on device for two extras:
 
-## Screenshots
+- **Vehicle filter**: Activity Recognition spots when you are in a car or on a bus and drops the fake steps that vibration causes
+- **Sleep detection**: the Sleep API supplements Taro's own sleep estimate
 
-<div align="center">
-  <img src="images/1.png" width="23%" alt="screenshot_1" />
-  <img src="images/2.png" width="23%" alt="screenshot_2" />
-  <img src="images/3.png" width="23%" alt="screenshot_3" />
-  <img src="images/4.png" width="23%" alt="screenshot_4" />
-</div>
+Without Play Services these two features switch off and everything else works the same. Because the APK includes these Google libraries, Taro is not eligible for F-Droid.
 
 ## Download
 
-<div align=center>
-  <a href="https://apt.izzysoft.de/packages/com.nvllz.stepsy"><img src="images/badge_izzyondroid.png" width="31%" alt="IzzyOnDroid" /></a>
-  <a href="https://f-droid.org/packages/com.nvllz.stepsy/"><img src="images/badge_fdroid.png" width="31%" alt="F-Droid" /></a>
-  <a href="https://intradeus.github.io/http-protocol-redirector?r=obtainium://add/github.com/nvllz/stepsy"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/b1c8ac6f2ab08497189721a788a5763e28ff64cd/assets/graphics/badge_obtainium.png" alt="Obtainium" width="31%"></a>
-</div>
+Get the latest APK from [GitHub Releases](https://github.com/prateek-who/stepsytoo/releases), or add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) for automatic updates.
 
-## Custom intents
+Coming from Stepsytoo? Export a backup in Stepsytoo (Backup, then Back up now), install Taro and import that file. Older Stepsy step CSVs import too.
 
-You can automate step counting state with apps such as Tasker using broadcast intents.
+## Automation
+
+Pause or resume step counting from apps like Tasker with a broadcast intent.
 
 | Field | Value |
 | :---: | :---: |
-|Intent type| broadcast|
-|Package|com.nvllz.stepsy|
-|Activity/Action|com.nvllz.stepsy.action.PAUSE (or RESUME)|
+| Intent type | Broadcast |
+| Package | `com.prateek.taro` |
+| Action | `com.prateek.taro.action.PAUSE` or `com.prateek.taro.action.RESUME` |
 
-## Dependencies
+## Building
 
-- [MPAndroidChart](https://github.com/PhilJay/MPAndroidChart) - Apache License 2.0
-- Google Play Services (full build only, optional)
+Taro uses Kotlin, Jetpack Compose and JDK 21.
+
+```
+./gradlew assembleDebug        # debug build
+./gradlew testDebugUnitTest    # unit tests
+./gradlew assembleRelease      # release build, signed when a keystore is configured
+```
+
+Pushing to `main` builds a signed APK and publishes a GitHub Release through GitHub Actions.
 
 ## Credits
 
-Stepsy is based on [Motionmate](https://github.com/0xf4b1/motionmate) created by [0xf4b1](https://github.com/0xf4b1).
+Taro started as a fork of [Stepsy](https://github.com/nvllz/stepsy) by [nvllz](https://github.com/nvllz), which is based on [MotionMate](https://github.com/0xf4b1/motionmate) by [0xf4b1](https://github.com/0xf4b1). Both are GPL-3.0, and so is Taro.

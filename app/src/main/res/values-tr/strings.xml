@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d kcal</string>
     <string name="week_display_format">Hafta %1$d</string>
     <string name="no_entry">%1$s için kayıt yok</string>
-    <string name="calories">%1$d kcal</string>
     <string name="steps_month">Bu ay</string>
-    <string name="avg_distance">Günlük ortalama</string>
-    <string name="total_distance">Toplam mesafe</string>
     <string name="goal_streak_line">Hedef: %1$s · %2$s %3$s serisi</string>
     <string name="goal_streak_dead_line">Günlük hedef: %1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">ACTIVITY_RECOGNITION izni eksik</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">Genişlet/Daralt</string>
     <string name="header_today">Bugün</string>
     <string name="header_week">Bu hafta</string>
     <string name="header_month">Bu ay</string>
@@ -55,8 +50,6 @@
     <string name="notification_description_paused">Adım sayımı duraklatıldığında bilgilendir</string>
     <string name="notification_description_steps_day">Bugünkü adımlar</string>
     <string name="notification_step_counting_paused">Adım sayımı duraklatıldı</string>
-    <string name="notification_step_goal_progress_title">%1$s / %2$.2f %3$s [%4$d%%]</string>
-    <string name="notification_step_goal_progress">Hedef: %1$s — kalan %2$s</string>
     <string name="notification_step_goal_completed">Adım hedefi tamamlandı!</string>
     <string name="step_counting_paused">Adım sayımı duraklatıldı</string>
     <string name="step_counting_resumed">Adım sayımı devam ediyor</string>
@@ -97,23 +90,12 @@
     <string name="import_warning_message">Bu işlem mevcut tüm adım verilerini siler ve içe aktarılan verilerle değiştirir. Devam edilsin mi?</string>
     <string name="pref_vehicle_filter_title">Hassas adım filtreleme</string>
     <string name="pref_vehicle_filter_summary">Araba, otobüs veya bisikletteki adımları yoksaymak için Etkinlik Tanıma API\'sini kullanın. Google Play Hizmetleri gerektirir.</string>
-    <string name="pref_vehicle_filter_summary_foss">Google Play Hizmetleri API\'si ile daha doğru adım tanıma, yalnızca tam sürümde mevcuttur. Github\'dan edinebilirsiniz (github.com/nvllz/stepsy).</string>
     <string name="vehicle_filter_unavailable">Etkinlik Tanıma API\'si bu cihazda kullanılamıyor</string>
 
     <string name="header_about">Uygulama bilgisi</string>
     <string name="about_stepsy">Hakkında</string>
     <string name="about_version">Sürüm</string>
     <string name="about_license">Lisans</string>
-    <string name="about_html">
-    <![CDATA[
-        Stepsy <a href="https://github.com/nvllz/stepsy/releases">v%s</a><br><br>
-        Proje sahibi: <a href="https://github.com/nvllz"><b>nvllz</b></a><br>
-        <a href="https://github.com/0xf4b1/motionmate">MotionMate</a> temel alınarak <a href="https://github.com/0xf4b1">0xf4b1</a> tarafından geliştirilmiştir<br><br>
-        <a href="https://github.com/nvllz/stepsy/issues">Hata bildir</a><br><br>
-        <a href="https://github.com/nvllz/stepsy">Proje web sitesi</a><br>
-        <a href="https://www.gnu.org/licenses/gpl-3.0.html">Lisans: GPL-3.0</a>
-    ]]>
-    </string>
 
     <!-- Toasts -->
     <string name="enter_valid_value">Lütfen geçerli bir değer girin</string>

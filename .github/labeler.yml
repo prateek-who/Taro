@@ -1,0 +1,51 @@
+ui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - app/src/main/java/com/prateek/taro/ui/**
+          - app/src/main/res/**
+
+energy:
+  - changed-files:
+      - any-glob-to-any-file: app/src/main/java/com/prateek/taro/energy/**
+
+sleep:
+  - changed-files:
+      - any-glob-to-any-file: app/src/main/java/com/prateek/taro/sleep/**
+
+tracking:
+  - changed-files:
+      - any-glob-to-any-file:
+          - app/src/main/java/com/prateek/taro/service/**
+          - app/src/main/java/com/prateek/taro/calibration/**
+
+database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - app/src/main/java/com/prateek/taro/data/**
+          - app/schemas/**
+
+widget:
+  - changed-files:
+      - any-glob-to-any-file: app/src/main/java/com/prateek/taro/widget/**
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: app/src/test/**
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+
+build:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.gradle"
+          - gradle/**
+          - gradle.properties
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - fastlane/**

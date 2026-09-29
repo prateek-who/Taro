@@ -23,8 +23,9 @@
 -optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
 
 # Keep data classes used for serialization
--keep class com.nvllz.stepsy.ui.AchievementsActivity$MilestoneAchievement { *; }
--keep class com.nvllz.stepsy.ui.AchievementsActivity$ComputedResults { *; }
+-keep class com.prateek.taro.ui.MilestoneAchievement { *; }
+-keep class com.prateek.taro.ui.ComputedResults { *; }
+-keep class com.prateek.taro.ui.Top3DayEntry { *; }
 
 # Keep Gson related classes
 -keepattributes Signature
@@ -33,3 +34,6 @@
 -keep class * implements com.google.gson.TypeAdapterFactory
 -keep class * implements com.google.gson.JsonSerializer
 -keep class * implements com.google.gson.JsonDeserializer
+# Full backup is Gson over these classes
+-keep class com.prateek.taro.backup.** { *; }
+-keep class com.prateek.taro.data.** { *; }

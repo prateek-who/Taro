@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d 千卡</string>
     <string name="week_display_format">第 %1$d 周</string>
     <string name="no_entry">%1$s 没有记录</string>
-    <string name="calories">%1$d 千卡</string>
     <string name="steps_month">本月</string>
-    <string name="avg_distance">每日平均</string>
-    <string name="total_distance">总距离</string>
     <string name="goal_streak_line">目标：%1$s · %2$s %3$s 连续</string>
     <string name="goal_streak_dead_line">每日目标：%1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">Missing ACTIVITY_RECOGNITION permission</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">展开/收起</string>
     <string name="header_today">今日</string>
     <string name="header_week">本周</string>
     <string name="header_month">本月</string>
@@ -52,8 +47,6 @@
     <string name="notification_description_paused">计步暂停时将提醒</string>
     <string name="notification_description_steps_day">今日步数</string>
     <string name="notification_step_counting_paused">计步已暂停</string>
-    <string name="notification_step_goal_progress_title">%1$s / %2$.2f %3$s [%4$d%%]</string>
-    <string name="notification_step_goal_progress">目标：%1$s — 剩余 %2$s</string>
     <string name="notification_step_goal_completed">步数目标已达成！</string>
     <string name="step_counting_paused">暂停计步</string>
     <string name="step_counting_resumed">恢复计步</string>
@@ -94,23 +87,12 @@
     <string name="import_warning_message">这将删除当前所有步数数据，并用导入的数据替换。是否继续？</string>
     <string name="pref_vehicle_filter_title">精确步数过滤</string>
     <string name="pref_vehicle_filter_summary">使用活动识别 API 忽略在汽车、公交或骑行时的步数。需要 Google Play 服务。</string>
-    <string name="pref_vehicle_filter_summary_foss">通过 Google Play 服务 API 实现更精准的步数识别，仅限完整版。可在 Github 获取 (github.com/nvllz/stepsy)。</string>
     <string name="vehicle_filter_unavailable">此设备不支持活动识别 API</string>
 
     <string name="header_about">应用信息</string>
     <string name="about_stepsy">关于应用</string>
     <string name="about_version">版本</string>
     <string name="about_license">许可</string>
-    <string name="about_html">
-    <![CDATA[
-        Stepsy <a href="https://github.com/nvllz/stepsy/releases">v%s</a><br><br>
-        项目由 <a href="https://github.com/nvllz"><b>nvllz</b></a> 维护<br>
-        基于 <a href="https://github.com/0xf4b1/motionmate">MotionMate</a>，原作者为 <a href="https://github.com/0xf4b1">0xf4b1</a><br><br>
-        <a href="https://github.com/nvllz/stepsy/issues">报告问题</a><br><br>
-        <a href="https://github.com/nvllz/stepsy">项目网站</a><br>
-        <a href="https://www.gnu.org/licenses/gpl-3.0.html">许可证 GPL-3.0</a>
-    ]]>
-    </string>
 
     <!-- Toasts -->
     <string name="enter_valid_value">请输入一个有效的数字</string>

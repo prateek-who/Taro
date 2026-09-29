@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d kcal</string>
     <string name="week_display_format">Week %1$d</string>
     <string name="no_entry">Geen gegevens voor %1$s</string>
-    <string name="calories">%1$d kcal</string>
     <string name="steps_month">Deze maand</string>
-    <string name="avg_distance">Gemiddeld per dag</string>
-    <string name="total_distance">Totale afstand</string>
     <string name="goal_streak_line">Doel: %1$s · %2$s %3$s reeks</string>
     <string name="goal_streak_dead_line">Dagelijks doel: %1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">ACTIVITY_RECOGNITION ontbreekt</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">Uitvouwen/Invouwen</string>
     <string name="header_today">Vandaag</string>
     <string name="header_week">Deze week</string>
     <string name="header_month">Deze maand</string>
@@ -55,8 +50,6 @@
     <string name="notification_description_paused">Melding wanneer de stappenteller is onderbroken</string>
     <string name="notification_description_steps_day">Aantal stappen vandaag</string>
     <string name="notification_step_counting_paused">Stappenteller is onderbroken</string>
-    <string name="notification_step_goal_progress_title">%1$s / %2$.2f %3$s [%4$d%%]</string>
-    <string name="notification_step_goal_progress">Doel: %1$s — %2$s resterend</string>
     <string name="notification_step_goal_completed">Doelstelling is bereikt!</string>
     <string name="step_counting_paused">Stappenteller onderbroken</string>
     <string name="step_counting_resumed">Stappenteller hervat</string>
@@ -97,23 +90,12 @@
     <string name="import_warning_message">Dit verwijdert alle huidige stapgegevens en vervangt ze door de geïmporteerde gegevens. Doorgaan?</string>
     <string name="pref_vehicle_filter_title">Nauwkeurige stappenfilter</string>
     <string name="pref_vehicle_filter_summary">Gebruik de Activity Recognition API om stappen in de auto, bus of op de fiets te negeren. Vereist Google Play Services.</string>
-    <string name="pref_vehicle_filter_summary_foss">Nauwkeurigere stapherkenning via Google Play Services API, alleen in de volledige build. Beschikbaar op Github (github.com/nvllz/stepsy).</string>
     <string name="vehicle_filter_unavailable">Activity Recognition API is niet beschikbaar op dit apparaat</string>
 
     <string name="header_about">App-info</string>
     <string name="about_stepsy">Over</string>
     <string name="about_version">Versie</string>
     <string name="about_license">Licentie</string>
-    <string name="about_html">
-    <![CDATA[
-        Stepsy <a href="https://github.com/nvllz/stepsy/releases">v%s</a><br><br>
-        Onderhouden door <a href="https://github.com/nvllz"><b>nvllz</b></a><br>
-        Gebaseerd op <a href="https://github.com/0xf4b1/motionmate">MotionMate</a> door <a href="https://github.com/0xf4b1">0xf4b1</a><br><br>
-        <a href="https://github.com/nvllz/stepsy/issues">Rapporteer een bug</a><br><br>
-        <a href="https://github.com/nvllz/stepsy">Projectwebsite</a><br>
-        <a href="https://www.gnu.org/licenses/gpl-3.0.html">Gelicentieerd onder GPL-3.0</a>
-    ]]>
-    </string>
 
     <!-- Toasts -->
     <string name="enter_valid_value">Voer een geldige waarde in</string>

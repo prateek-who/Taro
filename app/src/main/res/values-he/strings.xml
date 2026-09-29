@@ -1,19 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App Metadata -->
-    <string name="app_name" translatable="false">Stepsy</string>
 
     <!-- General UI Labels -->
     <string name="distance_today" translatable="false">%1$.2f %2$s</string>
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d kcal</string>
-    <string name="steps_format" translatable="false">%1$s / %2$.2f %3$s</string>
     <string name="week_display_format">שבוע %1$d</string>
     <string name="week_display_range" translatable="false">%1$s - %2$s</string>
     <string name="no_entry">אין רשומות עבור %1$s</string>
-    <string name="calories">%1$d ק׳ קל׳</string>
     <string name="steps_month">החודש</string>
-    <string name="avg_distance">ממוצע ליום</string>
-    <string name="total_distance">מרחק כולל</string>
     <string name="goal_streak_line">יעד: %1$s · שיא של %2$s %3$s</string>
     <string name="goal_streak_dead_line">יעד יומי: %1$s</string>
 
@@ -21,7 +15,6 @@
     <string name="no_activity_permission">חסרה ההרשאה לזיהוי פעילות (ACTIVITY_RECOGNITION)</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">הרחבה/צמצום</string>
     <string name="header_today">היום</string>
     <string name="header_week">השבוע</string>
     <string name="header_month">החודש</string>
@@ -62,8 +55,6 @@
     <string name="notification_description_paused">התראה לאחר השהיית ספירת הצעדים</string>
     <string name="notification_description_steps_day">ספירת הצעדים של היום</string>
     <string name="notification_step_counting_paused">ספירת הצעדים מושהית</string>
-    <string name="notification_step_goal_progress_title">%1$s / %2$.2f %3$s [%4$d%%]</string>
-    <string name="notification_step_goal_progress">יעד: %1$s — נותרו לך %2$s</string>
     <string name="notification_step_goal_completed">הגעת ליעד הצעדים!</string>
     <string name="step_counting_paused">ספירת הצעדים הושהתה</string>
     <string name="step_counting_resumed">ספירת הצעדים הומשכה</string>
@@ -104,23 +95,12 @@
     <string name="import_warning_message">פעולה זו תמחק את כל נתוני הצעידה הנוכחיים ותחליף אותם בנתונים המיובאים. להמשיך?</string>
     <string name="pref_vehicle_filter_title">סינון צעדים מדויק</string>
     <string name="pref_vehicle_filter_summary">שימוש במפתח API לזיהוי פעילות בלתי־מקוון על מנת להפסיק את ספירת הצעדים כאשר נמצאים במכונית, באוטובוס, או על אופניים. נדרשים שירותי Google Play</string>
-    <string name="pref_vehicle_filter_summary_foss">זיהוי צעדים מדויק יותר שמשתמש במפתח ה־API של שירותי Google Play, הוא זמין בגרסה המלאה בלבד. ניתן להורידה מ־Github ‏(github.com/nvllz/stepsy)</string>
     <string name="vehicle_filter_unavailable">מפתח ה־API לזיהוי פעילות אינו זמין במכשיר זה</string>
 
     <string name="header_about">מידע על היישום</string>
     <string name="about_stepsy">על אודות</string>
     <string name="about_version">גרסה</string>
     <string name="about_license">רישיון</string>
-    <string name="about_html">
-    <![CDATA[
-        Stepsy <a href="https://github.com/nvllz/stepsy/releases">v%s</a><br><br>
-        המיזם מתוחזק בידי <a href="https://github.com/nvllz"><b>nvllz</b></a><br>
-        נבנה על בסיס <a href="https://github.com/0xf4b1/motionmate">MotionMate</a> by <a href="https://github.com/0xf4b1">0xf4b1</a><br><br>
-        <a href="https://github.com/nvllz/stepsy/issues">דיווח על תקלה</a><br><br>
-        <a href="https://github.com/nvllz/stepsy">לאתר האינטרנט של המיזם</a><br>
-        <a href="https://www.gnu.org/licenses/gpl-3.0.html">רישיון GPL-3.0</a>
-    ]]>
-    </string>
 
     <!-- Toasts -->
     <string name="enter_valid_value">נא להקליד ערך תקני</string>

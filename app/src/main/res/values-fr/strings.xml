@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d kcal</string>
     <string name="week_display_format">Semaine %1$d</string>
     <string name="no_entry">Aucun enregistrement pour %1$s</string>
-    <string name="calories">%1$d kcal</string>
     <string name="steps_month">Ce mois-ci</string>
-    <string name="avg_distance">Moyenne par jour</string>
-    <string name="total_distance">Distance totale</string>
     <string name="goal_streak_line">Objectif : %1$s · %2$s série de %3$s</string>
     <string name="goal_streak_dead_line">Objectif quotidien : %1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">Permission ACTIVITY_RECOGNITION manquante</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">Déplier/Replier</string>
     <string name="header_today">Aujourd\'hui</string>
     <string name="header_week">Semaine en cours</string>
     <string name="header_month">Mois en cours</string>
@@ -58,8 +53,6 @@
     <string name="notification_description_paused">Notifier lorsque le comptage est en pause</string>
     <string name="notification_description_steps_day">Pas aujourd\'hui</string>
     <string name="notification_step_counting_paused">Le comptage des pas est en pause</string>
-    <string name="notification_step_goal_progress_title">%1$s / %2$.2f %3$s [%4$d%%]</string>
-    <string name="notification_step_goal_progress">Objectif : %1$s — reste %2$s</string>
     <string name="notification_step_goal_completed">Objectif de pas atteint !</string>
     <string name="step_counting_paused">Comptage des pas en pause</string>
     <string name="step_counting_resumed">Comptage des pas repris</string>
@@ -100,23 +93,12 @@
     <string name="import_warning_message">Toutes les données de pas actuelles seront supprimées et remplacées par celles importées. Continuer ?</string>
     <string name="pref_vehicle_filter_title">Filtrage précis des pas</string>
     <string name="pref_vehicle_filter_summary">Utilisez l\'API Activity Recognition pour ignorer les pas en voiture, bus ou vélo. Nécessite les services Google Play.</string>
-    <string name="pref_vehicle_filter_summary_foss">Reconnaissance des pas plus précise via l\'API Google Play Services, disponible uniquement sur la version complète. Voir sur Github (github.com/nvllz/stepsy).</string>
     <string name="vehicle_filter_unavailable">L\'API Activity Recognition n\'est pas disponible sur cet appareil</string>
 
     <string name="header_about">Informations sur l\'application</string>
     <string name="about_stepsy">À propos</string>
     <string name="about_version">Version</string>
     <string name="about_license">Licence</string>
-    <string name="about_html">
-    <![CDATA[
-        Stepsy <a href="https://github.com/nvllz/stepsy/releases">v%s</a><br><br>
-        Projet maintenu par <a href="https://github.com/nvllz"><b>nvllz</b></a><br>
-        Basé sur <a href="https://github.com/0xf4b1/motionmate">MotionMate</a> de <a href="https://github.com/0xf4b1">0xf4b1</a><br><br>
-        <a href="https://github.com/nvllz/stepsy/issues">Signaler un bug</a><br><br>
-        <a href="https://github.com/nvllz/stepsy">Site du projet</a><br>
-        <a href="https://www.gnu.org/licenses/gpl-3.0.html">Licence GPL-3.0</a>
-    ]]>
-    </string>
 
     <!-- Toasts -->
     <string name="enter_valid_value">Veuillez entrer une valeur valide</string>

@@ -3,10 +3,10 @@
     android:minWidth="150dp"
     android:minHeight="40dp"
     android:updatePeriodMillis="0"
-    android:initialLayout="@layout/widget_icon"
-    android:initialKeyguardLayout="@layout/widget_icon"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:initialKeyguardLayout="@layout/glance_default_loading_layout"
     android:orientation="horizontal"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen|keyguard"
     android:previewImage="@drawable/widget_preview_icon"
-    android:configure="com.nvllz.stepsy.ui.WidgetIconConfigureActivity" />
+    android:configure="com.prateek.taro.ui.WidgetIconConfigureActivity" />

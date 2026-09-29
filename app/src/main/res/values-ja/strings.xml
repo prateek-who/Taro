@@ -3,13 +3,9 @@
     <!-- App Metadata -->
 
     <!-- General UI Labels -->
-    <string name="steps_day_display">%1$s / %2$.2f %3$s / %4$d kcal</string>
     <string name="week_display_format">%1$d 週目</string>
     <string name="no_entry">%1$s の記録はありません</string>
-    <string name="calories">%1$d kcal</string>
     <string name="steps_month">今月の歩数</string>
-    <string name="avg_distance">1日あたりの平均</string>
-    <string name="total_distance">合計距離</string>
     <string name="goal_streak_line">目標: %1$s ・ %2$s %3$s 日連続達成</string>
     <string name="goal_streak_dead_line">1日の目標: %1$s</string>
 
@@ -17,7 +13,6 @@
     <string name="no_activity_permission">「身体活動の認識」権限がありません</string>
 
     <!-- Header section -->
-    <string name="expand_collapse">展開/折りたたみ</string>
     <string name="header_today">今日</string>
     <string name="header_week">今週</string>
     <string name="header_month">今月</string>
@@ -55,8 +50,6 @@
     <string name="notification_description_paused">歩数カウントが一時停止されたときに通知</string>
     <string name="notification_description_steps_day">今日の歩数</string>
     <string name="notification_step_counting_paused">歩数カウントは一時停止中です</string>
-    <string name="notification_step_goal_progress_title">%1$s / %2$.2f %3$s [%4$d%%]</string>
-    <string name="notification_step_goal_progress">目標: %1$s — あと %2$s</string>
     <string name="notification_step_goal_completed">目標達成！</string>
     <string name="step_counting_paused">歩数カウント停止中</string>
     <string name="step_counting_resumed">歩数カウントを再開しました</string>
@@ -97,23 +90,12 @@
     <string name="import_warning_message">現在の歩数データをインポートされたデータで上書きします。続けますか？</string>
     <string name="pref_vehicle_filter_title">正確な歩数フィルタリング</string>
     <string name="pref_vehicle_filter_summary">オフラインのActivity Recognition APIを使用して、車・バス・自転車乗車時の歩数カウントを除外します。 Google Playサービスが必要です</string>
-    <string name="pref_vehicle_filter_summary_foss">Google Play Services API を使用したより正確な歩数認識。フルビルドでのみ利用可能。 Github (github.com/nvllz/stepsy) で入手できます。</string>
     <string name="vehicle_filter_unavailable">このデバイスではActivity Recognition API を使用できません</string>
 
     <string name="header_about">アプリ情報</string>
     <string name="about_stepsy">アプリについて</string>
     <string name="about_version">バージョン</string>
     <string name="about_license">ライセンス</string>
-    <string name="about_html">
-<![CDATA[
-        Stepsy <a href="https://github.com/nvllz/stepsy/releases">v%s</a><br><br>
-        メンテナ: <a href="https://github.com/nvllz"><b>nvllz</b></a><br>
-        <a href="https://github.com/0xf4b1">0xf4b1</a> による <a href="https://github.com/0xf4b1/motionmate">MotionMate</a> を基に構築されました<br><br>
-        <a href="https://github.com/nvllz/stepsy/issues">バグ報告</a><br><br>
-        <a href="https://github.com/nvllz/stepsy">プロジェクトページ</a><br>
-        <a href="https://www.gnu.org/licenses/gpl-3.0.html">ライセンス GPL-3.0</a>
-    ]]>
-   </string>
 
     <!-- Toasts -->
     <string name="enter_valid_value">有効な値を入力してください</string>
