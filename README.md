@@ -37,21 +37,27 @@ Taro is open source under GPL-3.0. If your phone has Google Play Services, Taro 
 
 Without Play Services these two features switch off and everything else works the same. Because the APK includes these Google libraries, Taro is not eligible for F-Droid.
 
-## Download
+## Download and updates
 
-Get the latest APK from [GitHub Releases](https://github.com/prateek-who/stepsytoo/releases), or add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) for automatic updates.
+Get the latest APK from [GitHub Releases](https://github.com/prateek-who/stepsytoo/releases).
 
-Coming from Stepsytoo? Export a backup in Stepsytoo (Backup, then Back up now), install Taro and import that file. Older Stepsy step CSVs import too.
+Taro never goes online, so it cannot check for updates itself. To get updates automatically, use [Obtainium](https://github.com/ImranR98/Obtainium), a free open source app that watches GitHub releases and installs new versions for you:
+
+1. Install Obtainium from its [releases page](https://github.com/ImranR98/Obtainium/releases).
+2. On your phone, open [this link](https://intradeus.github.io/http-protocol-redirector?r=obtainium://add/github.com/prateek-who/stepsytoo) to add Taro, or add the source `https://github.com/prateek-who/Taro` by hand.
+3. Obtainium notifies you when a new release is out and installs it. Updates keep your data because every release is signed with the same key.
+
+Coming from Stepsy? Export a backup in Stepsy (Backup, then Back up now), install Taro and tap Restore a backup on the welcome screen (or from the settings).
 
 ## Automation
 
 Pause or resume step counting from apps like Tasker with a broadcast intent.
 
-| Field | Value |
-| :---: | :---: |
-| Intent type | Broadcast |
-| Package | `com.prateek.taro` |
-| Action | `com.prateek.taro.action.PAUSE` or `com.prateek.taro.action.RESUME` |
+|    Field    |                                Value                                |
+|:-----------:|:-------------------------------------------------------------------:|
+| Intent type |                              Broadcast                              |
+|   Package   |                         `com.prateek.taro`                          |
+|   Action    | `com.prateek.taro.action.PAUSE` or `com.prateek.taro.action.RESUME` |
 
 ## Building
 
@@ -62,8 +68,6 @@ Taro uses Kotlin, Jetpack Compose and JDK 21.
 ./gradlew testDebugUnitTest    # unit tests
 ./gradlew assembleRelease      # release build, signed when a keystore is configured
 ```
-
-Pushing to `main` builds a signed APK and publishes a GitHub Release through GitHub Actions.
 
 ## Credits
 
