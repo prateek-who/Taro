@@ -32,11 +32,11 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:localeConfig="@xml/locales_config"
-        android:theme="@style/Theme.stepsy">
+        android:theme="@style/Theme.taro">
 
         <!-- Main Activity -->
         <activity
-            android:name="com.nvllz.stepsy.ui.MainActivity"
+            android:name="com.prateek.taro.ui.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -75,20 +75,20 @@
         <!-- Tile dialog activity -->
         <activity
             android:name=".ui.TileDialogActivity"
-            android:theme="@style/Theme.stepsy.Transparent"
+            android:theme="@style/Theme.taro.Transparent"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:exported="false" />
 
         <!-- Services -->
         <service
-            android:name="com.nvllz.stepsy.service.MotionService"
+            android:name="com.prateek.taro.service.MotionService"
             android:foregroundServiceType="health"
             android:process=":MotionService"
             android:exported="false" />
 
         <service
-            android:name=".service.StepsyTileService"
+            android:name=".service.TaroTileService"
             android:icon="@drawable/ic_quick_tile"
             android:label="@string/app_name"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
@@ -106,7 +106,7 @@
 
         <!-- Receivers -->
         <receiver
-            android:name="com.nvllz.stepsy.service.OnBootReceiver"
+            android:name="com.prateek.taro.service.OnBootReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -166,18 +166,18 @@
         </receiver>
 
         <receiver
-            android:name=".api.StepsyControlReceiver"
+            android:name=".api.TaroControlReceiver"
             android:exported="true">
 
             <intent-filter>
-                <action android:name="com.nvllz.stepsy.action.PAUSE" />
-                <action android:name="com.nvllz.stepsy.action.RESUME" />
+                <action android:name="com.prateek.taro.action.PAUSE" />
+                <action android:name="com.prateek.taro.action.RESUME" />
             </intent-filter>
 
         </receiver>
 
         <receiver
-            android:name="com.nvllz.stepsy.sleep.SleepSegmentReceiver"
+            android:name="com.prateek.taro.sleep.SleepSegmentReceiver"
             android:exported="false" />
     </application>
 </manifest>

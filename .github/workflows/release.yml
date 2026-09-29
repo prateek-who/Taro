@@ -66,14 +66,14 @@ jobs:
         if: steps.version.outputs.exists == 'false'
         run: |
           mkdir -p release
-          cp app/build/outputs/apk/release/app-release.apk "release/stepsytoo-${{ steps.version.outputs.name }}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "release/taro-${{ steps.version.outputs.name }}.apk"
 
       - name: Create GitHub release
         if: steps.version.outputs.exists == 'false'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.version.outputs.name }}
-          name: Stepsytoo ${{ steps.version.outputs.name }}
+          name: Taro ${{ steps.version.outputs.name }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
-          files: release/stepsytoo-${{ steps.version.outputs.name }}.apk
+          files: release/taro-${{ steps.version.outputs.name }}.apk

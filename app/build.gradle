@@ -18,10 +18,10 @@ def signingValue = { String property, String environment ->
 def releaseStoreFile = signingValue('storeFile', 'KEYSTORE_FILE') ?: (file('keystore.jks').exists() ? 'keystore.jks' : null)
 
 android {
-    namespace 'com.nvllz.stepsy'
+    namespace 'com.prateek.taro'
     compileSdk 35
     defaultConfig {
-        applicationId "com.prateek.stepsytoo"
+        applicationId "com.prateek.taro"
         minSdkVersion 26
         targetSdkVersion 35
         versionCode 24
@@ -42,8 +42,8 @@ android {
     buildTypes {
         debug {
             manifestPlaceholders = [icon: "@drawable/ic_launcher_debug"]
-            applicationIdSuffix ".debug"
-            versionNameSuffix '-debug'
+            applicationIdSuffix ".dev"
+            versionNameSuffix '-dev'
             minifyEnabled false
         }
         release {

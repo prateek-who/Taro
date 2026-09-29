@@ -1,32 +1,32 @@
 ui:
   - changed-files:
       - any-glob-to-any-file:
-          - app/src/main/java/com/nvllz/stepsy/ui/**
+          - app/src/main/java/com/prateek/taro/ui/**
           - app/src/main/res/**
 
 energy:
   - changed-files:
-      - any-glob-to-any-file: app/src/main/java/com/nvllz/stepsy/energy/**
+      - any-glob-to-any-file: app/src/main/java/com/prateek/taro/energy/**
 
 sleep:
   - changed-files:
-      - any-glob-to-any-file: app/src/main/java/com/nvllz/stepsy/sleep/**
+      - any-glob-to-any-file: app/src/main/java/com/prateek/taro/sleep/**
 
 tracking:
   - changed-files:
       - any-glob-to-any-file:
-          - app/src/main/java/com/nvllz/stepsy/service/**
-          - app/src/main/java/com/nvllz/stepsy/calibration/**
+          - app/src/main/java/com/prateek/taro/service/**
+          - app/src/main/java/com/prateek/taro/calibration/**
 
 database:
   - changed-files:
       - any-glob-to-any-file:
-          - app/src/main/java/com/nvllz/stepsy/data/**
+          - app/src/main/java/com/prateek/taro/data/**
           - app/schemas/**
 
 widget:
   - changed-files:
-      - any-glob-to-any-file: app/src/main/java/com/nvllz/stepsy/widget/**
+      - any-glob-to-any-file: app/src/main/java/com/prateek/taro/widget/**
 
 tests:
   - changed-files:

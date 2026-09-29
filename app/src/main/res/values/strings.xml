@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App Metadata -->
-    <string name="app_name" translatable="false">Stepsytoo</string>
+    <string name="app_name" translatable="false">Taro</string>
+    <string name="brand_name" translatable="false">Taro</string>
 
     <!-- General UI Labels -->
     <string name="distance_today" translatable="false">%1$.2f %2$s</string>
@@ -43,6 +44,7 @@
     <string name="sleep_add_title">Add sleep</string>
     <string name="sleep_edit_dialog_title">Edit sleep</string>
     <string name="saved_for_date">Saved for %1$s</string>
+    <string name="import_full_done">Backup restored</string>
     <string name="back_to_range">Back to %1$s</string>
     <string name="goal_streak_line">Goal: %1$s · %2$s %3$s streak</string>
     <string name="goal_streak_dead_line">Daily Goal: %1$s</string>
@@ -116,10 +118,10 @@
     <string name="leg_length_hint">Stand straight against a wall and measure from the floor to your crotch, the same as a trouser inseam.</string>
     <string name="leg_length_optional">Leg length, optional</string>
     <string name="calibration_title">Calibrate step length</string>
-    <string name="calibration_intro">Your step length turns steps into distance and calories. Calibrating it is the biggest accuracy boost you can give Stepsytoo.</string>
+    <string name="calibration_intro">Your step length turns steps into distance and calories. Calibrating it is the biggest accuracy boost you can give Taro.</string>
     <string name="calibration_mode_gps">GPS walk</string>
     <string name="calibration_mode_distance">Known distance</string>
-    <string name="calibration_gps_help">Go outside with open sky, away from tall buildings, and wait for the GPS signal before walking. The steps below guide you through a few paces so Stepsytoo learns how your stride changes. Each session makes it better.</string>
+    <string name="calibration_gps_help">Go outside with open sky, away from tall buildings, and wait for the GPS signal before walking. The steps below guide you through a few paces so Taro learns how your stride changes. Each session makes it better.</string>
     <string name="calibration_distance_help">Walk a distance you know exactly, like a running track lap, at your usual pace. Tap start at the beginning and stop at the end.</string>
     <string name="calibration_distance_label">Distance (%1$s)</string>
     <string name="calibration_start">Start</string>
@@ -174,7 +176,7 @@
     <string name="energy_last_7_days">Total burn, last 7 days</string>
     <string name="energy_footnote">Resting burn uses the Mifflin-St Jeor equation and your profile, so update your weight when it changes. Active burn covers walking and running measured by steps, plus the activities you log. Every number adds about 10% for digesting food. Daily need uses your average active burn over the last 14 tracked days.</string>
     <string name="energy_missing_title">See your total calories</string>
-    <string name="energy_missing_message">Add your age and sex so Stepsytoo can estimate your resting burn and daily calorie need.</string>
+    <string name="energy_missing_message">Add your age and sex so Taro can estimate your resting burn and daily calorie need.</string>
     <string name="energy_add_details">Add details</string>
     <string name="pref_age">Age</string>
     <string name="pref_sex">Sex</string>
@@ -226,7 +228,7 @@
     <string name="calibration_pace_range_value">%1$d to %2$d steps/min</string>
     <string name="calibration_pace_ok">Enough pace variety to learn how your stride changes</string>
     <string name="calibration_pace_more">Vary your pace a little more to learn how your stride changes</string>
-    <string name="energy_last_7_days_caption">Resting + steps + logged activities + digestion. Days Stepsytoo didn\'t track stay empty.</string>
+    <string name="energy_last_7_days_caption">Resting + steps + logged activities + digestion. Days Taro didn\'t track stay empty.</string>
     <string name="energy_digestion">Digestion</string>
     <string name="calorie_goal">Calorie goal</string>
     <string name="calorie_goal_not_set">Not set</string>
@@ -306,11 +308,22 @@
     <string name="sleep_source_manual">Added by you</string>
     <string name="sleep_unconfirmed">not confirmed</string>
     <string name="sleep_delete">Remove sleep for %1$s</string>
-    <string name="onboarding_title">Welcome to Stepsytoo</string>
-    <string name="onboarding_message">Your height, weight, age and leg length make distance and calorie estimates more accurate. You can change them later in Settings.</string>
+    <string name="onboarding_title">Welcome to Taro</string>
+    <string name="onboarding_message">Steps, energy, weight and sleep, all on your phone.</string>
+    <string name="onboarding_get_started">Get started</string>
+    <string name="onboarding_restore">Restore a backup</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_body_title">About you</string>
+    <string name="onboarding_body_hint">Height and weight set your step length and calories. They stay on this phone and you can change them in Settings.</string>
+    <string name="onboarding_more_title">A little more</string>
+    <string name="onboarding_more_hint">All optional. Age and sex sharpen your calorie numbers, leg length sharpens distance.</string>
+    <string name="onboarding_units">Units</string>
+    <string name="onboarding_sex">Sex</string>
+    <string name="onboarding_private">Offline. No account. No ads.</string>
     <string name="onboarding_estimated_step">Estimated step length: %1$s</string>
     <string name="onboarding_skip">Skip</string>
-    <string name="onboarding_save">Save</string>
+    <string name="onboarding_save">Finish</string>
     <string name="first_day_of_the_week">First day of the week</string>
     <string name="app_language">Language</string>
     <string name="theme">Theme</string>
@@ -323,13 +336,13 @@
     <string name="backup_retention_unlimited">Unlimited</string>
     <string name="backup_location">Backup location</string>
     <string name="backup_location_not_set">Not set</string>
-    <string name="manual_backup">Manual backup</string>
+    <string name="manual_backup">Back up now</string>
     <string name="import_data">Import</string>
-    <string name="import_data_summary">Restore step data from a file</string>
+    <string name="import_data_summary">Restore a full backup, or step history from a CSV</string>
     <string name="next_backup_scheduled">Next automatic backup\n%1$s at %2$s</string>
     <string name="import_invalid_file">This file is invalid</string>
     <string name="import_warning_title">Replace step data</string>
-    <string name="import_warning_message">This will delete all current step data and replace it with imported data. Continue?</string>
+    <string name="import_warning_message">This replaces the data on this phone with the file\'s contents. A full backup restores everything, including weight, sleep, activities and settings. Continue?</string>
     <string name="pref_vehicle_filter_title">Accurate steps filtering</string>
     <string name="pref_vehicle_filter_summary">Use offline Activity Recognition API to ignore steps when you\'re in a car, bus, or on a bike. Requires Google Play Services</string>
     <string name="vehicle_filter_unavailable">Activity Recognition API is not available on this device</string>
@@ -340,8 +353,8 @@
     <string name="about_license">License</string>
     <string name="about_html">
     <![CDATA[
-        Stepsytoo <a href="https://github.com/prateek-who/stepsytoo/releases">v%s</a><br><br>
-        A fork of <a href="https://github.com/nvllz/stepsy">Stepsy</a> by <a href="https://github.com/nvllz"><b>nvllz</b></a>,
+        Taro <a href="https://github.com/prateek-who/stepsytoo/releases">v%s</a><br><br>
+        A fork of <a href="https://github.com/prateek/taro">Stepsy</a> by <a href="https://github.com/nvllz"><b>nvllz</b></a>,
         built on top of <a href="https://github.com/0xf4b1/motionmate">MotionMate</a> by <a href="https://github.com/0xf4b1">0xf4b1</a><br><br>
         <a href="https://github.com/prateek-who/stepsytoo/issues">Report a bug</a><br><br>
         <a href="https://github.com/prateek-who/stepsytoo">Project website</a><br>
