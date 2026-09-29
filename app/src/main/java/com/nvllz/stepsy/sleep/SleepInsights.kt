@@ -1,6 +1,10 @@
 package com.nvllz.stepsy.sleep
 
+import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.ZoneId
 import java.util.Calendar
 import java.util.TimeZone
 import kotlin.math.sqrt
@@ -10,6 +14,23 @@ data class Night(val wakeDate: LocalDate, val startAt: Long, val endAt: Long) {
 }
 
 enum class SleepStatus { SHORT, A_BIT_SHORT, HEALTHY, LONG }
+
+data class SleepSpan(val start: Long, val end: Long)
+
+object SleepDates {
+    fun today(zone: ZoneId = ZoneId.systemDefault()): LocalDate = LocalDate.now(zone)
+
+    fun wakeDateOf(endMs: Long, zone: ZoneId = ZoneId.systemDefault()): LocalDate =
+        Instant.ofEpochMilli(endMs).atZone(zone).toLocalDate()
+
+    fun manualSpan(wakeDate: LocalDate, bedMinute: Int, wakeMinute: Int, zone: ZoneId = ZoneId.systemDefault()): SleepSpan {
+        val bedDate = if (bedMinute > wakeMinute) wakeDate.minusDays(1) else wakeDate
+        return SleepSpan(at(bedDate, bedMinute, zone), at(wakeDate, wakeMinute, zone))
+    }
+
+    private fun at(date: LocalDate, minuteOfDay: Int, zone: ZoneId): Long =
+        LocalDateTime.of(date, LocalTime.of(minuteOfDay / 60, minuteOfDay % 60)).atZone(zone).toInstant().toEpochMilli()
+}
 
 object SleepInsights {
     const val HEALTHY_MIN = 7 * 60L

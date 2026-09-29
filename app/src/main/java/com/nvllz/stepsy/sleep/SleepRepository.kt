@@ -3,7 +3,6 @@ package com.nvllz.stepsy.sleep
 import android.content.Context
 import com.nvllz.stepsy.data.SleepSession
 import com.nvllz.stepsy.util.Database
-import com.nvllz.stepsy.util.Util
 import java.time.LocalDate
 import java.util.Calendar
 
@@ -18,11 +17,12 @@ object SleepRepository {
     private const val UP_FOR_MS = 30 * 60 * 1000L
 
     fun sessions(context: Context, days: Long): List<SleepSession> =
-        Database.getInstance(context).sleepsSince(Util.logicalToday().minusDays(days).toString())
+        Database.getInstance(context).sleepsSince(SleepDates.today().minusDays(days).toString())
 
     fun saveDetected(context: Context, start: Long, end: Long, source: String) {
+        if (!SleepEstimator.isPlausibleNight(start, end)) return
         val database = Database.getInstance(context)
-        val wakeDate = Util.millisToDateString(end)
+        val wakeDate = SleepDates.wakeDateOf(end).toString()
         val existing = database.sleepOn(wakeDate)
         if (existing != null && (existing.confirmed || existing.source == SOURCE_MANUAL)) return
         if (existing?.source == SOURCE_GOOGLE && source == SOURCE_PHONE) return
@@ -31,7 +31,7 @@ object SleepRepository {
 
     fun saveManual(context: Context, start: Long, end: Long) {
         Database.getInstance(context).saveSleep(
-            SleepSession(startAt = start, endAt = end, wakeDate = Util.millisToDateString(end), source = SOURCE_MANUAL, confirmed = true)
+            SleepSession(startAt = start, endAt = end, wakeDate = SleepDates.wakeDateOf(end).toString(), source = SOURCE_MANUAL, confirmed = true)
         )
     }
 

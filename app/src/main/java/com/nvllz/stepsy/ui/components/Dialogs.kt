@@ -10,20 +10,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.text.selection.TextSelectionColors
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TextFieldColors
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,7 +40,27 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.nvllz.stepsy.ui.theme.StepsyTheme
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import com.nvllz.stepsy.R
+import com.nvllz.stepsy.ui.theme.StepsyMotion
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StepsyDialog(
     title: String,
@@ -58,30 +72,51 @@ fun StepsyDialog(
     properties: DialogProperties = DialogProperties(),
     content: @Composable () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        properties = properties,
-        containerColor = StepsyTheme.colors.dialogSurface,
-        title = { Text(title) },
-        text = content,
-        confirmButton = {
-            if (confirmText != null) {
-                TextButton(onClick = onConfirm, enabled = confirmEnabled) {
-                    Text(
-                        text = confirmText,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (confirmEnabled) 1f else 0.38f),
-                    )
+    val entrance = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { entrance.animateTo(1f, StepsyMotion.snappy()) }
+
+    BasicAlertDialog(onDismissRequest = onDismiss, properties = properties) {
+        Column(
+            modifier = Modifier
+                .graphicsLayer {
+                    alpha = entrance.value.coerceIn(0f, 1f)
+                    scaleX = 0.92f + 0.08f * entrance.value
+                    scaleY = scaleX
+                }
+                .clip(RoundedCornerShape(28.dp))
+                .background(StepsyTheme.colors.dialogSurface)
+                .padding(24.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(bottom = 16.dp),
+            )
+            Box(modifier = Modifier.weight(1f, fill = false)) {
+                CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+                    ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
+                        content()
+                    }
                 }
             }
-        },
-        dismissButton = {
-            if (dismissText != null) {
-                TextButton(onClick = onDismiss) {
-                    Text(dismissText, color = StepsyTheme.colors.accent)
+            if (confirmText != null || dismissText != null) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 24.dp),
+                ) {
+                    if (dismissText != null) {
+                        SecondaryButton(text = dismissText, onClick = onDismiss, modifier = Modifier.weight(1f))
+                    }
+                    if (confirmText != null) {
+                        PrimaryButton(text = confirmText, onClick = onConfirm, enabled = confirmEnabled, modifier = Modifier.weight(1f))
+                    }
                 }
             }
-        },
-    )
+        }
+    }
 }
 
 @Composable
@@ -93,21 +128,30 @@ fun SingleChoiceDialog(
     onDismiss: () -> Unit,
 ) {
     StepsyDialog(title = title, onDismiss = onDismiss) {
-        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+        ) {
             entries.forEachIndexed { index, entry ->
+                val selected = index == selectedIndex
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (selected) StepsyTheme.colors.accentOpaque else Color.Transparent)
                         .clickable { onSelect(index) }
-                        .padding(vertical = 4.dp),
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                 ) {
-                    RadioButton(
-                        selected = index == selectedIndex,
-                        onClick = { onSelect(index) },
-                        colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.onSurface),
+                    Text(
+                        text = entry,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.weight(1f),
                     )
-                    Text(entry, style = MaterialTheme.typography.bodyLarge)
+                    if (selected) {
+                        Icon(painterResource(R.drawable.ic_tick), contentDescription = null, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
         }
@@ -136,15 +180,22 @@ fun MessageDialog(
 fun stepsyTextFieldColors(): TextFieldColors {
     val onSurface = MaterialTheme.colorScheme.onSurface
     val accent = StepsyTheme.colors.accent
-    return OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = onSurface,
-        unfocusedBorderColor = accent,
-        focusedLabelColor = onSurface,
+    val fill = StepsyTheme.colors.accentOpaque
+    return TextFieldDefaults.colors(
+        focusedContainerColor = fill,
+        unfocusedContainerColor = fill,
+        disabledContainerColor = fill,
+        focusedIndicatorColor = Color.Transparent,
+        unfocusedIndicatorColor = Color.Transparent,
+        disabledIndicatorColor = Color.Transparent,
+        focusedLabelColor = accent,
         unfocusedLabelColor = accent,
         cursorColor = onSurface,
         selectionColors = TextSelectionColors(handleColor = onSurface, backgroundColor = accent.copy(alpha = 0.4f)),
     )
 }
+
+private val FieldShape = RoundedCornerShape(16.dp)
 
 @Composable
 fun StepsyTextField(
@@ -153,12 +204,12 @@ fun StepsyTextField(
     label: String,
     modifier: Modifier = Modifier,
 ) {
-    OutlinedTextField(
+    TextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
         singleLine = true,
-        shape = RoundedCornerShape(8.dp),
+        shape = FieldShape,
         colors = stepsyTextFieldColors(),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         modifier = modifier,
@@ -172,17 +223,21 @@ fun NumberField(
     label: String,
     modifier: Modifier = Modifier,
     decimal: Boolean = false,
+    suffix: String? = null,
+    large: Boolean = false,
 ) {
-    OutlinedTextField(
+    TextField(
         value = value,
         onValueChange = { input ->
             val allowed: (Char) -> Boolean = if (decimal) { c -> c.isDigit() || c == '.' || c == ',' } else Char::isDigit
             onValueChange(input.copy(text = input.text.filter(allowed)))
         },
         label = { Text(label) },
+        suffix = suffix?.let { { Text(it, color = StepsyTheme.colors.accent) } },
         singleLine = true,
-        shape = RoundedCornerShape(8.dp),
+        shape = FieldShape,
         colors = stepsyTextFieldColors(),
+        textStyle = if (large) MaterialTheme.typography.headlineMedium else LocalTextStyle.current,
         keyboardOptions = KeyboardOptions(
             keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
             imeAction = ImeAction.Done,
@@ -301,11 +356,16 @@ fun TimePickerDialog(
         TimePicker(
             state = state,
             colors = TimePickerDefaults.colors(
-                clockDialColor = MaterialTheme.colorScheme.surface,
-                selectorColor = MaterialTheme.colorScheme.primary,
-                timeSelectorSelectedContainerColor = MaterialTheme.colorScheme.primary,
-                timeSelectorSelectedContentColor = MaterialTheme.colorScheme.onPrimary,
-                timeSelectorUnselectedContainerColor = MaterialTheme.colorScheme.surface,
+                clockDialColor = StepsyTheme.colors.accentOpaque,
+                clockDialSelectedContentColor = StepsyTheme.colors.background,
+                selectorColor = MaterialTheme.colorScheme.onSurface,
+                timeSelectorSelectedContainerColor = MaterialTheme.colorScheme.onSurface,
+                timeSelectorSelectedContentColor = StepsyTheme.colors.background,
+                timeSelectorUnselectedContainerColor = StepsyTheme.colors.accentOpaque,
+                periodSelectorBorderColor = Color.Transparent,
+                periodSelectorSelectedContainerColor = MaterialTheme.colorScheme.onSurface,
+                periodSelectorSelectedContentColor = StepsyTheme.colors.background,
+                periodSelectorUnselectedContainerColor = StepsyTheme.colors.accentOpaque,
             ),
         )
     }

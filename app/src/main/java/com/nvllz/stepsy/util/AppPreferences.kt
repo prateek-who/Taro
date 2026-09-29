@@ -3,6 +3,8 @@ package com.nvllz.stepsy.util
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
+import com.nvllz.stepsy.energy.Activities
+import com.nvllz.stepsy.energy.CustomActivity
 import com.nvllz.stepsy.energy.DietGoal
 import com.nvllz.stepsy.energy.Sex
 import com.nvllz.stepsy.util.Util.UnitSystem
@@ -45,6 +47,7 @@ object AppPreferences {
         val STEPS                                = intPreferencesKey("STEPS")
         val DATE                                 = stringPreferencesKey("DATE")
         val THEME                                = stringPreferencesKey("theme")
+        val CUSTOM_ACTIVITIES                    = stringPreferencesKey("custom_activities")
         val HEIGHT                               = stringPreferencesKey("height")
         val WEIGHT                               = stringPreferencesKey("weight")
         val STEP_LENGTH                          = floatPreferencesKey("step_length")
@@ -296,6 +299,15 @@ object AppPreferences {
                 }
             }
         }
+
+    // Custom activities
+
+    fun customActivitiesFlow(): Flow<List<CustomActivity>> =
+        dataStore.data.map { Activities.decode(it[PreferenceKeys.CUSTOM_ACTIVITIES]) }
+
+    var customActivities: List<CustomActivity>
+        get() = runBlocking { customActivitiesFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.CUSTOM_ACTIVITIES] = Activities.encode(value) } }
 
     // Onboarding
 

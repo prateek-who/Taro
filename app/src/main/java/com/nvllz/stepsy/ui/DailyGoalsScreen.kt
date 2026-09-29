@@ -9,7 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -128,13 +129,14 @@ private fun DailyGoalsContent(onBack: () -> Unit) {
     StepsyScaffold(title = stringResource(R.string.daily_goals), onBack = ::leave) { padding ->
         ScrollingColumn(padding) {
             SettingsCard {
-                OutlinedTextField(
+                TextField(
                     value = draft.targetText,
                     onValueChange = { input -> draft = draft.copy(targetText = input.filter(Char::isDigit)) },
                     label = { Text(stringResource(R.string.daily_goal_target)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = stepsyTextFieldColors(),
+                    textStyle = MaterialTheme.typography.headlineSmall,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
                         imeAction = ImeAction.Done,

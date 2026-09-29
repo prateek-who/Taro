@@ -23,6 +23,11 @@ object WeightJournal {
         syncProfileWeight(context)
     }
 
+    fun move(context: Context, from: String, to: String, kg: Double) {
+        if (from != to) Database.getInstance(context).deleteWeight(from)
+        log(context, to, kg)
+    }
+
     fun delete(context: Context, date: String) {
         Database.getInstance(context).deleteWeight(date)
         syncProfileWeight(context)

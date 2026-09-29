@@ -1,5 +1,7 @@
 package com.nvllz.stepsy.ui
 
+import java.time.LocalDate
+import com.nvllz.stepsy.ui.components.DateRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -37,7 +39,14 @@ fun weekChange(points: List<TrendPoint>): Double? {
 }
 
 @Composable
-fun LogWeightDialog(title: String, initialKg: Double?, onSave: (Double) -> Unit, onDismiss: () -> Unit) {
+fun LogWeightDialog(
+    title: String,
+    initialKg: Double?,
+    onSave: (kg: Double, date: LocalDate) -> Unit,
+    onDismiss: () -> Unit,
+    initialDate: LocalDate = Util.logicalToday(),
+) {
+    var date by remember { mutableStateOf(initialDate) }
     val initialText = initialKg?.let { "%.1f".format(Locale.getDefault(), Util.kgToDisplay(it)) }.orEmpty()
     var value by remember { mutableStateOf(TextFieldValue(initialText, TextRange(initialText.length))) }
     val kg = Util.parseMeasure(value.text)?.let(Util::displayToKg)?.takeIf { it in WEIGHT_KG_RANGE }
@@ -47,22 +56,30 @@ fun LogWeightDialog(title: String, initialKg: Double?, onSave: (Double) -> Unit,
         onDismiss = onDismiss,
         confirmText = stringResource(R.string.action_save),
         confirmEnabled = kg != null,
-        onConfirm = { kg?.let(onSave) },
+        onConfirm = { kg?.let { onSave(it, date) } },
     ) {
         Column {
+            DateRow(
+                label = stringResource(R.string.date_label),
+                date = date,
+                today = Util.logicalToday(),
+                onChange = { date = it },
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
             NumberField(
                 value = value,
                 onValueChange = { value = it },
-                label = stringResource(R.string.weight_dialog_label, Util.weightUnit()),
+                label = stringResource(R.string.weight_title),
                 decimal = true,
+                suffix = Util.weightUnit(),
+                large = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
                 text = stringResource(R.string.weight_dialog_hint),
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .padding(top = 12.dp)
-                    .alpha(0.7f),
+                color = StepsyTheme.colors.accent,
+                modifier = Modifier.padding(top = 12.dp, start = 4.dp),
             )
         }
     }

@@ -15,6 +15,12 @@ class SleepEstimatorTest {
     private fun on(h: Double) = ScreenState((h * hour).toLong(), true)
 
     @Test
+    fun shortNapIsNotANight() {
+        assertEquals(false, SleepEstimator.isPlausibleNight(11 * hour, 11 * hour + 42 * minute))
+        assertEquals(true, SleepEstimator.isPlausibleNight(23 * hour, 30 * hour))
+    }
+
+    @Test
     fun simpleNight() {
         val sleep = SleepEstimator.estimate(start, end, listOf(on(17.0), off(23.5), on(31.0)), emptyMap())
         assertEquals(SleepWindow((23.5 * hour).toLong(), 31 * hour), sleep)

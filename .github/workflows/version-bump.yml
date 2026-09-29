@@ -1,0 +1,78 @@
+name: Version Bump
+
+# Runs when a dev -> main PR is opened or updated. Works out the next
+# version from conventional commits since the last release tag and pushes
+# the bump to dev so the PR picks it up.
+#   feat:             minor (1.0.2 -> 1.1.0)
+#   anything else:    patch (1.0.2 -> 1.0.3)
+#   BREAKING CHANGE:  major
+# versionCode always goes up by one. With no tags yet, the current
+# version is released as is.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    name: Bump version
+    runs-on: ubuntu-latest
+    if: github.head_ref == 'dev'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Compute next version
+        id: version
+        run: |
+          CURRENT=$(grep -E '^\s*versionName ' app/build.gradle | head -1 | sed -E 's/.*"(.*)".*/\1/')
+          CODE=$(grep -E '^\s*versionCode ' app/build.gradle | head -1 | awk '{print $2}')
+          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No release tags yet, keeping $CURRENT"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          RELEASED=${LATEST_TAG#v}
+          if [ "$CURRENT" != "$RELEASED" ]; then
+            echo "dev is already at $CURRENT, ahead of $RELEASED"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          MAJOR=$(echo "$RELEASED" | cut -d. -f1)
+          MINOR=$(echo "$RELEASED" | cut -d. -f2)
+          PATCH=$(echo "$RELEASED" | cut -d. -f3)
+          COMMITS=$(git log "$LATEST_TAG..HEAD" --pretty=format:"%s%n%b")
+          if echo "$COMMITS" | grep -qE "BREAKING CHANGE|^[a-z]+(\(.+\))?!:"; then
+            MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+          elif echo "$COMMITS" | grep -qE "^feat(\(.+\))?:"; then
+            MINOR=$((MINOR + 1)); PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+          echo "name=$MAJOR.$MINOR.$PATCH" >> "$GITHUB_OUTPUT"
+          echo "code=$((CODE + 1))" >> "$GITHUB_OUTPUT"
+          echo "needed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Update build.gradle
+        if: steps.version.outputs.needed == 'true'
+        run: |
+          sed -i -E "s/^(\s*versionCode ).*/\1${{ steps.version.outputs.code }}/" app/build.gradle
+          sed -i -E "s/^(\s*versionName ).*/\1\"${{ steps.version.outputs.name }}\"/" app/build.gradle
+          git diff app/build.gradle
+
+      - name: Commit and push
+        if: steps.version.outputs.needed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/build.gradle
+          git commit -m "chore: bump version to ${{ steps.version.outputs.name }} [skip ci]"
+          git push origin dev

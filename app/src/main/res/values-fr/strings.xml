@@ -93,7 +93,6 @@
     <string name="import_warning_message">Toutes les données de pas actuelles seront supprimées et remplacées par celles importées. Continuer ?</string>
     <string name="pref_vehicle_filter_title">Filtrage précis des pas</string>
     <string name="pref_vehicle_filter_summary">Utilisez l\'API Activity Recognition pour ignorer les pas en voiture, bus ou vélo. Nécessite les services Google Play.</string>
-    <string name="pref_vehicle_filter_summary_foss">Reconnaissance des pas plus précise via l\'API Google Play Services, disponible uniquement sur la version complète. Voir sur Github (github.com/nvllz/stepsy).</string>
     <string name="vehicle_filter_unavailable">L\'API Activity Recognition n\'est pas disponible sur cet appareil</string>
 
     <string name="header_about">Informations sur l\'application</string>

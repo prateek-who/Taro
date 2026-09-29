@@ -1,5 +1,7 @@
 package com.nvllz.stepsy.ui
 
+import java.util.Date
+import java.text.SimpleDateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -54,11 +56,7 @@ import com.nvllz.stepsy.util.WeightReminderScheduler
 import com.nvllz.stepsy.energy.Metabolism
 import com.nvllz.stepsy.ui.components.HeroRing
 import com.nvllz.stepsy.ui.components.RollingText
-import com.nvllz.stepsy.ui.components.LegendItem
 import com.nvllz.stepsy.ui.components.PrimaryButton
-import com.nvllz.stepsy.ui.components.SettingsCard
-import com.nvllz.stepsy.ui.components.SettingsDivider
-import com.nvllz.stepsy.ui.components.StatRow
 import com.nvllz.stepsy.ui.components.StepsBarChart
 import com.nvllz.stepsy.ui.theme.StepsyTheme
 import com.nvllz.stepsy.util.AppPreferences
@@ -68,6 +66,19 @@ import java.text.NumberFormat
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.roundToInt
+import com.nvllz.stepsy.ui.components.Panel
+import com.nvllz.stepsy.ui.components.StatPill
+import com.nvllz.stepsy.ui.components.StatTile
+import com.nvllz.stepsy.ui.components.SectionLabel
+import com.nvllz.stepsy.ui.components.TintChip
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.lerp
+import com.nvllz.stepsy.util.CalorieGoal
+import com.nvllz.stepsy.energy.DietGoal
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
 
 object EnergyTab : Tab {
     override val options: TabOptions
@@ -134,20 +145,13 @@ private fun EnergyContent(tracking: TrackingState) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
         ) {
-            Text(
-                text = stringResource(R.string.energy_header).uppercase(),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 12.dp, bottom = 20.dp),
-            )
-
             if (history == null || todayBurn == null) {
-                SettingsCard {
+                Panel(modifier = Modifier.padding(top = 24.dp)) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp),
+                            .padding(12.dp),
                     ) {
                         Text(
                             text = stringResource(R.string.energy_missing_title),
@@ -158,9 +162,8 @@ private fun EnergyContent(tracking: TrackingState) {
                             text = stringResource(R.string.energy_missing_message),
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .padding(vertical = 12.dp)
-                                .alpha(0.8f),
+                            color = StepsyTheme.colors.accent,
+                            modifier = Modifier.padding(vertical = 12.dp),
                         )
                         PrimaryButton(
                             text = stringResource(R.string.energy_add_details),
@@ -170,102 +173,143 @@ private fun EnergyContent(tracking: TrackingState) {
                     }
                 }
             } else {
+                val colors = StepsyTheme.colors
+                val restingColor = lerp(colors.flame, colors.special, 0.3f).copy(alpha = 0.55f).compositeOver(colors.background)
+                val digestionColor = lerp(colors.flame, colors.special, 0.6f)
+
                 HeroRing(
                     segments = listOf(
-                        RingSegment(todayBurn.resting, StepsyTheme.colors.accent),
-                        RingSegment(todayBurn.active, StepsyTheme.colors.flame),
-                        RingSegment(todayBurn.logged, StepsyTheme.colors.special),
-                        RingSegment(todayBurn.digestion, StepsyTheme.colors.accent.copy(alpha = 0.45f)),
+                        RingSegment(todayBurn.resting, restingColor),
+                        RingSegment(todayBurn.active, colors.flame),
+                        RingSegment(todayBurn.logged, colors.special),
+                        RingSegment(todayBurn.digestion, digestionColor),
                     ),
                     target = history.dailyNeed,
+                    modifier = Modifier.padding(top = 8.dp),
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        RollingText(
-                            text = kcal(todayBurn.total),
-                            style = MaterialTheme.typography.displaySmall.copy(
-                                fontSize = 40.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            ),
-                        )
-                        Text(stringResource(R.string.energy_burned_so_far), fontSize = 14.sp, color = StepsyTheme.colors.accent)
-                        Text(
-                            text = stringResource(R.string.energy_caption),
-                            fontSize = 12.sp,
-                            modifier = Modifier.alpha(0.7f),
-                        )
-                        Text(
-                            text = stringResource(R.string.energy_of_need, kcal(history.dailyNeed)),
-                            fontSize = 12.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .padding(top = 4.dp)
-                                .alpha(0.7f),
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.header_today).uppercase(),
+                        fontSize = 13.sp,
+                        letterSpacing = 2.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.accent,
+                    )
+                    RollingText(
+                        text = kcal(todayBurn.total),
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontSize = 52.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                    Text(
+                        text = stringResource(R.string.energy_ring_caption, kcal(history.dailyNeed)),
+                        fontSize = 14.sp,
+                        color = colors.accent,
+                    )
                 }
 
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 20.dp),
+                        .padding(top = 4.dp, bottom = 8.dp),
                 ) {
-                    LegendItem(StepsyTheme.colors.accent, stringResource(R.string.energy_resting), kcal(todayBurn.resting))
-                    LegendItem(StepsyTheme.colors.flame, stringResource(R.string.energy_steps_label), kcal(todayBurn.active))
-                    LegendItem(StepsyTheme.colors.special, stringResource(R.string.energy_logged), kcal(todayBurn.logged))
-                    LegendItem(StepsyTheme.colors.accent.copy(alpha = 0.45f), stringResource(R.string.energy_digestion), kcal(todayBurn.digestion))
+                    StatPill(R.drawable.ic_sleep, "${stringResource(R.string.energy_resting)} ${kcal(todayBurn.resting)}", restingColor, lit = false)
+                    StatPill(R.drawable.ic_steps, "${stringResource(R.string.energy_steps_label)} ${kcal(todayBurn.active)}", colors.flame, lit = false)
+                    StatPill(R.drawable.ic_calories, "${stringResource(R.string.energy_logged)} ${kcal(todayBurn.logged)}", colors.special, lit = false)
+                    StatPill(R.drawable.ic_calorie_goal, "${stringResource(R.string.energy_digestion)} ${kcal(todayBurn.digestion)}", digestionColor, lit = false)
                 }
 
-                SettingsCard {
-                    val kcalLabel = @Composable { value: Double -> stringResource(R.string.energy_kcal, kcal(value)) }
-                    StatRow(stringResource(R.string.energy_daily_need), kcalLabel(history.dailyNeed))
-                    SettingsDivider()
-                    StatRow(
-                        label = stringResource(R.string.calorie_goal),
-                        value = if (calorieGoal == null) stringResource(R.string.calorie_goal_set) else calorieGoalSummary(calorieGoal),
-                        onClick = { editingGoal = true },
-                    )
-                    calorieGoal?.let { goal ->
-                        val target = Metabolism.calorieTarget(history.dailyNeed, goal.goal, goal.adjustment)
-                        SettingsDivider()
-                        StatRow(stringResource(R.string.calorie_goal_eat_today), kcalLabel(target))
-                        if (target < history.restingPerDay) {
+                val target = calorieGoal?.let { Metabolism.calorieTarget(history.dailyNeed, it.goal, it.adjustment) } ?: history.dailyNeed
+                Panel(modifier = Modifier.padding(top = 16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = stringResource(R.string.calorie_goal_below_resting),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
+                                text = stringResource(R.string.calorie_goal_eat_today).uppercase(),
+                                fontSize = 12.sp,
+                                letterSpacing = 2.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colors.accent,
                             )
+                            RollingText(
+                                text = kcal(target),
+                                style = MaterialTheme.typography.displaySmall.copy(
+                                    fontWeight = FontWeight.Normal,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                ),
+                            )
+                            Text(stringResource(R.string.energy_eat_today_caption), fontSize = 13.sp, color = colors.accent)
                         }
+                        TintChip(
+                            text = goalChip(calorieGoal),
+                            color = if (calorieGoal == null) colors.accent else colors.goal,
+                            onClick = { editingGoal = true },
+                        )
                     }
-                    SettingsDivider()
-                    StatRow(
-                        stringResource(R.string.energy_projected),
-                        kcalLabel(Metabolism.withDigestion(history.restingPerDay + todayBurn.active + todayBurn.logged)),
-                    )
-                    SettingsDivider()
-                    StatRow(stringResource(R.string.energy_total_so_far), kcalLabel(todayBurn.total))
+                    if (calorieGoal != null && target < history.restingPerDay) {
+                        TintChip(
+                            text = stringResource(R.string.calorie_goal_below_resting),
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
+                        )
+                    }
                 }
 
-                SectionTitle(R.string.weight_title)
-                SettingsCard {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp),
+                ) {
+                    StatTile(
+                        label = stringResource(R.string.energy_daily_need),
+                        value = stringResource(R.string.energy_kcal, kcal(history.dailyNeed)),
+                        modifier = Modifier.weight(1f),
+                    )
+                    StatTile(
+                        label = stringResource(R.string.energy_projected),
+                        value = stringResource(
+                            R.string.energy_kcal,
+                            kcal(Metabolism.withDigestion(history.restingPerDay + todayBurn.active + todayBurn.logged)),
+                        ),
+                        color = colors.flame,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                SectionLabel(stringResource(R.string.weight_title))
+                Panel {
                     if (weightPoints.isEmpty()) {
                         Text(
                             text = stringResource(R.string.weight_empty),
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
+                            color = colors.accent,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(20.dp)
-                                .alpha(0.7f),
+                                .padding(12.dp),
                         )
                     } else {
                         val latest = weightPoints.last()
-                        StatRow(stringResource(R.string.weight_trend), Util.formatWeight(latest.trend))
-                        weekChange(weightPoints)?.let {
-                            SettingsDivider()
-                            StatRow(stringResource(R.string.weight_change_week), Util.formatWeightChange(it))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.energy_weight_trend).uppercase(),
+                                    fontSize = 12.sp,
+                                    letterSpacing = 2.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colors.accent,
+                                )
+                                RollingText(
+                                    text = Util.formatWeight(latest.trend),
+                                    style = MaterialTheme.typography.headlineMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                                )
+                            }
+                            weekChange(weightPoints)?.let {
+                                TintChip(stringResource(R.string.weight_week_chip, Util.formatWeightChange(it)), colors.accent)
+                            }
                         }
                         WeightChart(
                             points = weightPoints.filter { !it.date.isBefore(Util.logicalToday().minusDays(30)) },
@@ -273,7 +317,7 @@ private fun EnergyContent(tracking: TrackingState) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(140.dp)
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                                .padding(horizontal = 4.dp, vertical = 8.dp),
                         )
                         PaceMessage(
                             assessment = WeightTrend.assess(
@@ -283,40 +327,39 @@ private fun EnergyContent(tracking: TrackingState) {
                                 latest.trend,
                             ),
                             goal = calorieGoal?.goal,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         )
                     }
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                            .padding(8.dp),
                     ) {
                         PrimaryButton(
                             text = stringResource(R.string.weight_log),
                             onClick = { loggingWeight = true },
+                            icon = R.drawable.ic_weight,
                             modifier = Modifier.weight(1f),
                         )
                         SecondaryButton(stringResource(R.string.weight_history), onClick = { rootNavigator.push(WeightScreen) })
                     }
                 }
 
-                SectionTitle(R.string.energy_logged_title)
-                SettingsCard {
+                SectionLabel(stringResource(R.string.energy_logged_title))
+                Panel {
                     if (activities.isEmpty()) {
                         Text(
                             text = stringResource(R.string.energy_logged_empty),
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
+                            color = colors.accent,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(20.dp)
-                                .alpha(0.7f),
+                                .padding(12.dp),
                         )
                     } else {
-                        activities.forEachIndexed { index, activity ->
-                            if (index > 0) SettingsDivider()
+                        activities.forEach { activity ->
                             LoggedActivityRow(activity) {
                                 Database.getInstance(context).deleteActivity(activity.id)
                                 activityVersion++
@@ -327,41 +370,49 @@ private fun EnergyContent(tracking: TrackingState) {
                     PrimaryButton(
                         text = stringResource(R.string.energy_add_activity),
                         onClick = { logging = true },
+                        icon = R.drawable.ic_calories,
+                        tint = colors.special,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                            .padding(8.dp),
                     )
                 }
 
                 val week = history.pastDays + todayBurn
-                SectionTitle(R.string.energy_last_7_days)
-                Text(
-                    text = stringResource(R.string.energy_last_7_days_caption),
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .padding(bottom = 8.dp)
-                        .alpha(0.6f),
-                )
-                StepsBarChart(
-                    values = week.map { it.total.roundToInt() },
-                    labels = week.map { day ->
-                        Calendar.getInstance().apply { timeInMillis = Util.dateStringToCalendarMillis(day.date) }
-                            .getDisplayName(Calendar.DAY_OF_WEEK, Calendar.SHORT, Locale.getDefault()).orEmpty()
-                    },
-                    goal = 0,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
-                )
+                var selectedBar by remember { mutableStateOf<Int?>(null) }
+                SectionLabel(stringResource(R.string.energy_last_7_days))
+                Panel(modifier = Modifier.height(260.dp)) {
+                    Text(
+                        text = stringResource(R.string.energy_last_7_days_caption),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        color = colors.accent,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                    )
+                    StepsBarChart(
+                        values = week.map { it.total.roundToInt() },
+                        labels = week.map { day ->
+                            Calendar.getInstance().apply { timeInMillis = Util.dateStringToCalendarMillis(day.date) }
+                                .getDisplayName(Calendar.DAY_OF_WEEK, Calendar.SHORT, Locale.getDefault()).orEmpty()
+                        },
+                        goal = 0,
+                        barTint = colors.flame,
+                        selectedIndex = selectedBar,
+                        onBarClick = { selectedBar = if (selectedBar == it) null else it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                    )
+                }
 
                 Text(
                     text = stringResource(R.string.energy_footnote),
-                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 12.sp,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .padding(top = 20.dp, bottom = 24.dp)
-                        .alpha(0.6f),
+                    color = colors.accent,
+                    modifier = Modifier.padding(top = 20.dp, bottom = 24.dp),
                 )
             }
         }
@@ -371,8 +422,8 @@ private fun EnergyContent(tracking: TrackingState) {
         LogWeightDialog(
             title = stringResource(R.string.weight_dialog_title),
             initialKg = weightPoints.lastOrNull()?.kg ?: AppPreferences.weight,
-            onSave = {
-                WeightJournal.log(context, Util.todayDateString(), it)
+            onSave = { kg, date ->
+                WeightJournal.log(context, date.toString(), kg)
                 WeightReminderScheduler.dismissNotification(context)
                 loggingWeight = false
                 weightVersion++
@@ -398,10 +449,10 @@ private fun EnergyContent(tracking: TrackingState) {
     if (logging) {
         LogActivityDialog(
             weightKg = weight.toDouble(),
-            onSave = { name, minutes, kcal ->
+            onSave = { name, minutes, kcal, date ->
                 Database.getInstance(context).addActivity(
                     LoggedActivity(
-                        date = Util.todayDateString(),
+                        date = date.toString(),
                         name = name,
                         kcal = kcal,
                         durationMinutes = minutes,
@@ -410,7 +461,12 @@ private fun EnergyContent(tracking: TrackingState) {
                 )
                 logging = false
                 activityVersion++
-                toast.show(context.getString(R.string.activity_saved), ToastKind.SUCCESS)
+                val message = if (date == Util.logicalToday()) {
+                    context.getString(R.string.activity_saved)
+                } else {
+                    context.getString(R.string.saved_for_date, SimpleDateFormat(AppPreferences.dateFormatString, Locale.getDefault()).format(Date(Util.dateStringToCalendarMillis(date.toString()))))
+                }
+                toast.show(message, ToastKind.SUCCESS)
             },
             onDismiss = { logging = false },
         )
@@ -439,12 +495,11 @@ private fun EnergyContent(tracking: TrackingState) {
 }
 
 @Composable
-private fun SectionTitle(textRes: Int) {
-    Text(
-        text = stringResource(textRes).uppercase(),
-        fontSize = 14.sp,
-        modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
-    )
+private fun goalChip(goal: CalorieGoal?): String = when (goal?.goal) {
+    null -> stringResource(R.string.calorie_goal_set)
+    DietGoal.CUT -> stringResource(R.string.calorie_goal_chip_cut, "\u2212${goal.adjustment}")
+    DietGoal.MAINTAIN -> stringResource(R.string.calorie_goal_maintain)
+    DietGoal.BULK -> stringResource(R.string.calorie_goal_chip_bulk, goal.adjustment.toString())
 }
 
 @Composable
@@ -453,12 +508,15 @@ private fun LoggedActivityRow(activity: LoggedActivity, onDelete: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            .padding(horizontal = 4.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(StepsyTheme.colors.special.copy(alpha = 0.08f))
+            .padding(start = 14.dp, top = 6.dp, bottom = 6.dp),
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(activity.name, fontSize = 16.sp)
+            Text(activity.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             activity.durationMinutes?.let {
-                Text(stringResource(R.string.activity_minutes_value, it), fontSize = 13.sp, modifier = Modifier.alpha(0.6f))
+                Text(stringResource(R.string.activity_minutes_value, it), fontSize = 13.sp, color = StepsyTheme.colors.accent)
             }
         }
         Text(
@@ -472,6 +530,7 @@ private fun LoggedActivityRow(activity: LoggedActivity, onDelete: () -> Unit) {
                 painter = painterResource(R.drawable.ic_delete),
                 contentDescription = stringResource(R.string.activity_delete, activity.name),
                 tint = StepsyTheme.colors.accent,
+                modifier = Modifier.size(20.dp),
             )
         }
     }

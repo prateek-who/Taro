@@ -90,7 +90,6 @@
     <string name="import_warning_message">Dabei werden alle aktuellen Schrittdaten gelöscht und durch die importierten ersetzt. Möchten Sie fortfahren?</string>
     <string name="pref_vehicle_filter_title">Genaue Schrittfilterung</string>
     <string name="pref_vehicle_filter_summary">Nutzen Sie die Activity Recognition API, um Schritte im Auto, Bus oder auf dem Rad zu ignorieren. Erfordert Google Play Services.</string>
-    <string name="pref_vehicle_filter_summary_foss">Präzisere Schritterkennung via Google Play Services API, nur im Full-Build verfügbar. Erhältlich auf Github (github.com/nvllz/stepsy).</string>
     <string name="vehicle_filter_unavailable">Activity Recognition API ist auf diesem Gerät nicht verfügbar</string>
 
     <string name="header_about">App-Informationen</string>

@@ -90,7 +90,6 @@
     <string name="import_warning_message">現在の歩数データをインポートされたデータで上書きします。続けますか？</string>
     <string name="pref_vehicle_filter_title">正確な歩数フィルタリング</string>
     <string name="pref_vehicle_filter_summary">オフラインのActivity Recognition APIを使用して、車・バス・自転車乗車時の歩数カウントを除外します。 Google Playサービスが必要です</string>
-    <string name="pref_vehicle_filter_summary_foss">Google Play Services API を使用したより正確な歩数認識。フルビルドでのみ利用可能。 Github (github.com/nvllz/stepsy) で入手できます。</string>
     <string name="vehicle_filter_unavailable">このデバイスではActivity Recognition API を使用できません</string>
 
     <string name="header_about">アプリ情報</string>

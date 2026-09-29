@@ -21,6 +21,7 @@ data class StepsyColors(
     val special: Color,
     val goal: Color,
     val flame: Color,
+    val sleep: Color,
 )
 
 val LocalStepsyColors = staticCompositionLocalOf {
@@ -32,6 +33,7 @@ val LocalStepsyColors = staticCompositionLocalOf {
         special = Color.Unspecified,
         goal = Color.Unspecified,
         flame = Color.Unspecified,
+        sleep = Color.Unspecified,
     )
 }
 
@@ -57,6 +59,7 @@ fun StepsyTheme(content: @Composable () -> Unit) {
         special = colorResource(R.color.colorSpecial),
         goal = colorResource(R.color.colorGoal),
         flame = colorResource(R.color.colorFlame),
+        sleep = colorResource(R.color.colorSleep),
     )
 
     val base = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()

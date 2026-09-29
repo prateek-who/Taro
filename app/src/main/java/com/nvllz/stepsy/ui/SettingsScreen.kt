@@ -161,8 +161,7 @@ private fun SettingsContent(
     val imperial = unitSystem == UnitSystem.IMPERIAL
     val unitValue = if (imperial) "imperial" else "metric"
     val estimatedStepLength = Util.estimateStepLength(height, legLength)
-    val isFullBuild = BuildConfig.HAS_PROPRIETARY_LIBRARIES
-    val hasPlayServices = remember { isFullBuild && isPlayServicesAvailable(context) }
+    val hasPlayServices = remember { isPlayServicesAvailable(context) }
 
     val languages = choices(R.array.language_names, R.array.language_values)
     val themes = choices(R.array.theme_entries, R.array.theme_values)
@@ -278,20 +277,16 @@ private fun SettingsContent(
                     icon = R.drawable.ic_car,
                     title = stringResource(R.string.pref_vehicle_filter_title),
                     summary = stringResource(
-                        when {
-                            !isFullBuild -> R.string.pref_vehicle_filter_summary_foss
-                            !hasPlayServices -> R.string.vehicle_filter_unavailable
-                            else -> R.string.pref_vehicle_filter_summary
-                        }
+                        if (hasPlayServices) R.string.pref_vehicle_filter_summary else R.string.vehicle_filter_unavailable
                     ),
                     enabled = hasPlayServices,
                     onClick = { onVehicleFilterChange(!vehicleFilter) },
                     showChevron = false,
                 ) {
                     StepsySwitch(
-                        checked = isFullBuild && hasPlayServices && vehicleFilter,
+                        checked = hasPlayServices && vehicleFilter,
                         onCheckedChange = ::onVehicleFilterChange,
-                        enabled = isFullBuild,
+                        enabled = hasPlayServices,
                         modifier = Modifier.padding(start = 16.dp),
                     )
                 }

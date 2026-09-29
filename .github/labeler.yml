@@ -1,0 +1,51 @@
+ui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - app/src/main/java/com/nvllz/stepsy/ui/**
+          - app/src/main/res/**
+
+energy:
+  - changed-files:
+      - any-glob-to-any-file: app/src/main/java/com/nvllz/stepsy/energy/**
+
+sleep:
+  - changed-files:
+      - any-glob-to-any-file: app/src/main/java/com/nvllz/stepsy/sleep/**
+
+tracking:
+  - changed-files:
+      - any-glob-to-any-file:
+          - app/src/main/java/com/nvllz/stepsy/service/**
+          - app/src/main/java/com/nvllz/stepsy/calibration/**
+
+database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - app/src/main/java/com/nvllz/stepsy/data/**
+          - app/schemas/**
+
+widget:
+  - changed-files:
+      - any-glob-to-any-file: app/src/main/java/com/nvllz/stepsy/widget/**
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: app/src/test/**
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+
+build:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.gradle"
+          - gradle/**
+          - gradle.properties
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - fastlane/**

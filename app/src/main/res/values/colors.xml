@@ -9,6 +9,7 @@
     <color name="colorGoal">#2E7D32</color>
     <color name="colorFlame">#E65100</color>
     <color name="colorSpecial">#CCAA3F</color>
+    <color name="colorSleep">#3949AB</color>
 
     <color name="widgetPrimary">#161616</color>
     <color name="widgetSecondary">#292929</color>

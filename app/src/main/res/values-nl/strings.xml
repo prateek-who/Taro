@@ -90,7 +90,6 @@
     <string name="import_warning_message">Dit verwijdert alle huidige stapgegevens en vervangt ze door de geïmporteerde gegevens. Doorgaan?</string>
     <string name="pref_vehicle_filter_title">Nauwkeurige stappenfilter</string>
     <string name="pref_vehicle_filter_summary">Gebruik de Activity Recognition API om stappen in de auto, bus of op de fiets te negeren. Vereist Google Play Services.</string>
-    <string name="pref_vehicle_filter_summary_foss">Nauwkeurigere stapherkenning via Google Play Services API, alleen in de volledige build. Beschikbaar op Github (github.com/nvllz/stepsy).</string>
     <string name="vehicle_filter_unavailable">Activity Recognition API is niet beschikbaar op dit apparaat</string>
 
     <string name="header_about">App-info</string>

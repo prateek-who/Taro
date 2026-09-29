@@ -90,7 +90,6 @@
     <string name="import_warning_message">Detta tar bort all nuvarande stegdata och ersätter den med importerad data. Vill du fortsätta?</string>
     <string name="pref_vehicle_filter_title">Noggrann stegfiltrering</string>
     <string name="pref_vehicle_filter_summary">Använd Activity Recognition API för att ignorera steg i bil, buss eller på cykel. Kräver Google Play Services.</string>
-    <string name="pref_vehicle_filter_summary_foss">Mer exakt stegigenkänning via Google Play Services API, endast i den fullständiga versionen. Finns på Github (github.com/nvllz/stepsy).</string>
     <string name="vehicle_filter_unavailable">Activity Recognition API är inte tillgängligt på denna enhet</string>
 
     <string name="header_about">Appinfo</string>

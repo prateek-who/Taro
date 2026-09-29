@@ -87,7 +87,6 @@
     <string name="import_warning_message">这将删除当前所有步数数据，并用导入的数据替换。是否继续？</string>
     <string name="pref_vehicle_filter_title">精确步数过滤</string>
     <string name="pref_vehicle_filter_summary">使用活动识别 API 忽略在汽车、公交或骑行时的步数。需要 Google Play 服务。</string>
-    <string name="pref_vehicle_filter_summary_foss">通过 Google Play 服务 API 实现更精准的步数识别，仅限完整版。可在 Github 获取 (github.com/nvllz/stepsy)。</string>
     <string name="vehicle_filter_unavailable">此设备不支持活动识别 API</string>
 
     <string name="header_about">应用信息</string>

@@ -90,7 +90,6 @@
     <string name="import_warning_message">Bu işlem mevcut tüm adım verilerini siler ve içe aktarılan verilerle değiştirir. Devam edilsin mi?</string>
     <string name="pref_vehicle_filter_title">Hassas adım filtreleme</string>
     <string name="pref_vehicle_filter_summary">Araba, otobüs veya bisikletteki adımları yoksaymak için Etkinlik Tanıma API\'sini kullanın. Google Play Hizmetleri gerektirir.</string>
-    <string name="pref_vehicle_filter_summary_foss">Google Play Hizmetleri API\'si ile daha doğru adım tanıma, yalnızca tam sürümde mevcuttur. Github\'dan edinebilirsiniz (github.com/nvllz/stepsy).</string>
     <string name="vehicle_filter_unavailable">Etkinlik Tanıma API\'si bu cihazda kullanılamıyor</string>
 
     <string name="header_about">Uygulama bilgisi</string>

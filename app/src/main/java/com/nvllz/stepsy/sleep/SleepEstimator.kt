@@ -8,6 +8,8 @@ data class SleepWindow(val start: Long, val end: Long) {
 
 object SleepEstimator {
     const val MIN_SLEEP_MS = 3 * 60 * 60 * 1000L
+
+    fun isPlausibleNight(start: Long, end: Long) = end - start >= MIN_SLEEP_MS
     const val MAX_WAKE_GAP_MS = 10 * 60 * 1000L
     const val MAX_AWAKE_SHARE = 0.15
     const val ACTIVE_STEPS_PER_MINUTE = 15

@@ -176,5 +176,8 @@
 
         </receiver>
 
+        <receiver
+            android:name="com.nvllz.stepsy.sleep.SleepSegmentReceiver"
+            android:exported="false" />
     </application>
 </manifest>

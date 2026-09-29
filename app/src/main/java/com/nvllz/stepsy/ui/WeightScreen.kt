@@ -254,8 +254,8 @@ private fun WeightContent(onBack: () -> Unit) {
         WeightDialog.Log -> LogWeightDialog(
             title = stringResource(R.string.weight_dialog_title),
             initialKg = allPoints.lastOrNull()?.kg ?: AppPreferences.weight,
-            onSave = {
-                WeightJournal.log(context, Util.todayDateString(), it)
+            onSave = { kg, date ->
+                WeightJournal.log(context, date.toString(), kg)
                 WeightReminderScheduler.dismissNotification(context)
                 dialog = null
                 version++
@@ -266,8 +266,9 @@ private fun WeightContent(onBack: () -> Unit) {
         is WeightDialog.Edit -> LogWeightDialog(
             title = stringResource(R.string.weight_dialog_edit_title, formatDate(current.point)),
             initialKg = current.point.kg,
-            onSave = {
-                WeightJournal.log(context, current.point.date.toString(), it)
+            initialDate = current.point.date,
+            onSave = { kg, date ->
+                WeightJournal.move(context, current.point.date.toString(), date.toString(), kg)
                 dialog = null
                 version++
                 toast.show(context.getString(R.string.weight_saved), ToastKind.SUCCESS)

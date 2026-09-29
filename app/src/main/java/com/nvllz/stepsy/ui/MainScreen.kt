@@ -71,7 +71,7 @@ import com.nvllz.stepsy.ui.components.MessageDialog
 import com.nvllz.stepsy.ui.components.MonthCalendar
 import com.nvllz.stepsy.ui.components.NumberInputDialog
 import com.nvllz.stepsy.ui.components.PauseDialogs
-import com.nvllz.stepsy.ui.components.RangeChip
+import com.nvllz.stepsy.ui.components.SecondaryButton
 import com.nvllz.stepsy.ui.components.StepsBarChart
 import com.nvllz.stepsy.ui.theme.StepsyTheme
 import com.nvllz.stepsy.util.AppPreferences
@@ -311,7 +311,6 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
                             alpha = 1f - fraction * 0.9f
                             scaleX = 1f - fraction * 0.12f
                             scaleY = scaleX
-                            translationY = scrollState.value * 0.35f
                         }
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                 ) {
@@ -323,10 +322,10 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
                         onStepsLongClick = { if (isToday) dialog = MainDialog.EditSteps },
                     )
                     AnimatedVisibility(visible = pickedDay != null) {
-                        RangeChip(
-                            label = stringResource(R.string.back_to_range, selectionLabel(selection)),
-                            selected = false,
+                        SecondaryButton(
+                            text = stringResource(R.string.back_to_range, selectionLabel(selection)),
                             onClick = { pickedDay = null },
+                            modifier = Modifier.padding(top = 4.dp),
                         )
                     }
                     goal?.let {

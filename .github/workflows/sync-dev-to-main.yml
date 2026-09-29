@@ -1,0 +1,40 @@
+name: Sync dev to main
+
+# Opens or updates a dev -> main PR whenever dev is ahead of main.
+# Merging it triggers the release workflow.
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  create-pr:
+    name: Open PR from dev to main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check if dev is ahead of main
+        id: check
+        run: |
+          git fetch origin main:main || true
+          AHEAD=$(git rev-list --count main..dev)
+          echo "ahead=$AHEAD" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update PR
+        if: steps.check.outputs.ahead != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$(gh pr list --base main --head dev --state open --json number -q '.[].number')" ]; then
+            gh pr create --base main --head dev --title "chore: release dev to main" --label release \
+              --body "Automated PR to release \`dev\`. The version bump workflow updates \`app/build.gradle\` here, and merging builds a signed APK and publishes a GitHub Release." \
+              || gh pr create --base main --head dev --title "chore: release dev to main" \
+                --body "Automated PR to release \`dev\`. Merging publishes a GitHub Release."
+          fi

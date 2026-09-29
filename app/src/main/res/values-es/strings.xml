@@ -93,7 +93,6 @@
     <string name="import_warning_message">Esto eliminará todos los datos de pasos actuales y los reemplazará con los importados. ¿Deseas continuar?</string>
     <string name="pref_vehicle_filter_title">Filtro preciso de pasos</string>
     <string name="pref_vehicle_filter_summary">Usa la API de reconocimiento de actividad para ignorar pasos en coche, autobús o bici. Requiere Google Play Services.</string>
-    <string name="pref_vehicle_filter_summary_foss">Reconocimiento de pasos más preciso mediante Google Play Services, solo en la versión completa. Disponible en Github (github.com/nvllz/stepsy).</string>
     <string name="vehicle_filter_unavailable">La API de reconocimiento de actividad no está disponible en este dispositivo</string>
 
     <string name="header_about">Información de la app</string>

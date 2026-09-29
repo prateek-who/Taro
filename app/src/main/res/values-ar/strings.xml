@@ -101,7 +101,6 @@
     <string name="import_warning_message">سيؤدي هذا إلى حذف جميع بيانات الخطوات الحالية واستبدالها بالبيانات المستوردة. هل تريد المتابعة؟</string>
     <string name="pref_vehicle_filter_title">تصفية الخطوات بدقة</string>
     <string name="pref_vehicle_filter_summary">استخدم واجهة برمجة تطبيقات النشاط لتجاهل الخطوات أثناء التواجد في سيارة أو حافلة أو دراجة. يتطلب خدمات Google Play</string>
-    <string name="pref_vehicle_filter_summary_foss">تعرف أكثر دقة على الخطوات باستخدام Google Play Services، متوفر فقط في الإصدار الكامل. يمكن الحصول عليه من Github (github.com/nvllz/stepsy)</string>
     <string name="vehicle_filter_unavailable">واجهة برمجة تطبيقات التعرف على النشاط غير متوفرة على هذا الجهاز</string>
 
     <string name="header_about">عن التطبيق</string>

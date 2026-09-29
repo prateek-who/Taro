@@ -96,7 +96,6 @@
     <string name="import_warning_message">פעולה זו תמחק את כל נתוני הצעידה הנוכחיים ותחליף אותם בנתונים המיובאים. להמשיך?</string>
     <string name="pref_vehicle_filter_title">סינון צעדים מדויק</string>
     <string name="pref_vehicle_filter_summary">שימוש במפתח API לזיהוי פעילות בלתי־מקוון על מנת להפסיק את ספירת הצעדים כאשר נמצאים במכונית, באוטובוס, או על אופניים. נדרשים שירותי Google Play</string>
-    <string name="pref_vehicle_filter_summary_foss">זיהוי צעדים מדויק יותר שמשתמש במפתח ה־API של שירותי Google Play, הוא זמין בגרסה המלאה בלבד. ניתן להורידה מ־Github ‏(github.com/nvllz/stepsy)</string>
     <string name="vehicle_filter_unavailable">מפתח ה־API לזיהוי פעילות אינו זמין במכשיר זה</string>
 
     <string name="header_about">מידע על היישום</string>

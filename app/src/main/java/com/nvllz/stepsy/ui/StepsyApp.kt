@@ -186,8 +186,8 @@ fun StepsyApp() {
                 LogWeightDialog(
                     title = stringResource(R.string.weight_dialog_title),
                     initialKg = AppPreferences.weight,
-                    onSave = {
-                        WeightJournal.log(context, Util.todayDateString(), it)
+                    onSave = { kg, date ->
+                        WeightJournal.log(context, date.toString(), kg)
                         WeightReminderScheduler.dismissNotification(context)
                         weightPrompt = false
                         refreshKey++

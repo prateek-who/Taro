@@ -187,7 +187,7 @@ private fun DayCell(day: Int, selected: Boolean, today: Boolean, enabled: Boolea
             .size(38.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(fill)
-            .border(ring, onSurface, RoundedCornerShape(12.dp))
+            .then(if (ring > 0.dp) Modifier.border(ring, onSurface, RoundedCornerShape(12.dp)) else Modifier)
             .clickable(enabled = enabled, onClick = onClick)
             .alpha(if (enabled) 1f else 0.3f),
     ) {

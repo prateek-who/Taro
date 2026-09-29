@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -15,76 +16,168 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nvllz.stepsy.R
 import com.nvllz.stepsy.energy.Activities
 import com.nvllz.stepsy.energy.ActivityType
+import com.nvllz.stepsy.energy.CustomActivity
+import com.nvllz.stepsy.energy.Intensity
+import com.nvllz.stepsy.ui.components.LocalToast
 import com.nvllz.stepsy.ui.components.NumberField
+import com.nvllz.stepsy.ui.components.PillSelector
 import com.nvllz.stepsy.ui.components.RangeChip
 import com.nvllz.stepsy.ui.components.StepsyDialog
 import com.nvllz.stepsy.ui.components.StepsyTextField
+import com.nvllz.stepsy.ui.components.TintChip
+import com.nvllz.stepsy.ui.components.ToastKind
+import com.nvllz.stepsy.ui.theme.StepsyTheme
+import com.nvllz.stepsy.util.AppPreferences
+import com.nvllz.stepsy.util.Util
+import com.nvllz.stepsy.ui.components.DateRow
+import java.time.LocalDate
 import kotlin.math.roundToInt
 
 private val MINUTES_RANGE = 1..1440
 private val KCAL_RANGE = 1.0..5000.0
 
+private sealed interface Pick {
+    data class Builtin(val type: ActivityType) : Pick
+    data class Saved(val activity: CustomActivity) : Pick
+    data object New : Pick
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LogActivityDialog(
     weightKg: Double,
-    onSave: (name: String, minutes: Int?, kcal: Double) -> Unit,
+    onSave: (name: String, minutes: Int?, kcal: Double, date: LocalDate) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var type by remember { mutableStateOf(ActivityType.STRENGTH) }
-    var customName by remember { mutableStateOf(TextFieldValue()) }
+    val context = LocalContext.current
+    val toast = LocalToast.current
+    val saved by AppPreferences.customActivitiesFlow().collectAsStateWithLifecycle(AppPreferences.customActivities)
+    var pick by remember { mutableStateOf<Pick>(saved.lastOrNull()?.let { Pick.Saved(it) } ?: Pick.Builtin(ActivityType.STRENGTH)) }
+    var newName by remember { mutableStateOf(TextFieldValue()) }
+    var intensity by remember { mutableStateOf(Intensity.MODERATE) }
     var minutes by remember { mutableStateOf(TextFieldValue()) }
+    var date by remember { mutableStateOf(Util.logicalToday()) }
     var kcalInput by remember { mutableStateOf<TextFieldValue?>(null) }
 
+    val builtinName = (pick as? Pick.Builtin)?.let { stringResource(it.type.label) }
+    val name = when (val current = pick) {
+        is Pick.Builtin -> builtinName.orEmpty()
+        is Pick.Saved -> current.activity.name
+        Pick.New -> Activities.cleanName(newName.text)
+    }
+    val met = when (val current = pick) {
+        is Pick.Builtin -> current.type.met
+        is Pick.Saved -> current.activity.met
+        Pick.New -> intensity.met
+    }
     val minutesValue = minutes.text.toIntOrNull()?.takeIf { it in MINUTES_RANGE }
-    val estimate = type.met?.let { met -> minutesValue?.let { Activities.estimateActiveKcal(met, weightKg, it) } }
+    val estimate = minutesValue?.let { Activities.estimateActiveKcal(met, weightKg, it) }
     val kcalField = kcalInput ?: TextFieldValue(estimate?.roundToInt()?.toString().orEmpty())
     val kcalValue = kcalField.text.replace(',', '.').toDoubleOrNull()?.takeIf { it in KCAL_RANGE }
-    val typeName = stringResource(type.label)
-    val name = if (type == ActivityType.OTHER) customName.text.trim() else typeName
     val valid = kcalValue != null && name.isNotEmpty() && (minutes.text.isBlank() || minutesValue != null)
+
+    fun select(next: Pick) {
+        pick = next
+        kcalInput = null
+    }
 
     StepsyDialog(
         title = stringResource(R.string.activity_dialog_title),
         onDismiss = onDismiss,
         confirmText = stringResource(R.string.action_save),
         confirmEnabled = valid,
-        onConfirm = { if (kcalValue != null) onSave(name, minutesValue, kcalValue) },
+        onConfirm = {
+            if (kcalValue != null) {
+                if (pick == Pick.New) {
+                    AppPreferences.customActivities = Activities.withAdded(saved, CustomActivity(name, intensity.met))
+                }
+                onSave(name, minutesValue, kcalValue, date)
+            }
+        },
     ) {
         Column(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.verticalScroll(rememberScrollState()),
         ) {
+            DateRow(
+                label = stringResource(R.string.date_label),
+                date = date,
+                today = Util.logicalToday(),
+                onChange = { date = it },
+            )
+
             FlowRow(modifier = Modifier.fillMaxWidth()) {
-                ActivityType.entries.forEach { option ->
+                saved.forEach { activity ->
                     RangeChip(
-                        label = stringResource(option.label),
-                        selected = option == type,
-                        onClick = { type = option },
+                        label = activity.name,
+                        selected = pick == Pick.Saved(activity),
+                        onClick = { select(Pick.Saved(activity)) },
+                        onLongClick = {
+                            AppPreferences.customActivities = saved - activity
+                            if (pick == Pick.Saved(activity)) select(Pick.Builtin(ActivityType.STRENGTH))
+                            toast.show(context.getString(R.string.activity_removed, activity.name), ToastKind.INFO)
+                        },
                     )
                 }
+                ActivityType.entries.forEach { type ->
+                    RangeChip(
+                        label = stringResource(type.label),
+                        selected = pick == Pick.Builtin(type),
+                        onClick = { select(Pick.Builtin(type)) },
+                    )
+                }
+                RangeChip(
+                    label = stringResource(R.string.activity_new),
+                    selected = pick == Pick.New,
+                    onClick = { select(Pick.New) },
+                )
             }
 
-            if (type == ActivityType.OTHER) {
+            if (pick == Pick.New) {
                 StepsyTextField(
-                    value = customName,
-                    onValueChange = { customName = it },
+                    value = newName,
+                    onValueChange = { newName = it },
                     label = stringResource(R.string.activity_name),
                     modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = stringResource(R.string.activity_intensity),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = StepsyTheme.colors.accent,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+                PillSelector(
+                    options = Intensity.entries.map { it to stringResource(it.label) },
+                    selected = intensity,
+                    onSelect = {
+                        intensity = it
+                        kcalInput = null
+                    },
+                )
+                Text(
+                    text = stringResource(R.string.activity_saved_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = StepsyTheme.colors.accent,
+                    modifier = Modifier.padding(horizontal = 4.dp),
                 )
             }
 
             NumberField(
                 value = minutes,
-                onValueChange = { minutes = it },
+                onValueChange = {
+                    minutes = it
+                    kcalInput = null
+                },
                 label = stringResource(R.string.activity_minutes),
+                suffix = "min",
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -93,21 +186,20 @@ fun LogActivityDialog(
                 onValueChange = { kcalInput = it },
                 label = stringResource(R.string.activity_kcal),
                 decimal = true,
+                suffix = "kcal",
+                large = true,
                 modifier = Modifier.fillMaxWidth(),
             )
 
             if (kcalInput == null && estimate != null) {
-                Text(
-                    text = stringResource(R.string.activity_estimate_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.alpha(0.7f),
-                )
+                TintChip(text = stringResource(R.string.activity_estimate_note), color = StepsyTheme.colors.special)
             }
 
             Text(
                 text = stringResource(R.string.activity_tip),
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.alpha(0.7f),
+                color = StepsyTheme.colors.accent,
+                modifier = Modifier.padding(horizontal = 4.dp),
             )
         }
     }

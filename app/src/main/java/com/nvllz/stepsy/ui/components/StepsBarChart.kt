@@ -81,6 +81,8 @@ fun StepsBarChart(
     appearKey: Any? = Unit,
     selectedIndex: Int? = null,
     onBarClick: ((Int) -> Unit)? = null,
+    metColor: Color? = null,
+    barTint: Color? = null,
 ) {
     val appear = remember { Animatable(0f) }
     LaunchedEffect(appearKey) {
@@ -104,7 +106,7 @@ fun StepsBarChart(
         values.map { barColor(primary, it, min, max, dark) }
     }
     val goalColor = StepsyTheme.colors.accent.copy(alpha = 100 / 255f)
-    val goalMetColor = StepsyTheme.colors.goal
+    val goalMetColor = metColor ?: StepsyTheme.colors.goal
     val starColor = StepsyTheme.colors.special
     val anyGoalMet = highlightGoal > 0 && values.any { it >= highlightGoal }
     val measurer = rememberTextMeasurer()
@@ -177,6 +179,8 @@ fun StepsBarChart(
                 path = bar,
                 brush = if (metGoal) {
                     Brush.verticalGradient(listOf(goalMetColor, goalMetColor.copy(alpha = 0.45f)), startY = barTop, endY = baseline)
+                } else if (barTint != null) {
+                    Brush.verticalGradient(listOf(barTint, barTint.copy(alpha = 0.45f)), startY = barTop, endY = baseline)
                 } else {
                     SolidColor(colors[index])
                 },

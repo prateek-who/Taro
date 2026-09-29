@@ -1,5 +1,7 @@
 package com.nvllz.stepsy.ui.components
 
+import android.graphics.BlurMaskFilter
+import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -25,7 +27,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -39,6 +45,8 @@ import androidx.compose.ui.unit.sp
 import com.nvllz.stepsy.ui.theme.StepsyMotion
 import com.nvllz.stepsy.ui.theme.StepsyTheme
 import com.nvllz.stepsy.ui.theme.rememberAnimationsEnabled
+import kotlin.math.cos
+import kotlin.math.sin
 
 data class RingSegment(val value: Double, val color: Color)
 
@@ -91,35 +99,90 @@ fun HeroRing(
             if (firstLap <= 0f) return@Canvas
 
             rotate(-90f) {
+                val full = firstLap >= 0.999f
                 val glowAlpha = glow?.value ?: if (lit) 0.2f else 0f
-                if (glowAlpha > 0f) {
-                    drawArcAt(SolidColor(glowColor.copy(alpha = glowAlpha)), 0f, firstLap * 360f, radius, stroke * 2.2f, StrokeCap.Round)
+                if (glowAlpha > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    drawGlow(glowColor.copy(alpha = (glowAlpha * 2.2f).coerceAtMost(0.7f)), firstLap * 360f, radius, stroke)
                 }
 
                 if (gradient && segments.size == 1) {
                     val color = segments.first().color
-                    val brush = Brush.sweepGradient(
-                        0f to lerp(color, fade, 0.6f),
-                        firstLap to color,
-                        1f to lerp(color, fade, 0.6f),
-                        center = center,
-                    )
-                    drawArcAt(brush, 0f, firstLap * 360f, radius, stroke, StrokeCap.Round)
+                    if (full) {
+                        drawArcAt(SolidColor(color), 0f, 360f, radius, stroke, StrokeCap.Butt)
+                    } else {
+                        val dim = lerp(color, fade, 0.55f)
+                        val brush = Brush.sweepGradient(0f to dim, firstLap to color, 1f to dim, center = center)
+                        drawArcAt(brush, 0f, firstLap * 360f, radius, stroke, StrokeCap.Round)
+                    }
                 } else {
                     var cursor = 0f
+                    var firstColor: Color? = null
+                    var lastColor: Color? = null
+                    var drawnTo = 0f
                     segments.forEachIndexed { index, segment ->
                         val sweep = minOf(fractions[index], firstLap - cursor)
-                        if (sweep > 0f) drawArcAt(SolidColor(segment.color), cursor * 360f, sweep * 360f, radius, stroke, StrokeCap.Butt)
+                        if (sweep > 0f) {
+                            drawArcAt(SolidColor(segment.color), cursor * 360f, sweep * 360f, radius, stroke, StrokeCap.Butt)
+                            if (firstColor == null) firstColor = segment.color
+                            lastColor = segment.color
+                            drawnTo = cursor + sweep
+                        }
                         cursor += fractions[index]
+                    }
+                    if (!full) {
+                        firstColor?.let { drawCap(it, 0f, radius, stroke) }
+                        lastColor?.let { drawCap(it, drawnTo * 360f, radius, stroke) }
                     }
                 }
 
                 val secondLap = (shown - 1f).coerceIn(0f, 1f)
-                if (secondLap > 0f) drawArcAt(SolidColor(bonus), 0f, secondLap * 360f, radius, stroke * 0.55f, StrokeCap.Round)
+                if (secondLap > 0f) {
+                    val tip = pointAt(secondLap * 360f + 4f, radius)
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent),
+                            center = tip,
+                            radius = stroke * 0.9f,
+                        ),
+                        radius = stroke * 0.9f,
+                        center = tip,
+                    )
+                    val base = segments.firstOrNull()?.color ?: bonus
+                    val brush = Brush.sweepGradient(
+                        0f to base,
+                        secondLap to bonus,
+                        1f to base,
+                        center = center,
+                    )
+                    drawArcAt(brush, 0f, secondLap * 360f, radius, stroke, StrokeCap.Round)
+                }
             }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally, content = content)
     }
+}
+
+private fun DrawScope.drawGlow(color: Color, sweep: Float, radius: Float, stroke: Float) {
+    val paint = Paint().asFrameworkPaint().apply {
+        isAntiAlias = true
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = stroke * 1.3f
+        strokeCap = android.graphics.Paint.Cap.ROUND
+        this.color = color.toArgb()
+        maskFilter = BlurMaskFilter(stroke * 0.8f, BlurMaskFilter.Blur.NORMAL)
+    }
+    drawIntoCanvas {
+        it.nativeCanvas.drawArc(center.x - radius, center.y - radius, center.x + radius, center.y + radius, 0f, sweep, false, paint)
+    }
+}
+
+private fun DrawScope.pointAt(degrees: Float, radius: Float): Offset {
+    val angle = Math.toRadians(degrees.toDouble())
+    return Offset(center.x + radius * cos(angle).toFloat(), center.y + radius * sin(angle).toFloat())
+}
+
+private fun DrawScope.drawCap(color: Color, degrees: Float, radius: Float, stroke: Float) {
+    drawCircle(color = color, radius = stroke / 2, center = pointAt(degrees, radius))
 }
 
 private fun DrawScope.drawArcAt(brush: Brush, start: Float, sweep: Float, radius: Float, stroke: Float, cap: StrokeCap) {

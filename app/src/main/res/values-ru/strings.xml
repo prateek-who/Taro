@@ -96,7 +96,6 @@
     <string name="import_warning_message">Все текущие данные шагов будут удалены и заменены импортированными. Продолжить?</string>
     <string name="pref_vehicle_filter_title">Точная фильтрация шагов</string>
     <string name="pref_vehicle_filter_summary">Игнорируйте шаги в машине, автобусе или на велосипеде с помощью Activity Recognition API. Требуются сервисы Google Play.</string>
-    <string name="pref_vehicle_filter_summary_foss">Более точное распознавание через Google Play Services API, доступно только в полной версии. Скачайте на Github (github.com/nvllz/stepsy).</string>
     <string name="vehicle_filter_unavailable">Activity Recognition API недоступно на этом устройстве</string>
 
     <string name="header_about">Информация о приложении</string>

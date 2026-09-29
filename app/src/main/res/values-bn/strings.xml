@@ -90,7 +90,6 @@
     <string name="import_warning_message">এতে বর্তমান সব ধাপের ডেটা মুছে যাবে এবং আমদানি করা ডেটা দিয়ে প্রতিস্থাপিত হবে। চালিয়ে যাবেন?</string>
     <string name="pref_vehicle_filter_title">সঠিক ধাপ ফিল্টারিং</string>
     <string name="pref_vehicle_filter_summary">গাড়ি, বাস বা বাইকে থাকাকালীন ধাপগুলো উপেক্ষা করতে অ্যাক্টিভিটি রিকগনিশন API ব্যবহার করুন। Google Play Services প্রয়োজন।</string>
-    <string name="pref_vehicle_filter_summary_foss">Google Play Services API ব্যবহার করে আরও নির্ভুল ধাপ শনাক্তকরণ, যা শুধুমাত্র ফুল বিল্ডে উপলব্ধ। এটি Github-এ পাবেন (github.com/nvllz/stepsy)।</string>
     <string name="vehicle_filter_unavailable">অ্যাক্টিভিটি রিকগনিশন API এই ডিভাইসে উপলব্ধ নেই</string>
 
     <string name="header_about">অ্যাপ তথ্য</string>
