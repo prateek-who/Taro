@@ -114,7 +114,8 @@ private fun SleepContent(tracking: TrackingState) {
     var dialog by remember { mutableStateOf<SleepDialog?>(null) }
 
     val today = SleepDates.today()
-    val sessions = remember(version, tracking.refreshKey) { SleepRepository.sessions(context, 14) }
+    val dataVersion = rememberDataVersion()
+    val sessions = remember(version, tracking.refreshKey, dataVersion) { SleepRepository.sessions(context, 14) }
     val lastNight = sessions.firstOrNull { it.wakeDate == today.toString() }
     val week = sessions.filter { !LocalDate.parse(it.wakeDate).isBefore(today.minusDays(6)) }.map { it.toNight() }
     val timeFormat = remember { android.text.format.DateFormat.getTimeFormat(context) }

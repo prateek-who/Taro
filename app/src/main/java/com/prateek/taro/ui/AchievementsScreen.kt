@@ -1,20 +1,28 @@
 package com.prateek.taro.ui
 
-import android.content.Context
+import com.prateek.taro.util.AppPreferences
+import com.prateek.taro.ui.components.ToastKind
+import com.prateek.taro.ui.components.SecondaryButton
+import com.prateek.taro.ui.components.LocalToast
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.prateek.taro.ui.theme.TaroMotion
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,36 +30,48 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.prateek.taro.R
+import com.prateek.taro.achievements.AchievementData
+import com.prateek.taro.achievements.AchievementInputs
+import com.prateek.taro.achievements.BadgeCategory
+import com.prateek.taro.achievements.BadgeResult
+import com.prateek.taro.achievements.BadgeUnit
+import com.prateek.taro.achievements.Rules
+import com.prateek.taro.ui.components.Panel
+import com.prateek.taro.ui.components.PillSelector
+import com.prateek.taro.ui.components.ScrollingColumn
+import com.prateek.taro.ui.components.SectionLabel
+import com.prateek.taro.ui.components.StatTile
+import com.prateek.taro.ui.components.TaroDialog
 import com.prateek.taro.ui.components.TaroScaffold
+import com.prateek.taro.ui.components.TintChip
 import com.prateek.taro.ui.theme.TaroTheme
-import com.prateek.taro.util.AchievementsCacheUtil
-import com.prateek.taro.util.AppPreferences
-import com.prateek.taro.util.Database
 import com.prateek.taro.util.Util
-import com.prateek.taro.util.Util.UnitSystem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.text.DateFormat
-import java.text.NumberFormat
-import java.text.SimpleDateFormat
 import java.time.LocalDate
-import java.util.Calendar
-import java.util.Date
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
 object AchievementsScreen : Screen {
@@ -62,448 +82,407 @@ object AchievementsScreen : Screen {
     }
 }
 
-data class MilestoneAchievement(val milestone: Int, val timestamp: Long)
+private val WEIGHT_PINK = Color(0xFFFF6FAE)
+private val EXPLORER_BLUE = Color(0xFF4FC3F7)
 
-data class Top3DayEntry(val steps: Int, val timestamp: Long)
+@Composable
+private fun categoryColor(category: BadgeCategory): Color = when (category) {
+    BadgeCategory.STEPS -> TaroTheme.colors.goal
+    BadgeCategory.GOALS -> TaroTheme.colors.special
+    BadgeCategory.CLIMB, BadgeCategory.ENERGY -> TaroTheme.colors.flame
+    BadgeCategory.WEIGHT -> WEIGHT_PINK
+    BadgeCategory.SLEEP -> TaroTheme.colors.sleep
+    BadgeCategory.EXPLORER -> EXPLORER_BLUE
+}
 
-data class ComputedResults(
-    val top3Days: List<Top3DayEntry>,
-    val bestWeek: String,
-    val bestMonth: String,
-    val streakRecord: String,
-    val avgStepsPerDay: String,
-    val milestones: List<MilestoneAchievement>,
-)
+private data class Records(val bestDay: DayRecord?, val bestWeek: Int, val bestMonth: Int, val longestStreak: Int, val total: Int)
 
-private val MILESTONE_TARGETS = listOf(
-    10_000, 50_000, 100_000, 500_000, 750_000, 1_000_000, 1_500_000, 2_000_000, 3_000_000,
-    4_000_000, 5_000_000, 6_000_000, 7_000_000, 8_000_000, 9_000_000, 10_000_000, 12_500_000,
-    15_000_000, 20_000_000
-)
+private data class DayRecord(val steps: Int, val date: LocalDate)
 
-private data class AchievementsState(
-    val top3Days: List<Top3DayEntry>?,
-    val bestWeek: String,
-    val bestMonth: String,
-    val streakRecord: String,
-    val avgStepsPerDay: String,
-    val milestones: List<MilestoneAchievement>,
-    val placeholder: String,
-)
+private fun records(inputs: AchievementInputs): Records {
+    val days = inputs.days
+    val best = days.maxByOrNull { it.steps }
+    return Records(
+        bestDay = best?.let { DayRecord(it.steps, it.date) },
+        bestWeek = days.groupBy { it.date.with(TemporalAdjusters.previousOrSame(inputs.firstDayOfWeek)) }.values.maxOfOrNull { week -> week.sumOf { it.steps } } ?: 0,
+        bestMonth = days.groupBy { it.date.withDayOfMonth(1) }.values.maxOfOrNull { month -> month.sumOf { it.steps } } ?: 0,
+        longestStreak = Rules.streak(Rules.goalDays(inputs), Int.MAX_VALUE).value.toInt(),
+        total = days.sumOf { it.steps },
+    )
+}
 
-private fun ComputedResults.toState(noData: String) = AchievementsState(
-    top3Days = top3Days,
-    bestWeek = bestWeek,
-    bestMonth = bestMonth ?: noData,
-    streakRecord = streakRecord,
-    avgStepsPerDay = avgStepsPerDay,
-    milestones = milestones,
-    placeholder = noData,
-)
+private fun compactSteps(value: Double): String = when {
+    value >= 1_000_000 -> "%.1fM".format(Locale.getDefault(), value / 1_000_000)
+    value >= 10_000 -> "%.0fk".format(Locale.getDefault(), value / 1_000)
+    value >= 1_000 -> "%.1fk".format(Locale.getDefault(), value / 1_000)
+    else -> "%.0f".format(Locale.getDefault(), value)
+}
 
-private fun uniformState(value: String, streak: String = value) =
-    AchievementsState(emptyList(), value, value, streak, value, emptyList(), value)
+private fun formatValue(unit: BadgeUnit, value: Double): String = when (unit) {
+    BadgeUnit.STEPS -> compactSteps(value)
+    BadgeUnit.KM -> "%.1f km".format(Locale.getDefault(), value)
+    BadgeUnit.METERS -> "%.0f m".format(Locale.getDefault(), value)
+    BadgeUnit.KG -> "%.1f kg".format(Locale.getDefault(), value)
+    else -> "%.0f".format(Locale.getDefault(), value)
+}
+
+private fun descriptionParam(result: BadgeResult): String {
+    val target = result.def.target
+    return when (result.def.unit) {
+        BadgeUnit.STEPS -> Util.formatSteps(target.toInt())
+        BadgeUnit.KM -> "%.1f km".format(Locale.getDefault(), target)
+        BadgeUnit.METERS -> "%.0f m".format(Locale.getDefault(), target)
+        BadgeUnit.KG -> "%.0f kg".format(Locale.getDefault(), target)
+        else -> "%.0f".format(Locale.getDefault(), target)
+    }
+}
+
+private data class AchievementsState(val inputs: AchievementInputs, val badges: List<BadgeResult>)
 
 @Composable
 private fun AchievementsContent(onBack: () -> Unit) {
     val context = LocalContext.current
-    val noData = stringResource(R.string.no_data_available)
-    val errorText = stringResource(R.string.error_loading_data)
-    val loading = stringResource(R.string.loading_data)
-    val dateFormat = remember { SimpleDateFormat(AppPreferences.dateFormatString, Locale.getDefault()) }
+    val dataVersion = rememberDataVersion()
+    var state by remember { mutableStateOf<AchievementsState?>(null) }
+    var category by rememberSaveable { mutableStateOf<BadgeCategory?>(null) }
+    var open by remember { mutableStateOf<BadgeResult?>(null) }
+    val showcaseIds by AppPreferences.showcaseBadgesFlow().collectAsStateWithLifecycle(AppPreferences.showcaseBadges)
+    val toast = LocalToast.current
+    val dateFormat = remember { DateTimeFormatter.ofPattern("d MMM yyyy", Locale.getDefault()) }
 
-    var state by remember {
-        val cached = AchievementsCacheUtil.loadCachedResults(context)
-        mutableStateOf(
-            if (cached?.top3Days != null) cached.toState(noData)
-            else uniformState(loading).copy(top3Days = null)
-        )
-    }
-
-    LaunchedEffect(Unit) {
-        state = try {
-            val database = Database.getInstance(context)
-            val (firstEntry, lastEntry) = withContext(Dispatchers.IO) { database.firstEntry to database.lastEntry }
-            if (firstEntry == "" || lastEntry == "") {
-                uniformState(noData, streak = errorText)
-            } else {
-                val results = withContext(Dispatchers.Default) {
-                    computeAllResults(context, database, firstEntry, lastEntry, dateFormat)
-                }
-                val ordered = results.copy(milestones = results.milestones.sortedByDescending { it.timestamp })
-                AchievementsCacheUtil.saveCachedResults(context, ordered)
-                ordered.toState(noData)
-            }
-        } catch (_: Exception) {
-            uniformState(errorText)
+    LaunchedEffect(dataVersion) {
+        state = withContext(Dispatchers.Default) {
+            val inputs = AchievementData.inputs(context)
+            AchievementsState(inputs, com.prateek.taro.achievements.Badges.evaluate(inputs))
         }
     }
-
-    val streakTitle = stringResource(
-        R.string.streak_record,
-        NumberFormat.getIntegerInstance().format(AppPreferences.dailyGoalTarget)
-    )
 
     TaroScaffold(title = stringResource(R.string.achievements_title), onBack = onBack) { padding ->
-        LazyColumn(
-            contentPadding = PaddingValues(10.dp),
-            modifier = Modifier
-                .padding(padding)
-                .background(MaterialTheme.colorScheme.surface),
-        ) {
-            item { SectionTitle(R.string.personal_records, Modifier.padding(top = 20.dp, bottom = 16.dp)) }
-            item { TopDaysCard(state.top3Days, state.placeholder, dateFormat) }
-            item { RecordCard(stringResource(R.string.best_week), state.bestWeek) }
-            item { RecordCard(stringResource(R.string.most_walked_month), state.bestMonth) }
-            item { RecordCard(stringResource(R.string.avg_steps_per_day), state.avgStepsPerDay) }
-            item { RecordCard(streakTitle, state.streakRecord, Modifier.padding(bottom = 12.dp)) }
-            item {
-                HorizontalDivider(
-                    color = TaroTheme.colors.accent.copy(alpha = 0.3f),
-                    modifier = Modifier.padding(horizontal = 20.dp),
+        ScrollingColumn(padding, modifier = Modifier.padding(horizontal = 16.dp)) {
+            val current = state
+            if (current == null) {
+                Text(
+                    text = stringResource(R.string.badges_loading),
+                    color = TaroTheme.colors.accent,
+                    modifier = Modifier.padding(24.dp),
                 )
+                return@ScrollingColumn
             }
-            item { SectionTitle(R.string.milestone_achievements, Modifier.padding(top = 20.dp, bottom = 16.dp)) }
+            val earned = current.badges.filter { it.earned }
+            val gold = TaroTheme.colors.special
 
-            if (state.milestones.isEmpty()) {
-                item {
-                    Text(
-                        text = stringResource(R.string.no_milestones_reached),
-                        color = TaroTheme.colors.accent,
-                        fontSize = 15.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 48.dp),
-                    )
-                }
-            } else {
-                itemsIndexed(state.milestones, key = { _, it -> it.milestone }) { index, milestone ->
-                    MilestoneRow(milestone, dateFormat, isLast = index == state.milestones.lastIndex)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectionTitle(textRes: Int, modifier: Modifier = Modifier) {
-    Text(
-        text = stringResource(textRes),
-        fontSize = 20.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.05.em,
-        textAlign = TextAlign.Center,
-        modifier = modifier.fillMaxWidth(),
-    )
-}
-
-@Composable
-private fun RecordSurface(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(start = 2.dp, end = 2.dp, bottom = 8.dp)
-            .background(TaroTheme.colors.accentOpaque, RoundedCornerShape(22.dp))
-            .padding(horizontal = 13.dp, vertical = 14.dp),
-    ) {
-        content()
-    }
-}
-
-@Composable
-private fun RecordLabel(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        fontSize = 15.sp,
-        letterSpacing = (-0.02).em,
-        modifier = modifier.alpha(0.87f),
-    )
-}
-
-@Composable
-private fun TopDaysCard(
-    top3Days: List<Top3DayEntry>?,
-    placeholder: String,
-    dateFormat: DateFormat,
-) {
-    RecordSurface {
-        Column {
-            RecordLabel(
-                text = stringResource(R.string.top_3_days),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-            )
-            Row {
-                repeat(3) { index ->
-                    val entry = top3Days?.getOrNull(index)
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.weight(1f),
-                    ) {
+            Panel(modifier = Modifier.padding(top = 8.dp)) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Row(verticalAlignment = Alignment.Bottom) {
                         Text(
-                            text = entry?.let { formatStepsWithDistance(it.steps) } ?: placeholder,
-                            color = TaroTheme.colors.accent,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-0.02).em,
-                            textAlign = TextAlign.Center,
+                            text = "${earned.size}",
+                            style = MaterialTheme.typography.displaySmall,
+                            color = gold,
                         )
                         Text(
-                            text = entry?.let { dateFormat.format(Date(it.timestamp)) }.orEmpty(),
-                            fontSize = 11.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.alpha(0.6f),
+                            text = " / ${current.badges.size}  ${stringResource(R.string.badges_unlocked)}",
+                            color = TaroTheme.colors.accent,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                        )
+                    }
+                    val fill by animateFloatAsState(
+                        targetValue = earned.size.toFloat() / current.badges.size.coerceAtLeast(1),
+                        animationSpec = TaroMotion.gentle(),
+                        label = "badges",
+                    )
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .fillMaxWidth()
+                            .height(10.dp)
+                            .clip(CircleShape)
+                            .background(TaroTheme.colors.accentOpaque),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(fill)
+                                .height(10.dp)
+                                .clip(CircleShape)
+                                .background(Brush.horizontalGradient(listOf(gold.copy(alpha = 0.55f), gold))),
+                        )
+                    }
+                    val latest = earned.maxByOrNull { it.progress.earnedOn!! }
+                    latest?.let {
+                        Text(
+                            text = stringResource(R.string.badge_latest, stringResource(it.def.title), it.progress.earnedOn!!.format(dateFormat)),
+                            fontSize = 13.sp,
+                            color = TaroTheme.colors.accent,
+                            modifier = Modifier.padding(top = 12.dp),
+                        )
+                    }
+                }
+                val showcase = if (showcaseIds.isEmpty()) {
+                    earned.sortedByDescending { it.progress.earnedOn }.take(3)
+                } else {
+                    showcaseIds.mapNotNull { id -> earned.firstOrNull { it.def.id == id } }
+                }
+                if (showcase.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.badge_showcase).uppercase(),
+                        fontSize = 12.sp,
+                        letterSpacing = 2.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TaroTheme.colors.accent,
+                        modifier = Modifier.padding(start = 8.dp, top = 12.dp),
+                    )
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                        repeat(3) { slot ->
+                            val badge = showcase.getOrNull(slot)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .then(if (badge != null) Modifier.clickable { open = badge } else Modifier)
+                                    .padding(vertical = 6.dp),
+                            ) {
+                                if (badge != null) {
+                                    BadgeMedal(badge, categoryColor(badge.def.category), size = 68)
+                                    Text(
+                                        text = stringResource(badge.def.title),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 2,
+                                        modifier = Modifier.padding(top = 8.dp),
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(68.dp)
+                                            .clip(CircleShape)
+                                            .background(TaroTheme.colors.accentOpaque),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (showcaseIds.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.badge_showcase_hint),
+                            fontSize = 12.sp,
+                            color = TaroTheme.colors.accent,
+                            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp),
                         )
                     }
                 }
             }
-        }
-    }
-}
 
-@Composable
-private fun RecordCard(label: String, value: String, modifier: Modifier = Modifier) {
-    RecordSurface(modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RecordLabel(text = label, modifier = Modifier.weight(40f))
-            Text(
-                text = value,
-                color = TaroTheme.colors.accent,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.End,
-                modifier = Modifier.weight(60f),
+            PillSelector(
+                options = listOf<Pair<BadgeCategory?, String>>(null to stringResource(R.string.badge_cat_all)) +
+                    BadgeCategory.entries.map { it to stringResource(it.label) },
+                selected = category,
+                onSelect = { category = it },
+                modifier = Modifier.padding(vertical = 16.dp),
             )
-        }
-    }
-}
 
-@Composable
-private fun MilestoneRow(
-    milestone: MilestoneAchievement,
-    dateFormat: DateFormat,
-    isLast: Boolean,
-) {
-    val context = LocalContext.current
-    Column {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 40.dp, vertical = 14.dp),
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .padding(end = 16.dp)
-                    .size(44.dp)
-                    .background(TaroTheme.colors.accentOpaque, CircleShape),
-            ) {
-                Text(milestoneBadge(milestone.milestone), fontSize = 22.sp)
-            }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(formatMilestoneTitle(context, milestone.milestone), fontSize = 16.sp)
-                Text(
-                    text = dateFormat.format(Date(milestone.timestamp)),
-                    fontSize = 13.sp,
+            val shown = current.badges
+                .filter { category == null || it.def.category == category }
+                .sortedWith(compareByDescending<BadgeResult> { it.earned }.thenByDescending { if (it.earned) 0f else it.fraction })
+            shown.chunked(3).forEach { row ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier
-                        .padding(top = 2.dp)
-                        .alpha(0.6f),
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp),
+                ) {
+                    row.forEach { badge ->
+                        BadgeTile(badge, dateFormat, onClick = { open = badge }, modifier = Modifier.weight(1f))
+                    }
+                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+
+            val records = remember(current) { records(current.inputs) }
+            SectionLabel(stringResource(R.string.badges_records))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                StatTile(
+                    label = stringResource(R.string.badges_best_day),
+                    value = records.bestDay?.let { Util.formatSteps(it.steps) } ?: "-",
+                    color = TaroTheme.colors.goal,
+                    modifier = Modifier.weight(1f),
+                )
+                StatTile(
+                    label = stringResource(R.string.best_week),
+                    value = Util.formatSteps(records.bestWeek),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp, bottom = 24.dp),
+            ) {
+                StatTile(
+                    label = stringResource(R.string.most_walked_month),
+                    value = Util.formatSteps(records.bestMonth),
+                    modifier = Modifier.weight(1f),
+                )
+                StatTile(
+                    label = stringResource(R.string.badges_total),
+                    value = compactSteps(records.total.toDouble()),
+                    modifier = Modifier.weight(1f),
+                )
+                StatTile(
+                    label = stringResource(R.string.badge_cat_goals),
+                    value = "${records.longestStreak}d",
+                    color = gold,
+                    modifier = Modifier.weight(0.8f),
                 )
             }
         }
-        if (!isLast) {
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                modifier = Modifier.padding(start = 80.dp, end = 20.dp),
-            )
-        }
+    }
+
+    open?.let { badge ->
+        val pinned = badge.def.id in showcaseIds
+        BadgeDialog(
+            badge = badge,
+            dateFormat = dateFormat,
+            showcased = pinned,
+            onToggleShowcase = {
+                when {
+                    pinned -> AppPreferences.showcaseBadges = showcaseIds - badge.def.id
+                    showcaseIds.size >= 3 -> toast.show(context.getString(R.string.badge_showcase_full), ToastKind.INFO)
+                    else -> {
+                        AppPreferences.showcaseBadges = showcaseIds + badge.def.id
+                        toast.show(context.getString(R.string.badge_showcase_added), ToastKind.SUCCESS)
+                    }
+                }
+                open = null
+            },
+            onDismiss = { open = null },
+        )
     }
 }
 
-private fun milestoneBadge(milestone: Int) = when {
-    milestone >= 20_000_000 -> "🏁"
-    milestone >= 15_000_000 -> "♾️"
-    milestone >= 12_500_000 -> "🪬"
-    milestone >= 10_000_000 -> "👑"
-    milestone >= 9_000_000 -> "🦄"
-    milestone >= 8_000_000 -> "🐉"
-    milestone >= 7_000_000 -> "💫"
-    milestone >= 6_000_000 -> "🏆"
-    milestone >= 5_000_000 -> "💎"
-    milestone >= 4_000_000 -> "🪐"
-    milestone >= 3_000_000 -> "🚀"
-    milestone >= 2_000_000 -> "🥇"
-    milestone >= 1_500_000 -> "⚡"
-    milestone >= 1_000_000 -> "🗿"
-    milestone >= 750_000 -> "⛳"
-    milestone >= 500_000 -> "🌟"
-    milestone >= 100_000 -> "🔥"
-    milestone >= 50_000 -> "💪"
-    else -> "🎯"
+@Composable
+private fun BadgeTile(badge: BadgeResult, dateFormat: DateTimeFormatter, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val color = categoryColor(badge.def.category)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(TaroTheme.colors.accentOpaque)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 14.dp),
+    ) {
+        BadgeMedal(badge, color, size = 60)
+        Text(
+            text = stringResource(badge.def.title),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            color = if (badge.earned) MaterialTheme.colorScheme.onSurface else TaroTheme.colors.accent,
+            modifier = Modifier.padding(top = 10.dp),
+        )
+        Text(
+            text = badge.progress.earnedOn?.format(dateFormat)
+                ?: if (badge.def.unit == BadgeUnit.FLAG) stringResource(R.string.badge_locked)
+                else "${formatValue(badge.def.unit, badge.progress.value)} / ${formatValue(badge.def.unit, badge.def.target)}",
+            fontSize = 11.sp,
+            color = if (badge.earned) color else TaroTheme.colors.accent,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+    }
 }
 
-private fun formattedDistance(steps: Int): String {
-    val distanceKm = steps * AppPreferences.stepLength / 100000f
-    val distance = if (AppPreferences.unitSystem == UnitSystem.METRIC) distanceKm else distanceKm * 0.621371f
-    return "%.2f ${Util.distanceUnit()}".format(distance)
-}
-
-private fun formatStepsWithDistance(steps: Int): String {
-    return "${Util.formatSteps(steps)} • ${formattedDistance(steps)}"
-}
-
-private fun formatMilestoneTitle(context: Context, steps: Int): String {
-    val distancePart = formattedDistance(steps)
-    return when {
-        steps >= 1_000_000 -> {
-            val millions = steps / 1_000_000.0
-            if (millions == millions.toInt().toDouble()) {
-                context.getString(R.string.million_steps_with_distance, millions.toInt(), distancePart)
+@Composable
+private fun BadgeMedal(badge: BadgeResult, color: Color, size: Int) {
+    val track = TaroTheme.colors.accentOpaque
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(size.dp)) {
+        Canvas(modifier = Modifier.size(size.dp)) {
+            val stroke = 3.5.dp.toPx()
+            val inset = stroke / 2
+            val arcSize = Size(this.size.width - stroke, this.size.height - stroke)
+            if (badge.earned) {
+                drawCircle(color.copy(alpha = 0.16f))
+                drawArc(color, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
             } else {
-                context.getString(R.string.million_steps_decimal_with_distance, millions, distancePart)
+                drawArc(track, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
+                if (badge.fraction > 0f) {
+                    drawArc(color.copy(alpha = 0.7f), -90f, 360f * badge.fraction, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+                }
             }
         }
-        steps >= 1_000 -> context.getString(R.string.thousand_steps_with_distance, steps / 1_000, distancePart)
-        else -> context.getString(R.string.steps_count_with_distance, steps, distancePart)
+        Icon(
+            painter = painterResource(badge.def.icon),
+            contentDescription = null,
+            tint = if (badge.earned) color else TaroTheme.colors.accent.copy(alpha = 0.55f),
+            modifier = Modifier.size((size * 0.42f).dp),
+        )
     }
 }
 
-private fun computeAllResults(
-    context: Context,
-    database: Database,
-    firstEntry: String?,
-    lastEntry: String?,
-    dateFormat: DateFormat,
-): ComputedResults {
-    val entries = database.getEntries(firstEntry, lastEntry)
-    val noData = context.getString(R.string.no_data_available)
-
-    if (entries.isEmpty()) {
-        return ComputedResults(emptyList(), noData, noData, noData, noData, emptyList())
-    }
-
-    val monthFormat = SimpleDateFormat("yyyy-MM", Locale.getDefault())
-    val displayFormat = SimpleDateFormat("LLLL yyyy", Locale.getDefault())
-    val firstEntryTimestamp = entries.minOf { it.timestamp }
-    val milestones = calculateMilestones(entries)
-    val (longestStreak, streakRange) = calculateLongestStreak(entries)
-    val top3Days = entries.sortedByDescending { it.steps }.take(3)
-        .map { Top3DayEntry(it.steps, it.timestamp) }
-
-    val firstDayOfWeek = AppPreferences.firstDayOfWeek
-    val weeklySteps = mutableMapOf<Long, Int>()
-    val weeklyRange = mutableMapOf<Long, Pair<Long, Long>>()
-    val monthlySteps = mutableMapOf<String, Int>()
-    var totalSteps = 0
-
-    for (entry in entries) {
-        totalSteps += entry.steps
-
-        val cal = Calendar.getInstance().apply {
-            timeInMillis = entry.timestamp
-            this.firstDayOfWeek = firstDayOfWeek
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        while (cal.get(Calendar.DAY_OF_WEEK) != firstDayOfWeek) {
-            cal.add(Calendar.DAY_OF_YEAR, -1)
-        }
-        val weekKey = cal.timeInMillis
-        weeklySteps[weekKey] = (weeklySteps[weekKey] ?: 0) + entry.steps
-        val existing = weeklyRange[weekKey]
-        weeklyRange[weekKey] = if (existing == null) {
-            entry.timestamp to entry.timestamp
-        } else {
-            minOf(existing.first, entry.timestamp) to maxOf(existing.second, entry.timestamp)
-        }
-
-        val monthKey = monthFormat.format(Date(entry.timestamp))
-        monthlySteps[monthKey] = (monthlySteps[monthKey] ?: 0) + entry.steps
-    }
-
-    fun range(start: Long, end: Long) = "${dateFormat.format(Date(start))} - ${dateFormat.format(Date(end))}"
-
-    val bestWeek = weeklySteps.maxByOrNull { it.value }?.let { best ->
-        val (start, end) = weeklyRange.getValue(best.key)
-        "${formatStepsWithDistance(best.value)}\n${range(start, end)}"
-    } ?: noData
-
-    val bestMonth = monthlySteps.maxByOrNull { it.value }?.let { best ->
-        val date = monthFormat.parse(best.key) ?: Date()
-        "${formatStepsWithDistance(best.value)}\n${displayFormat.format(date)}"
-    } ?: noData
-
-    val avgSteps = totalSteps / entries.size
-    val avgStepsPerDay = "${formatStepsWithDistance(avgSteps)}\n" +
-        context.getString(R.string.since_date, dateFormat.format(Date(firstEntryTimestamp)))
-
-    val streakRecord = if (longestStreak > 0 && streakRange != null) {
-        val dateText = if (longestStreak == 1) {
-            dateFormat.format(Date(streakRange.second))
-        } else {
-            range(streakRange.first, streakRange.second)
-        }
-        context.resources.getQuantityString(R.plurals.streak_record_count, longestStreak, longestStreak) + "\n$dateText"
-    } else {
-        context.resources.getQuantityString(R.plurals.streak_record_count, 0, 0)
-    }
-
-    return ComputedResults(top3Days, bestWeek, bestMonth, streakRecord, avgStepsPerDay, milestones)
-}
-
-private fun calculateMilestones(entries: List<Database.Entry>): List<MilestoneAchievement> {
-    val achievements = mutableListOf<MilestoneAchievement>()
-    var cumulativeSteps = 0
-    var nextIndex = 0
-
-    for (entry in entries.sortedBy { it.timestamp }) {
-        cumulativeSteps += entry.steps
-        while (nextIndex < MILESTONE_TARGETS.size && cumulativeSteps >= MILESTONE_TARGETS[nextIndex]) {
-            achievements.add(MilestoneAchievement(MILESTONE_TARGETS[nextIndex], entry.timestamp))
-            nextIndex++
-        }
-        if (nextIndex >= MILESTONE_TARGETS.size) break
-    }
-
-    return achievements.sortedByDescending { it.milestone }
-}
-
-private fun calculateLongestStreak(entries: List<Database.Entry>): Pair<Int, Pair<Long, Long>?> {
-    if (entries.isEmpty()) return 0 to null
-
-    val dailyGoal = AppPreferences.dailyGoalTarget
-    var currentStreak = 0
-    var longestStreak = 0
-    var streakStart: Long? = null
-    var longestStreakRange: Pair<Long, Long>? = null
-    var previousDate: LocalDate? = null
-
-    for (entry in entries.sortedBy { it.date }) {
-        val date = LocalDate.parse(entry.date)
-        val isConsecutive = previousDate == null || date == previousDate.plusDays(1)
-        val metGoal = entry.steps >= dailyGoal
-
-        if (metGoal && isConsecutive) {
-            currentStreak++
-            if (streakStart == null) streakStart = entry.timestamp
-            if (currentStreak > longestStreak) {
-                longestStreak = currentStreak
-                longestStreakRange = streakStart to entry.timestamp
+@Composable
+private fun BadgeDialog(
+    badge: BadgeResult,
+    dateFormat: DateTimeFormatter,
+    showcased: Boolean,
+    onToggleShowcase: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val color = categoryColor(badge.def.category)
+    TaroDialog(
+        title = stringResource(badge.def.title),
+        onDismiss = onDismiss,
+        confirmText = stringResource(android.R.string.ok),
+        onConfirm = onDismiss,
+        dismissText = null,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            BadgeMedal(badge, color, size = 96)
+            Text(
+                text = stringResource(badge.def.description, descriptionParam(badge)),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 16.dp),
+            )
+            if (badge.earned) {
+                TintChip(
+                    text = stringResource(R.string.badge_earned_on, badge.progress.earnedOn!!.format(dateFormat)),
+                    color = color,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+                SecondaryButton(
+                    text = stringResource(if (showcased) R.string.badge_showcase_remove else R.string.badge_showcase_add),
+                    onClick = onToggleShowcase,
+                    icon = R.drawable.ic_badge_star,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                )
+            } else if (badge.def.unit != BadgeUnit.FLAG) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 18.dp)
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(CircleShape)
+                        .background(TaroTheme.colors.accentOpaque),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(badge.fraction)
+                            .height(8.dp)
+                            .clip(CircleShape)
+                            .background(color),
+                    )
+                }
+                Text(
+                    text = "${formatValue(badge.def.unit, badge.progress.value)} / ${formatValue(badge.def.unit, badge.def.target)}",
+                    color = TaroTheme.colors.accent,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
-        } else {
-            currentStreak = if (metGoal) 1 else 0
-            streakStart = if (metGoal) entry.timestamp else null
         }
-
-        previousDate = date
     }
-
-    return longestStreak to longestStreakRange
 }

@@ -1,5 +1,8 @@
 package com.prateek.taro.util
 
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.prateek.taro.data.DataSnapshot
 import android.content.Context
 import com.prateek.taro.data.DailySteps
@@ -40,27 +43,27 @@ internal class Database private constructor(private val dao: StepsDao) {
 
     internal fun getMinutes(minDate: String, maxDate: String): List<MinuteSteps> = dao.minutes(minDate, maxDate)
 
-    internal fun addActivity(activity: LoggedActivity): Long = dao.insertActivity(activity)
+    internal fun addActivity(activity: LoggedActivity): Long = changed { dao.insertActivity(activity) }
 
-    internal fun deleteActivity(id: Long) = dao.deleteActivity(id)
+    internal fun deleteActivity(id: Long) = changed { dao.deleteActivity(id) }
 
     internal fun activitiesOn(date: String): List<LoggedActivity> = dao.activitiesOn(date)
 
     internal fun activityKcal(from: String, to: String): Double = dao.activityKcal(from, to)
 
-    internal fun saveWeight(entry: WeightLog) = dao.upsertWeight(entry)
+    internal fun saveWeight(entry: WeightLog) = changed { dao.upsertWeight(entry) }
 
-    internal fun deleteWeight(date: String) = dao.deleteWeight(date)
+    internal fun deleteWeight(date: String) = changed { dao.deleteWeight(date) }
 
     internal fun weightsSince(from: String): List<WeightLog> = dao.weightsSince(from)
 
-    internal fun saveSleep(session: SleepSession) = dao.saveSleep(session)
+    internal fun saveSleep(session: SleepSession) = changed { dao.saveSleep(session) }
 
     internal fun sleepOn(wakeDate: String): SleepSession? = dao.sleepOn(wakeDate)
 
     internal fun sleepsSince(from: String): List<SleepSession> = dao.sleepsSince(from)
 
-    internal fun deleteSleep(id: Long) = dao.deleteSleep(id)
+    internal fun deleteSleep(id: Long) = changed { dao.deleteSleep(id) }
 
     internal fun recordScreen(at: Long, screenOn: Boolean) = dao.insertScreenEvent(ScreenEvent(at, screenOn))
 
@@ -78,10 +81,11 @@ internal class Database private constructor(private val dao: StepsDao) {
         sleeps = dao.allSleeps(),
     )
 
-    internal fun restore(snapshot: DataSnapshot) = dao.restoreAll(snapshot)
+    internal fun restore(snapshot: DataSnapshot) = changed { dao.restoreAll(snapshot) }
 
-    fun clearAllAndImport(entries: List<Pair<String, Int>>) =
+    fun clearAllAndImport(entries: List<Pair<String, Int>>) = changed {
         dao.replaceHistory(entries.map { (date, steps) -> DailySteps(date, steps) })
+    }
 
     internal class Entry(
         val timestamp: Long,
@@ -89,7 +93,12 @@ internal class Database private constructor(private val dao: StepsDao) {
         val steps: Int
     )
 
+    private fun <T> changed(block: () -> T): T = block().also { versionFlow.update { it + 1 } }
+
     companion object {
+        private val versionFlow = MutableStateFlow(0)
+        val changes: StateFlow<Int> = versionFlow
+
         @Volatile
         private var instance: Database? = null
 

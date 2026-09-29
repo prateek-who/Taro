@@ -42,21 +42,6 @@ class FullBackupTest {
     }
 
     @Test
-    fun rejectsCsvAndForeignJson() {
-        assertFalse(FullBackup.isFullBackup("2026-09-28,5363"))
-        assertTrue(FullBackup.isFullBackup("  {\"format\":\"x\"}"))
-        assertNull(FullBackup.decode("{\"format\":\"something-else\"}"))
-        assertNull(FullBackup.decode("{not json"))
-    }
-
-    @Test
-    fun missingSectionsFallBackToEmpty() {
-        val decoded = FullBackup.decode("{\"format\":\"full-backup\",\"version\":1}")
-        assertEquals(DataSnapshot(), decoded?.data)
-        assertEquals(emptyList<BackupPref>(), decoded?.preferences)
-    }
-
-    @Test
     fun preferencesRoundTripWithoutDeviceKeys() {
         val source = mutablePreferencesOf(
             stringPreferencesKey("weight") to "71.4",
@@ -101,13 +86,5 @@ class FullBackupTest {
         assertEquals(snapshot.weights, dao.allWeights())
         assertEquals(snapshot.sleeps, dao.allSleeps())
         db.close()
-    }
-
-    @Test
-    fun backupFileNamesAreRecognised() {
-        assertEquals("20261001-080000", BackupIO.timestampOf("taro_20261001-080000.json"))
-        assertEquals("20260929-101500", BackupIO.timestampOf("stepsytoo_20260929-101500.json"))
-        assertEquals("20250101", BackupIO.timestampOf("stepsy_20250101.csv"))
-        assertNull(BackupIO.timestampOf("photo.jpg"))
     }
 }

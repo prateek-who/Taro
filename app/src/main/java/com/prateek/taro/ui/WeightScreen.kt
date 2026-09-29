@@ -1,5 +1,18 @@
 package com.prateek.taro.ui
 
+import androidx.compose.material3.MaterialTheme
+import com.prateek.taro.ui.components.TintChip
+import com.prateek.taro.ui.components.StatTile
+import com.prateek.taro.ui.components.SectionLabel
+import com.prateek.taro.ui.components.RollingText
+import com.prateek.taro.ui.components.PickerRow
+import com.prateek.taro.ui.components.Panel
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -49,6 +62,7 @@ import com.prateek.taro.ui.components.TimePickerDialog
 import com.prateek.taro.ui.components.ToastKind
 import com.prateek.taro.ui.components.ToggleGroup
 import com.prateek.taro.ui.components.WeightChart
+import com.prateek.taro.ui.components.WeightSeriesToggles
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.util.AppPreferences
 import com.prateek.taro.util.Util
@@ -94,7 +108,10 @@ private fun WeightContent(onBack: () -> Unit) {
     var rangeDays by rememberSaveable { mutableIntStateOf(90) }
     var dialog by remember { mutableStateOf<WeightDialog?>(null) }
 
-    val allPoints = remember(version) { WeightJournal.points(context) }
+    val dataVersion = rememberDataVersion()
+    var showWeighIns by rememberSaveable { mutableStateOf(true) }
+    var showTrend by rememberSaveable { mutableStateOf(true) }
+    val allPoints = remember(version, dataVersion) { WeightJournal.points(context) }
     val today = Util.logicalToday()
     val points = allPoints.filter { !it.date.isBefore(today.minusDays(rangeDays.toLong())) }
     val calorieGoal by AppPreferences.calorieGoalFlow().collectAsStateWithLifecycle(AppPreferences.calorieGoal)
@@ -110,41 +127,40 @@ private fun WeightContent(onBack: () -> Unit) {
 
     TaroScaffold(title = stringResource(R.string.weight_title), onBack = onBack) { padding ->
         ScrollingColumn(padding, modifier = Modifier.padding(horizontal = 16.dp)) {
-            ToggleGroup(
-                options = listOf(
-                    30 to stringResource(R.string.weight_range_month),
-                    90 to stringResource(R.string.weight_range_quarter),
-                    365 to stringResource(R.string.weight_range_year),
-                ),
-                selected = rangeDays,
-                onSelect = { rangeDays = it },
-                modifier = Modifier.padding(vertical = 12.dp),
-            )
+            val colors = TaroTheme.colors
+            val latest = allPoints.lastOrNull()
 
-            SettingsCard {
-                if (points.isEmpty()) {
+            Panel(modifier = Modifier.padding(top = 8.dp)) {
+                if (latest == null) {
                     Text(
                         text = stringResource(R.string.weight_empty),
-                        modifier = Modifier
-                            .padding(20.dp)
-                            .alpha(0.7f),
+                        color = colors.accent,
+                        modifier = Modifier.padding(12.dp),
                     )
                 } else {
-                    WeightChart(
-                        points = points,
-                        toDisplay = Util::kgToDisplay,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(220.dp)
-                            .padding(16.dp),
-                    )
-                    val latest = allPoints.last()
-                    StatRow(stringResource(R.string.weight_trend), Util.formatWeight(latest.trend))
-                    weekChange(allPoints)?.let {
-                        SettingsDivider()
-                        StatRow(stringResource(R.string.weight_change_week), Util.formatWeightChange(it))
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.energy_weight_trend).uppercase(),
+                                fontSize = 12.sp,
+                                letterSpacing = 2.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colors.accent,
+                            )
+                            RollingText(
+                                text = Util.formatWeight(latest.trend),
+                                style = MaterialTheme.typography.displaySmall.copy(color = MaterialTheme.colorScheme.onSurface),
+                            )
+                            Text(
+                                text = stringResource(R.string.weight_latest, Util.formatWeight(latest.kg), formatDate(latest)),
+                                fontSize = 13.sp,
+                                color = colors.accent,
+                            )
+                        }
+                        weekChange(allPoints)?.let {
+                            TintChip(stringResource(R.string.weight_week_chip, Util.formatWeightChange(it)), colors.accent)
+                        }
                     }
-                    SettingsDivider()
                     PaceMessage(
                         assessment = WeightTrend.assess(
                             WeightTrend.weeklyRate(allPoints),
@@ -153,83 +169,145 @@ private fun WeightContent(onBack: () -> Unit) {
                             latest.trend,
                         ),
                         goal = calorieGoal?.goal,
-                        modifier = Modifier.padding(20.dp),
+                        modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
                     )
                 }
-                PrimaryButton(
-                    text = stringResource(R.string.weight_log),
-                    onClick = { dialog = WeightDialog.Log },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
-                )
             }
 
-            SettingsCard {
+            ToggleGroup(
+                options = listOf(
+                    30 to stringResource(R.string.weight_range_month),
+                    90 to stringResource(R.string.weight_range_quarter),
+                    365 to stringResource(R.string.weight_range_year),
+                ),
+                selected = rangeDays,
+                onSelect = { rangeDays = it },
+                modifier = Modifier.padding(top = 16.dp, bottom = 10.dp),
+            )
+
+            if (points.isNotEmpty()) {
+                Panel {
+                    WeightChart(
+                        points = points,
+                        toDisplay = Util::kgToDisplay,
+                        showWeighIns = showWeighIns,
+                        showTrend = showTrend,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(230.dp)
+                            .padding(4.dp),
+                    )
+                    WeightSeriesToggles(
+                        showWeighIns = showWeighIns,
+                        showTrend = showTrend,
+                        onChange = { weighIns, trend ->
+                            showWeighIns = weighIns
+                            showTrend = trend
+                        },
+                        modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp),
+                ) {
+                    StatTile(
+                        label = stringResource(R.string.weight_range_change),
+                        value = Util.formatWeightChange(points.last().trend - points.first().trend),
+                        modifier = Modifier.weight(1f),
+                    )
+                    StatTile(
+                        label = stringResource(R.string.weight_lowest),
+                        value = Util.formatWeight(points.minOf { it.kg }),
+                        modifier = Modifier.weight(1f),
+                    )
+                    StatTile(
+                        label = stringResource(R.string.weight_count),
+                        value = points.size.toString(),
+                        modifier = Modifier.weight(0.8f),
+                    )
+                }
+            }
+
+            PrimaryButton(
+                text = stringResource(R.string.weight_log),
+                onClick = { dialog = WeightDialog.Log },
+                icon = R.drawable.ic_weight,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+            )
+
+            SectionLabel(stringResource(R.string.weight_reminder))
+            Panel {
                 SwitchRow(
                     text = stringResource(R.string.weight_reminder),
                     checked = reminder.enabled,
                     onCheckedChange = { updateReminder(reminder.copy(enabled = it)) },
-                    contentPadding = PaddingValues(20.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                 )
-                if (reminder.enabled) {
-                    SettingsDivider()
-                    ToggleGroup(
-                        options = listOf(
-                            false to stringResource(R.string.weight_reminder_daily),
-                            true to stringResource(R.string.weight_reminder_weekly),
-                        ),
-                        selected = reminder.weekly,
-                        onSelect = { updateReminder(reminder.copy(weekly = it)) },
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                    )
-                    if (reminder.weekly) {
-                        FlowRow(modifier = Modifier.padding(horizontal = 16.dp)) {
-                            CALENDAR_DAYS.forEach { (calendarDay, day) ->
-                                RangeChip(
-                                    label = day.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
-                                    selected = reminder.dayOfWeek == calendarDay,
-                                    onClick = { updateReminder(reminder.copy(dayOfWeek = calendarDay)) },
-                                )
+                AnimatedVisibility(visible = reminder.enabled) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 10.dp)) {
+                        ToggleGroup(
+                            options = listOf(
+                                false to stringResource(R.string.weight_reminder_daily),
+                                true to stringResource(R.string.weight_reminder_weekly),
+                            ),
+                            selected = reminder.weekly,
+                            onSelect = { updateReminder(reminder.copy(weekly = it)) },
+                        )
+                        if (reminder.weekly) {
+                            FlowRow {
+                                CALENDAR_DAYS.forEach { (calendarDay, day) ->
+                                    RangeChip(
+                                        label = day.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                                        selected = reminder.dayOfWeek == calendarDay,
+                                        onClick = { updateReminder(reminder.copy(dayOfWeek = calendarDay)) },
+                                    )
+                                }
                             }
                         }
+                        val time = Calendar.getInstance().apply {
+                            set(Calendar.HOUR_OF_DAY, reminder.minuteOfDay / 60)
+                            set(Calendar.MINUTE, reminder.minuteOfDay % 60)
+                        }
+                        PickerRow(
+                            icon = R.drawable.ic_day_start,
+                            label = stringResource(R.string.weight_reminder_time),
+                            value = android.text.format.DateFormat.getTimeFormat(context).format(time.time),
+                            onClick = { dialog = WeightDialog.ReminderTime },
+                        )
                     }
-                    SettingsDivider()
-                    val time = Calendar.getInstance().apply {
-                        set(Calendar.HOUR_OF_DAY, reminder.minuteOfDay / 60)
-                        set(Calendar.MINUTE, reminder.minuteOfDay % 60)
-                    }
-                    StatRow(
-                        label = stringResource(R.string.weight_reminder_time),
-                        value = android.text.format.DateFormat.getTimeFormat(context).format(time.time),
-                        onClick = { dialog = WeightDialog.ReminderTime },
-                    )
                 }
             }
 
             if (allPoints.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.weight_entries).uppercase(),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp, start = 4.dp),
-                )
-                SettingsCard {
-                    allPoints.asReversed().forEachIndexed { index, point ->
-                        if (index > 0) SettingsDivider()
+                SectionLabel(stringResource(R.string.weight_entries))
+                Panel(modifier = Modifier.padding(bottom = 24.dp)) {
+                    val reversed = allPoints.asReversed()
+                    reversed.forEachIndexed { index, point ->
+                        val previous = reversed.getOrNull(index + 1)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .padding(vertical = 3.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(colors.accentOpaque)
                                 .clickable { dialog = WeightDialog.Edit(point) }
-                                .padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                                .padding(start = 14.dp, top = 6.dp, bottom = 6.dp),
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(formatDate(point), fontSize = 16.sp)
-                                Text(
-                                    text = "${stringResource(R.string.weight_trend)} ${Util.formatWeight(point.trend)}",
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.alpha(0.6f),
-                                )
+                                Text(formatDate(point), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                                previous?.let {
+                                    Text(
+                                        text = Util.formatWeightChange(point.kg - it.kg),
+                                        fontSize = 12.sp,
+                                        color = colors.accent,
+                                    )
+                                }
                             }
                             Text(Util.formatWeight(point.kg), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                             IconButton(onClick = {
@@ -240,7 +318,8 @@ private fun WeightContent(onBack: () -> Unit) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_delete),
                                     contentDescription = stringResource(R.string.weight_delete, formatDate(point)),
-                                    tint = TaroTheme.colors.accent,
+                                    tint = colors.accent,
+                                    modifier = Modifier.size(20.dp),
                                 )
                             }
                         }

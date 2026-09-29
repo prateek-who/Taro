@@ -22,10 +22,6 @@
 -dontobfuscate
 -optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
 
-# Keep data classes used for serialization
--keep class com.prateek.taro.ui.MilestoneAchievement { *; }
--keep class com.prateek.taro.ui.ComputedResults { *; }
--keep class com.prateek.taro.ui.Top3DayEntry { *; }
 
 # Keep Gson related classes
 -keepattributes Signature

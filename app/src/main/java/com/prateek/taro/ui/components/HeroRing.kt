@@ -46,6 +46,7 @@ import com.prateek.taro.ui.theme.TaroMotion
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.ui.theme.rememberAnimationsEnabled
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.sin
 
 data class RingSegment(val value: Double, val color: Color)
@@ -59,12 +60,17 @@ fun HeroRing(
     gradient: Boolean = false,
     diameter: Dp = 264.dp,
     strokeWidth: Dp = 18.dp,
+    overflow: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val total = segments.sumOf { it.value }
-    val lap = if (target > 0) target else maxOf(total, 1.0)
+    val lap = when {
+        target <= 0 -> maxOf(total, 1.0)
+        overflow -> target
+        else -> maxOf(target, total)
+    }
     val fractions = segments.map { (it.value / lap).toFloat().coerceAtLeast(0f) }
-    val progress = fractions.sum().coerceIn(0f, 2f)
+    val progress = fractions.sum().coerceIn(0f, MAX_LAPS.toFloat())
 
     val reveal = remember { Animatable(0f) }
     val active = LocalTabActive.current
@@ -81,7 +87,9 @@ fun HeroRing(
     val track = TaroTheme.colors.accentOpaque
     val bonus = TaroTheme.colors.special
     val fade = TaroTheme.colors.background
-    val glowColor = segments.firstOrNull()?.color ?: bonus
+    val first = segments.firstOrNull()?.color ?: bonus
+    val lapPalette = listOf(bonus, TaroTheme.colors.flame, TaroTheme.colors.sleep, LAP_PINK)
+    fun lapColor(index: Int): Color = if (index <= 0) first else lapPalette[(index - 1) % lapPalette.size]
 
     Box(
         contentAlignment = Alignment.Center,
@@ -102,7 +110,8 @@ fun HeroRing(
                 val full = firstLap >= 0.999f
                 val glowAlpha = glow?.value ?: if (lit) 0.2f else 0f
                 if (glowAlpha > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    drawGlow(glowColor.copy(alpha = (glowAlpha * 2.2f).coerceAtMost(0.7f)), firstLap * 360f, radius, stroke)
+                    val topLap = floor(shown).toInt().let { if (shown - it > 0.002f) it else it - 1 }.coerceAtLeast(0)
+                    drawGlow(lapColor(topLap).copy(alpha = (glowAlpha * 2.2f).coerceAtMost(0.7f)), firstLap * 360f, radius, stroke)
                 }
 
                 if (gradient && segments.size == 1) {
@@ -135,26 +144,26 @@ fun HeroRing(
                     }
                 }
 
-                val secondLap = (shown - 1f).coerceIn(0f, 1f)
-                if (secondLap > 0f) {
-                    val tip = pointAt(secondLap * 360f + 4f, radius)
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent),
-                            center = tip,
+                val laps = floor(shown).toInt()
+                if (laps >= 1) {
+                    val base = lapColor(laps - 1)
+                    if (laps >= 2) drawArcAt(SolidColor(base), 0f, 360f, radius, stroke, StrokeCap.Butt)
+                    val partial = shown - laps
+                    if (partial > 0.002f) {
+                        val tip = pointAt(partial * 360f + 4f, radius)
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent),
+                                center = tip,
+                                radius = stroke * 0.9f,
+                            ),
                             radius = stroke * 0.9f,
-                        ),
-                        radius = stroke * 0.9f,
-                        center = tip,
-                    )
-                    val base = segments.firstOrNull()?.color ?: bonus
-                    val brush = Brush.sweepGradient(
-                        0f to base,
-                        secondLap to bonus,
-                        1f to base,
-                        center = center,
-                    )
-                    drawArcAt(brush, 0f, secondLap * 360f, radius, stroke, StrokeCap.Round)
+                            center = tip,
+                        )
+                        val next = lapColor(laps)
+                        val brush = Brush.sweepGradient(0f to base, partial to next, 1f to base, center = center)
+                        drawArcAt(brush, 0f, partial * 360f, radius, stroke, StrokeCap.Round)
+                    }
                 }
             }
         }
@@ -175,6 +184,9 @@ private fun DrawScope.drawGlow(color: Color, sweep: Float, radius: Float, stroke
         it.nativeCanvas.drawArc(center.x - radius, center.y - radius, center.x + radius, center.y + radius, 0f, sweep, false, paint)
     }
 }
+
+private const val MAX_LAPS = 10
+private val LAP_PINK = Color(0xFFFF6FAE)
 
 private fun DrawScope.pointAt(degrees: Float, radius: Float): Offset {
     val angle = Math.toRadians(degrees.toDouble())

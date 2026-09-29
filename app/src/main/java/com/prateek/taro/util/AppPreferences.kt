@@ -1,5 +1,6 @@
 package com.prateek.taro.util
 
+import androidx.datastore.preferences.core.Preferences
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
@@ -9,6 +10,7 @@ import com.prateek.taro.energy.DietGoal
 import com.prateek.taro.energy.Sex
 import com.prateek.taro.util.Util.UnitSystem
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -48,6 +50,7 @@ object AppPreferences {
         val DATE                                 = stringPreferencesKey("DATE")
         val THEME                                = stringPreferencesKey("theme")
         val CUSTOM_ACTIVITIES                    = stringPreferencesKey("custom_activities")
+        val SHOWCASE_BADGES                      = stringPreferencesKey("showcase_badges")
         val HEIGHT                               = stringPreferencesKey("height")
         val WEIGHT                               = stringPreferencesKey("weight")
         val STEP_LENGTH                          = floatPreferencesKey("step_length")
@@ -205,6 +208,11 @@ object AppPreferences {
         )
     }
 
+    val accuracyResults: AccuracyResults
+        get() = runBlocking { accuracyFlow().first() }
+
+    fun stringValue(key: Preferences.Key<String>): String? = runBlocking { dataStore.data.first()[key] }
+
     fun saveStepAccuracy(error: Float, date: String) = runBlocking {
         dataStore.edit {
             it[PreferenceKeys.ACCURACY_STEP_ERROR] = error
@@ -299,6 +307,21 @@ object AppPreferences {
                 }
             }
         }
+
+    private val volatileKeys = setOf("STEPS", "DATE", "sensor_baseline", "sensor_boot_count", "sensor_boot_time", "last_celebration_date")
+
+    fun settingsVersionFlow(): Flow<Int> = dataStore.data
+        .map { prefs -> prefs.asMap().filterKeys { it.name !in volatileKeys }.hashCode() }
+        .distinctUntilChanged()
+
+    // Badge showcase
+
+    fun showcaseBadgesFlow(): Flow<List<String>> =
+        dataStore.data.map { prefs -> prefs[PreferenceKeys.SHOWCASE_BADGES].orEmpty().split(",").filter { it.isNotBlank() } }
+
+    var showcaseBadges: List<String>
+        get() = runBlocking { showcaseBadgesFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.SHOWCASE_BADGES] = value.take(3).joinToString(",") } }
 
     // Custom activities
 
