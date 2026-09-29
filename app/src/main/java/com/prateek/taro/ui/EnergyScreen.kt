@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import androidx.compose.runtime.saveable.rememberSaveable
 import java.util.Date
 import java.text.SimpleDateFormat
 import androidx.compose.foundation.layout.Arrangement
@@ -52,6 +53,7 @@ import com.prateek.taro.energy.WeightJournal
 import com.prateek.taro.energy.WeightTrend
 import com.prateek.taro.ui.components.SecondaryButton
 import com.prateek.taro.ui.components.WeightChart
+import com.prateek.taro.ui.components.WeightSeriesToggles
 import com.prateek.taro.util.WeightReminderScheduler
 import com.prateek.taro.energy.Metabolism
 import com.prateek.taro.ui.components.HeroRing
@@ -117,19 +119,20 @@ private fun EnergyContent(tracking: TrackingState) {
     val today = Util.millisToDateString(now)
 
     val toast = LocalToast.current
-    var activityVersion by remember { mutableIntStateOf(0) }
-    val history = remember(age, sex, weight, height, today, tracking.refreshKey, activityVersion) { DailyEnergy.history(context) }
-    val todayBurn = remember(history, tracking.steps, now, activityVersion) {
+    val dataVersion = rememberDataVersion()
+    val history = remember(age, sex, weight, height, today, tracking.refreshKey, dataVersion) { DailyEnergy.history(context) }
+    val todayBurn = remember(history, tracking.steps, now, dataVersion) {
         history?.let { DailyEnergy.today(context, it.restingPerDay, tracking.steps, now) }
     }
-    val activities = remember(today, activityVersion) { Database.getInstance(context).activitiesOn(today) }
+    val activities = remember(today, dataVersion) { Database.getInstance(context).activitiesOn(today) }
 
     var profileStep by remember { mutableStateOf<ProfileStep?>(null) }
     var logging by remember { mutableStateOf(false) }
     var editingGoal by remember { mutableStateOf(false) }
     var loggingWeight by remember { mutableStateOf(false) }
-    var weightVersion by remember { mutableIntStateOf(0) }
-    val weightPoints = remember(weightVersion, tracking.refreshKey) { WeightJournal.points(context) }
+    var showWeighIns by rememberSaveable { mutableStateOf(true) }
+    var showTrend by rememberSaveable { mutableStateOf(true) }
+    val weightPoints = remember(dataVersion, tracking.refreshKey) { WeightJournal.points(context) }
     val navigator = LocalNavigator.currentOrThrow
     val rootNavigator = navigator.parent ?: navigator
     val calorieGoal by AppPreferences.calorieGoalFlow().collectAsStateWithLifecycle(AppPreferences.calorieGoal)
@@ -174,6 +177,8 @@ private fun EnergyContent(tracking: TrackingState) {
                 }
             } else {
                 val colors = TaroTheme.colors
+                val projected = Metabolism.withDigestion(history.restingPerDay + todayBurn.active + todayBurn.logged)
+                val todayNeed = maxOf(history.dailyNeed, projected)
                 val restingColor = lerp(colors.flame, colors.special, 0.3f).copy(alpha = 0.55f).compositeOver(colors.background)
                 val digestionColor = lerp(colors.flame, colors.special, 0.6f)
 
@@ -184,7 +189,8 @@ private fun EnergyContent(tracking: TrackingState) {
                         RingSegment(todayBurn.logged, colors.special),
                         RingSegment(todayBurn.digestion, digestionColor),
                     ),
-                    target = history.dailyNeed,
+                    target = todayNeed,
+                    overflow = false,
                     modifier = Modifier.padding(top = 8.dp),
                 ) {
                     Text(
@@ -203,7 +209,7 @@ private fun EnergyContent(tracking: TrackingState) {
                         ),
                     )
                     Text(
-                        text = stringResource(R.string.energy_ring_caption, kcal(history.dailyNeed)),
+                        text = stringResource(R.string.energy_ring_caption, kcal(todayNeed)),
                         fontSize = 14.sp,
                         color = colors.accent,
                     )
@@ -222,7 +228,7 @@ private fun EnergyContent(tracking: TrackingState) {
                     StatPill(R.drawable.ic_calorie_goal, "${stringResource(R.string.energy_digestion)} ${kcal(todayBurn.digestion)}", digestionColor, lit = false)
                 }
 
-                val target = calorieGoal?.let { Metabolism.calorieTarget(history.dailyNeed, it.goal, it.adjustment) } ?: history.dailyNeed
+                val target = calorieGoal?.let { Metabolism.calorieTarget(todayNeed, it.goal, it.adjustment) } ?: todayNeed
                 Panel(modifier = Modifier.padding(top = 16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
                         Column(modifier = Modifier.weight(1f)) {
@@ -272,7 +278,7 @@ private fun EnergyContent(tracking: TrackingState) {
                         label = stringResource(R.string.energy_projected),
                         value = stringResource(
                             R.string.energy_kcal,
-                            kcal(Metabolism.withDigestion(history.restingPerDay + todayBurn.active + todayBurn.logged)),
+                            kcal(projected),
                         ),
                         color = colors.flame,
                         modifier = Modifier.weight(1f),
@@ -314,10 +320,21 @@ private fun EnergyContent(tracking: TrackingState) {
                         WeightChart(
                             points = weightPoints.filter { !it.date.isBefore(Util.logicalToday().minusDays(30)) },
                             toDisplay = Util::kgToDisplay,
+                            showWeighIns = showWeighIns,
+                            showTrend = showTrend,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(140.dp)
+                                .height(190.dp)
                                 .padding(horizontal = 4.dp, vertical = 8.dp),
+                        )
+                        WeightSeriesToggles(
+                            showWeighIns = showWeighIns,
+                            showTrend = showTrend,
+                            onChange = { weighIns, trend ->
+                                showWeighIns = weighIns
+                                showTrend = trend
+                            },
+                            modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
                         )
                         PaceMessage(
                             assessment = WeightTrend.assess(
@@ -362,7 +379,6 @@ private fun EnergyContent(tracking: TrackingState) {
                         activities.forEach { activity ->
                             LoggedActivityRow(activity) {
                                 Database.getInstance(context).deleteActivity(activity.id)
-                                activityVersion++
                                 toast.show(context.getString(R.string.activity_deleted), ToastKind.INFO)
                             }
                         }
@@ -426,8 +442,6 @@ private fun EnergyContent(tracking: TrackingState) {
                 WeightJournal.log(context, date.toString(), kg)
                 WeightReminderScheduler.dismissNotification(context)
                 loggingWeight = false
-                weightVersion++
-                activityVersion++
                 toast.show(context.getString(R.string.weight_saved), ToastKind.SUCCESS)
             },
             onDismiss = { loggingWeight = false },
@@ -460,7 +474,6 @@ private fun EnergyContent(tracking: TrackingState) {
                     )
                 )
                 logging = false
-                activityVersion++
                 val message = if (date == Util.logicalToday()) {
                     context.getString(R.string.activity_saved)
                 } else {

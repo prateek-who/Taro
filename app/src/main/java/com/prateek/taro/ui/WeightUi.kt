@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.TintChip
 import java.time.LocalDate
 import com.prateek.taro.ui.components.DateRow
 import androidx.compose.foundation.layout.Column
@@ -104,5 +105,5 @@ fun PaceMessage(assessment: PaceAssessment, goal: DietGoal?, modifier: Modifier 
         PaceStatus.STEADY -> stringResource(R.string.weight_pace_steady, actual) to TaroTheme.colors.goal
         PaceStatus.DRIFTING -> stringResource(R.string.weight_pace_drifting, actual) to TaroTheme.colors.special
     }
-    Text(text = text, color = color, style = MaterialTheme.typography.bodyMedium, modifier = modifier)
+    TintChip(text = text, color = color, modifier = modifier)
 }

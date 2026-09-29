@@ -1,5 +1,9 @@
 package com.prateek.taro.ui
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import com.prateek.taro.ui.components.ConfettiBurst
+import com.prateek.taro.achievements.AchievementData
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -126,6 +130,17 @@ fun TaroApp() {
 
     val paused = pendingPause ?: live.paused
     val toast = rememberToastState()
+    val dataVersion = rememberDataVersion()
+    var badgeConfetti by remember { mutableStateOf(false) }
+    LaunchedEffect(refreshKey, dataVersion) {
+        val unlocked = withContext(Dispatchers.IO) { runCatching { AchievementData.newlyEarned(context) }.getOrDefault(emptyList()) }
+        val first = unlocked.firstOrNull() ?: return@LaunchedEffect
+        val title = context.getString(first.def.title)
+        val text = if (unlocked.size == 1) context.getString(R.string.badge_unlocked_toast, title)
+        else context.getString(R.string.badge_unlocked_toast_more, title, unlocked.size - 1)
+        toast.show(text, ToastKind.SUCCESS)
+        badgeConfetti = true
+    }
     val actions = remember {
         MainActions(
             onTogglePause = {
@@ -182,6 +197,7 @@ fun TaroApp() {
     CompositionLocalProvider(LocalTracking provides tracking, LocalMainActions provides actions, LocalToast provides toast) {
         Box(modifier = Modifier.fillMaxSize()) {
             Navigator(RootScreen) { SlideTransition(it) }
+            if (badgeConfetti) ConfettiBurst(onFinished = { badgeConfetti = false })
             if (weightPrompt) {
                 LogWeightDialog(
                     title = stringResource(R.string.weight_dialog_title),

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import com.prateek.taro.BuildConfig
 import com.prateek.taro.R
+import com.prateek.taro.achievements.AchievementData
 import com.prateek.taro.util.AppPreferences
 import com.prateek.taro.util.AppPreferences.PreferenceKeys
 import com.prateek.taro.util.Database
@@ -29,6 +30,7 @@ object BackupIO {
     }
 
     suspend fun export(context: Context): String {
+        AppPreferences.dataStore.edit { it[AchievementData.LAST_BACKUP_DATE] = Util.todayDateString() }
         val prefs = AppPreferences.dataStore.data.first()
         return FullBackup.encode(
             FullBackupFile(

@@ -193,7 +193,7 @@ private val calendarDayOfWeek = listOf(
 private fun MainScreen(tracking: TrackingState, actions: MainActions) {
     val steps = tracking.steps
     val paused = tracking.paused
-    val refreshKey = tracking.refreshKey
+    val refreshKey = tracking.refreshKey * 1_000_003 + rememberDataVersion()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val toast = LocalToast.current

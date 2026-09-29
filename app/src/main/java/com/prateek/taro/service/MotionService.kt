@@ -1,5 +1,12 @@
 package com.prateek.taro.service
 
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -49,6 +56,7 @@ internal class MotionService : Service() {
     private var mTodaysSteps: Int = 0
     private var mLastSteps = -1
     private var mCurrentDate: String = ""
+    private val settingsScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var mCachedDailyTarget: Int = 0
     private var mCachedShowProgressbar: Boolean = false
     private var receiver: ResultReceiver? = null
@@ -85,6 +93,16 @@ internal class MotionService : Service() {
         goalReachedToday = AppPreferences.dailyGoalNotification
                 && AppPreferences.dailyGoalTarget > 0
                 && mTodaysSteps >= AppPreferences.dailyGoalTarget
+
+        settingsScope.launch {
+            combine(
+                AppPreferences.dailyGoalTargetFlow(),
+                AppPreferences.dailyGoalNotificationProgressbarFlow(),
+                AppPreferences.dailyGoalNotificationFlow(),
+            ) { target, progressbar, goalNotification -> Triple(target, progressbar, goalNotification) }
+                .distinctUntilChanged()
+                .collect { (target, progressbar, goalNotification) -> onGoalSettingsChanged(target, progressbar, goalNotification) }
+        }
 
         if (mCurrentDate.isEmpty()) {
             mCurrentDate = Util.todayDateString()
@@ -335,6 +353,17 @@ internal class MotionService : Service() {
         }
 
         sendBundleUpdate(false)
+    }
+
+    private fun onGoalSettingsChanged(target: Int, progressbar: Boolean, goalNotification: Boolean) {
+        val changed = target != mCachedDailyTarget || progressbar != mCachedShowProgressbar
+        mCachedDailyTarget = target
+        mCachedShowProgressbar = progressbar
+        goalReachedToday = goalNotification && target > 0 && mTodaysSteps >= target
+        if (changed && !isCountingPaused) {
+            startForeground(FOREGROUND_ID, createStepsNotification(mCachedShowProgressbar, mCachedDailyTarget).build())
+            lastNotificationUpdateTime = System.currentTimeMillis()
+        }
     }
 
     private fun createStepsNotification(
@@ -622,6 +651,7 @@ internal class MotionService : Service() {
     }
 
     override fun onDestroy() {
+        settingsScope.cancel()
         runCatching { unregisterReceiver(screenReceiver) }
         if (::mListener.isInitialized) {
             (getSystemService(SENSOR_SERVICE) as? SensorManager)?.run {

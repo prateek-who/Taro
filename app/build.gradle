@@ -24,8 +24,8 @@ android {
         applicationId "com.prateek.taro"
         minSdkVersion 26
         targetSdkVersion 35
-        versionCode 24
-        versionName "1.0.2"
+        versionCode 25
+        versionName "1.0.3"
         proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
     }
 
