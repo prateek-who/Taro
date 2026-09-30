@@ -1,29 +1,31 @@
 package com.prateek.taro.util
 
-import androidx.datastore.preferences.core.Preferences
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
+import androidx.datastore.preferences.core.Preferences
+import androidx.preference.PreferenceManager
+import com.prateek.taro.BuildConfig
 import com.prateek.taro.energy.Activities
 import com.prateek.taro.energy.CustomActivity
 import com.prateek.taro.energy.DietGoal
 import com.prateek.taro.energy.Sex
+import com.prateek.taro.food.MealSlot
+import com.prateek.taro.food.Meals
 import com.prateek.taro.util.Util.UnitSystem
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import java.text.SimpleDateFormat
 import java.util.Calendar
-import androidx.preference.PreferenceManager
-import com.prateek.taro.BuildConfig
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import kotlinx.coroutines.runBlocking
 
 data class StepCalibration(
     val walkingStepCm: Float,
@@ -50,7 +52,9 @@ object AppPreferences {
         val DATE                                 = stringPreferencesKey("DATE")
         val THEME                                = stringPreferencesKey("theme")
         val CUSTOM_ACTIVITIES                    = stringPreferencesKey("custom_activities")
+        val MEALS                                = stringPreferencesKey("meals")
         val SHOWCASE_BADGES                      = stringPreferencesKey("showcase_badges")
+        val PROTEIN_PER_KG                       = floatPreferencesKey("protein_per_kg")
         val HEIGHT                               = stringPreferencesKey("height")
         val WEIGHT                               = stringPreferencesKey("weight")
         val STEP_LENGTH                          = floatPreferencesKey("step_length")
@@ -314,6 +318,14 @@ object AppPreferences {
         .map { prefs -> prefs.asMap().filterKeys { it.name !in volatileKeys }.hashCode() }
         .distinctUntilChanged()
 
+    // Protein target
+
+    fun proteinPerKgFlow(): Flow<Float> = dataStore.data.map { it[PreferenceKeys.PROTEIN_PER_KG] ?: 1.6f }
+
+    var proteinPerKg: Float
+        get() = runBlocking { proteinPerKgFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.PROTEIN_PER_KG] = value.coerceIn(0.5f, 3.5f) } }
+
     // Badge showcase
 
     fun showcaseBadgesFlow(): Flow<List<String>> =
@@ -331,6 +343,13 @@ object AppPreferences {
     var customActivities: List<CustomActivity>
         get() = runBlocking { customActivitiesFlow().first() }
         set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.CUSTOM_ACTIVITIES] = Activities.encode(value) } }
+
+    fun mealsFlow(context: Context): Flow<List<MealSlot>> =
+        dataStore.data.map { Meals.decode(it[PreferenceKeys.MEALS]) ?: Meals.defaults(context) }
+
+    fun meals(context: Context): List<MealSlot> = runBlocking { mealsFlow(context).first() }
+
+    fun saveMeals(meals: List<MealSlot>) = runBlocking { dataStore.edit { it[PreferenceKeys.MEALS] = Meals.encode(meals) } }
 
     // Onboarding
 

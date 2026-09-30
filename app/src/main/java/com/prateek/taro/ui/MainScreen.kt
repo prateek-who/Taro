@@ -392,6 +392,12 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
                     )
                 }
 
+                StepsByHourPanel(
+                    date = selectedDate,
+                    refreshKey = if (selectedDate == Util.logicalToday()) "$refreshKey-$steps" else refreshKey,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                )
+
                 Panel(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 52.dp)) {
                     MonthCalendar(
                         heat = heat,

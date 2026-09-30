@@ -4,6 +4,7 @@ import android.content.Context
 import com.prateek.taro.util.AppPreferences
 import com.prateek.taro.util.Database
 import com.prateek.taro.util.Util
+import java.time.LocalDate
 import java.util.Calendar
 
 data class DayBurn(val date: String, val resting: Double, val active: Double, val logged: Double = 0.0) {
@@ -45,18 +46,50 @@ object DailyEnergy {
         val activeTotal = ActivityEnergy.range(context, from, yesterday).activeKcal + database.activityKcal(from, yesterday)
         val pastDays = (CHART_DAYS - 1 downTo 1).map { offset ->
             val date = daysAgo(offset)
-            pastDayBurn(
-                date = date,
-                restingPerDay = resting - Metabolism.sleepSaving(resting, sleepMinutes(database, date)),
-                tracked = database.getEntries(date, date).isNotEmpty(),
-                active = ActivityEnergy.day(context, date).activeKcal,
-                logged = database.activityKcal(date, date),
-            )
+            pastDay(context, database, resting, date, database.getEntries(date, date).isNotEmpty())
         }
         return EnergyHistory(
             restingPerDay = resting,
             averageActive = if (recordedDays > 0) activeTotal / recordedDays else 0.0,
             pastDays = pastDays,
+        )
+    }
+
+    private fun pastDay(context: Context, database: Database, resting: Double, date: String, tracked: Boolean) = pastDayBurn(
+        date = date,
+        restingPerDay = resting - Metabolism.sleepSaving(resting, sleepMinutes(database, date)),
+        tracked = tracked,
+        active = ActivityEnergy.day(context, date).activeKcal,
+        logged = database.activityKcal(date, date),
+    )
+
+    fun measured(context: Context, restingPerDay: Double, weights: List<TrendPoint>): Measured? {
+        val database = Database.getInstance(context)
+        val from = daysAgo(MeasuredNeed.WINDOW_DAYS)
+        val to = daysAgo(1)
+        val days = database.foodBetween(from, to)
+            .groupBy { it.date }
+            .mapValues { (_, logs) -> logs.sumOf { it.kcal } }
+            .filterValues { it >= MeasuredNeed.MIN_INTAKE }
+            .map { (date, intake) -> BalanceDay(LocalDate.parse(date), intake, pastDay(context, database, restingPerDay, date, true).total) }
+        return MeasuredNeed.estimate(days, weights, LocalDate.parse(from), LocalDate.parse(to))
+    }
+
+    fun timeline(context: Context, date: LocalDate, now: Long = System.currentTimeMillis()): DayTimeline {
+        val database = Database.getInstance(context)
+        val day = date.toString()
+        val start = Util.dayStartMillis(date)
+        val end = Util.dayStartMillis(date.plusDays(1))
+        return DayTimelines.build(
+            start = start,
+            end = end,
+            now = now,
+            body = ActivityEnergy.body(),
+            restingPerDay = restingPerDay(),
+            minutes = database.getMinutes(day, day).map { it.minuteStart to MinuteSample(it.steps, it.ascentMeters.toDouble()) },
+            food = database.foodOn(day).map { TimedAmount(it.loggedAt.coerceIn(start, end - 1), it.kcal) },
+            activities = database.activitiesOn(day).map { DayTimelines.activitySpan(it.loggedAt, it.durationMinutes, start, end) to it.kcal },
+            sleep = database.sleepsSince(date.minusDays(1).toString()).map { TimedSpan(it.startAt, it.endAt) },
         )
     }
 

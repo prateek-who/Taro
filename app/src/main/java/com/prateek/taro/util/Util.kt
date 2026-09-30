@@ -49,6 +49,11 @@ object Util {
         }
     }
 
+    internal fun momentOf(date: LocalDate, minuteOfDay: Int): Long =
+        DayClock.momentOf(date.toString(), minuteOfDay, AppPreferences.dayStartMinutes)
+
+    internal fun dayStartMillis(date: LocalDate): Long = DayClock.startOf(date.toString(), AppPreferences.dayStartMinutes)
+
     internal fun millisToDateString(millis: Long): String = DayClock.dateOf(millis, AppPreferences.dayStartMinutes)
 
     internal fun calendarToDateString(cal: Calendar): String {

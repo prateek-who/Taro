@@ -1,5 +1,9 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.StatRow
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.prateek.taro.util.Database
+import com.prateek.taro.sleep.SleepDiagnostics
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -327,6 +331,7 @@ private fun SleepContent(tracking: TrackingState) {
                     }
                 }
             }
+            SleepDetectionCard()
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -441,4 +446,38 @@ private fun SleepEditDialog(
             onDismiss = { picking = null },
         )
     }
+}
+
+@Composable
+private fun SleepDetectionCard() {
+    val context = LocalContext.current
+    val state by remember { SleepDiagnostics.flow() }.collectAsStateWithLifecycle(null)
+    val dataVersion = rememberDataVersion()
+    val screenEvents = remember(dataVersion, state) {
+        Database.getInstance(context).screenEventCount(System.currentTimeMillis() - 24 * 60 * 60 * 1000L)
+    }
+    val format = remember { SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()) }
+    val never = stringResource(R.string.sleep_diag_never)
+    fun time(at: Long?) = at?.let { format.format(Date(it)) } ?: never
+    val current = state ?: return
+
+    SectionLabel(stringResource(R.string.sleep_diag_title))
+    Panel {
+        StatRow(stringResource(R.string.sleep_diag_registered), current.registerError?.let { "${time(current.registeredAt)}, $it" } ?: time(current.registeredAt))
+        StatRow(stringResource(R.string.sleep_diag_google), time(current.googleAt))
+        current.googleSummary?.let { DiagnosticNote(it) }
+        StatRow(stringResource(R.string.sleep_diag_estimate), time(current.estimateAt))
+        current.estimateSummary?.let { DiagnosticNote(it) }
+        StatRow(stringResource(R.string.sleep_diag_screen), screenEvents.toString())
+    }
+}
+
+@Composable
+private fun DiagnosticNote(text: String) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        color = TaroTheme.colors.accent,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+    )
 }

@@ -39,9 +39,12 @@ object WeightTrend {
 
     fun weeklyRate(points: List<TrendPoint>): Double? {
         val last = points.lastOrNull() ?: return null
-        val window = points.filter { ChronoUnit.DAYS.between(it.date, last.date) < RATE_WINDOW_DAYS }
+        return slopePerDay(points.filter { ChronoUnit.DAYS.between(it.date, last.date) < RATE_WINDOW_DAYS })?.times(7)
+    }
+
+    fun slopePerDay(window: List<TrendPoint>): Double? {
         if (window.size < MIN_READINGS) return null
-        if (ChronoUnit.DAYS.between(window.first().date, last.date) < MIN_SPAN_DAYS) return null
+        if (ChronoUnit.DAYS.between(window.first().date, window.last().date) < MIN_SPAN_DAYS) return null
 
         val xs = window.map { ChronoUnit.DAYS.between(window.first().date, it.date).toDouble() }
         val ys = window.map { it.trend }
@@ -49,7 +52,7 @@ object WeightTrend {
         val meanY = ys.average()
         val covariance = xs.indices.sumOf { (xs[it] - meanX) * (ys[it] - meanY) }
         val variance = xs.sumOf { (it - meanX) * (it - meanX) }
-        return if (variance > 0) covariance / variance * 7 else null
+        return if (variance > 0) covariance / variance else null
     }
 
     fun assess(ratePerWeek: Double?, goal: DietGoal?, adjustment: Int, currentKg: Double): PaceAssessment {

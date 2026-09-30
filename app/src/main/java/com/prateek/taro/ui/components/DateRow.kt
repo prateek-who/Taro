@@ -1,5 +1,7 @@
 package com.prateek.taro.ui.components
 
+import com.prateek.taro.util.DayClock
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -81,6 +83,30 @@ fun PickerRow(icon: Int, label: String, value: String, onClick: () -> Unit, modi
         Icon(painterResource(icon), contentDescription = null, tint = TaroTheme.colors.accent, modifier = Modifier.size(20.dp))
         Text(label, color = TaroTheme.colors.accent, modifier = Modifier.weight(1f))
         Text(value, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+fun TimeRow(label: String, minuteOfDay: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var picking by remember { mutableStateOf(false) }
+    val format = remember { android.text.format.DateFormat.getTimeFormat(context) }
+    val value = remember(minuteOfDay) {
+        format.format(Date(DayClock.momentOf("2000-01-01", minuteOfDay, 0)))
+    }
+    PickerRow(R.drawable.ic_day_start, label, value, onClick = { picking = true }, modifier = modifier)
+    if (picking) {
+        TimePickerDialog(
+            title = label,
+            initialHour = minuteOfDay / 60,
+            initialMinute = minuteOfDay % 60,
+            is24Hour = android.text.format.DateFormat.is24HourFormat(context),
+            onConfirm = { hour, minute ->
+                picking = false
+                onChange(hour * 60 + minute)
+            },
+            onDismiss = { picking = false },
+        )
     }
 }
 

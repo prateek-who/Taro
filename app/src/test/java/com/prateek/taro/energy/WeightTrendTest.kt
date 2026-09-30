@@ -16,6 +16,11 @@ class WeightTrendTest {
         }
         assertEquals(-0.5, WeightTrend.weeklyRate(WeightTrend.trend(noisy))!!, 0.12)
         assertNull(WeightTrend.weeklyRate(WeightTrend.trend(noisy.take(3))))
+
+        val eaten = (0 until 28).map { BalanceDay(start.plusDays(it.toLong()), 2_000.0, 2_300.0) }
+        val measured = MeasuredNeed.estimate(eaten, WeightTrend.trend(noisy), start.plusDays(7), start.plusDays(27))!!
+        assertEquals(2_550.0, measured.need, 120.0)
+        assertNull(MeasuredNeed.estimate(eaten.take(5), WeightTrend.trend(noisy), start, start.plusDays(27)))
     }
 
     @Test

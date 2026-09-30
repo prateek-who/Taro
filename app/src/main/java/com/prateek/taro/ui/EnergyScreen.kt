@@ -1,5 +1,9 @@
 package com.prateek.taro.ui
 
+import androidx.compose.foundation.clickable
+import com.prateek.taro.ui.components.NumberInputDialog
+import com.prateek.taro.food.Meals
+import com.prateek.taro.data.FoodLog
 import androidx.compose.runtime.saveable.rememberSaveable
 import java.util.Date
 import java.text.SimpleDateFormat
@@ -132,7 +136,13 @@ private fun EnergyContent(tracking: TrackingState) {
     var loggingWeight by remember { mutableStateOf(false) }
     var showWeighIns by rememberSaveable { mutableStateOf(true) }
     var showTrend by rememberSaveable { mutableStateOf(true) }
+    val foodToday = remember(today, dataVersion) { Database.getInstance(context).foodOn(today) }
+    val proteinPerKg by AppPreferences.proteinPerKgFlow().collectAsStateWithLifecycle(AppPreferences.proteinPerKg)
+    val meals by AppPreferences.mealsFlow(context).collectAsStateWithLifecycle(AppPreferences.meals(context))
+    var editingFood by remember { mutableStateOf<FoodLog?>(null) }
+    var editingProtein by remember { mutableStateOf(false) }
     val weightPoints = remember(dataVersion, tracking.refreshKey) { WeightJournal.points(context) }
+    val measured = remember(history, weightPoints) { history?.let { DailyEnergy.measured(context, it.restingPerDay, weightPoints) } }
     val navigator = LocalNavigator.currentOrThrow
     val rootNavigator = navigator.parent ?: navigator
     val calorieGoal by AppPreferences.calorieGoalFlow().collectAsStateWithLifecycle(AppPreferences.calorieGoal)
@@ -228,7 +238,11 @@ private fun EnergyContent(tracking: TrackingState) {
                     StatPill(R.drawable.ic_calorie_goal, "${stringResource(R.string.energy_digestion)} ${kcal(todayBurn.digestion)}", digestionColor, lit = false)
                 }
 
-                val target = calorieGoal?.let { Metabolism.calorieTarget(todayNeed, it.goal, it.adjustment) } ?: todayNeed
+                val eatNeed = todayNeed + (measured?.adjustment ?: 0.0)
+                val target = calorieGoal?.let { Metabolism.calorieTarget(eatNeed, it.goal, it.adjustment) } ?: eatNeed
+                val eaten = foodToday.totals()
+                val left = target - eaten.kcal
+                val proteinTarget = weight.toDouble() * proteinPerKg
                 Panel(modifier = Modifier.padding(top = 16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
                         Column(modifier = Modifier.weight(1f)) {
@@ -240,13 +254,17 @@ private fun EnergyContent(tracking: TrackingState) {
                                 color = colors.accent,
                             )
                             RollingText(
-                                text = kcal(target),
+                                text = kcal(kotlin.math.abs(left)),
                                 style = MaterialTheme.typography.displaySmall.copy(
                                     fontWeight = FontWeight.Normal,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = if (left < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                                 ),
                             )
-                            Text(stringResource(R.string.energy_eat_today_caption), fontSize = 13.sp, color = colors.accent)
+                            Text(
+                                text = stringResource(if (left < 0) R.string.food_over else R.string.food_left, kcal(target)),
+                                fontSize = 13.sp,
+                                color = colors.accent,
+                            )
                         }
                         TintChip(
                             text = goalChip(calorieGoal),
@@ -254,14 +272,64 @@ private fun EnergyContent(tracking: TrackingState) {
                             onClick = { editingGoal = true },
                         )
                     }
+                    ProgressLine(
+                        fraction = (eaten.kcal / target).toFloat(),
+                        color = if (left < 0) MaterialTheme.colorScheme.error else colors.goal,
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.food_eaten, stringResource(R.string.energy_kcal, kcal(eaten.kcal))),
+                        fontSize = 12.sp,
+                        color = colors.accent,
+                        modifier = Modifier.padding(start = 8.dp, top = 6.dp),
+                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable { editingProtein = true }
+                            .padding(8.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.food_protein_target, kcal(eaten.protein), kcal(proteinTarget)),
+                            fontSize = 13.sp,
+                            color = PROTEIN_BLUE,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                        ProgressLine(fraction = (eaten.protein / proteinTarget).toFloat(), color = PROTEIN_BLUE)
+                    }
                     if (calorieGoal != null && target < history.restingPerDay) {
                         TintChip(
                             text = stringResource(R.string.calorie_goal_below_resting),
                             color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
+                            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 4.dp),
                         )
                     }
+                    PrimaryButton(
+                        text = stringResource(R.string.food_log_button),
+                        onClick = { rootNavigator.push(AddFoodScreen(Util.logicalToday(), Meals.forTime(meals))) },
+                        icon = R.drawable.ic_add,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                    )
                 }
+
+                SectionLabel(stringResource(R.string.food_meals))
+                MealsSection(
+                    meals = meals,
+                    logs = foodToday,
+                    onAdd = { meal -> rootNavigator.push(AddFoodScreen(Util.logicalToday(), meal)) },
+                    onEdit = { editingFood = it },
+                    onDelete = { log ->
+                        Database.getInstance(context).deleteFood(log.id)
+                        toast.show(context.getString(R.string.food_removed, log.name), ToastKind.INFO)
+                    },
+                )
+
+                SectionLabel(stringResource(R.string.timeline_by_hour))
+                EnergyByHourPanel(refreshKey = "${tracking.refreshKey}-${tracking.steps}")
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -284,6 +352,22 @@ private fun EnergyContent(tracking: TrackingState) {
                         modifier = Modifier.weight(1f),
                     )
                 }
+                StatTile(
+                    label = stringResource(R.string.energy_measured_need),
+                    value = measured?.let { stringResource(R.string.energy_kcal, kcal(it.need)) } ?: stringResource(R.string.energy_measured_pending),
+                    color = if (measured != null) colors.goal else colors.accent,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp),
+                )
+                Text(
+                    text = measured?.let {
+                        stringResource(R.string.energy_measured_caption, it.days, (it.confidence * 100).roundToInt())
+                    } ?: stringResource(R.string.energy_measured_hint),
+                    fontSize = 12.sp,
+                    color = colors.accent,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp),
+                )
 
                 SectionLabel(stringResource(R.string.weight_title))
                 Panel {
@@ -434,6 +518,25 @@ private fun EnergyContent(tracking: TrackingState) {
         }
     }
 
+    editingFood?.let { log ->
+        EditFoodDialog(log, onDismiss = { editingFood = null })
+    }
+
+    if (editingProtein) {
+        NumberInputDialog(
+            title = stringResource(R.string.food_protein_dialog),
+            initial = Util.formatMeasure(proteinPerKg.toDouble()),
+            hint = "g / kg",
+            decimal = true,
+            supportingText = stringResource(R.string.food_protein_hint),
+            onConfirm = { input ->
+                editingProtein = false
+                Util.parseMeasure(input)?.let { AppPreferences.proteinPerKg = it.toFloat() }
+            },
+            onDismiss = { editingProtein = false },
+        )
+    }
+
     if (loggingWeight) {
         LogWeightDialog(
             title = stringResource(R.string.weight_dialog_title),
@@ -463,14 +566,14 @@ private fun EnergyContent(tracking: TrackingState) {
     if (logging) {
         LogActivityDialog(
             weightKg = weight.toDouble(),
-            onSave = { name, minutes, kcal, date ->
+            onSave = { name, minutes, kcal, date, finishedAt ->
                 Database.getInstance(context).addActivity(
                     LoggedActivity(
                         date = date.toString(),
                         name = name,
                         kcal = kcal,
                         durationMinutes = minutes,
-                        loggedAt = System.currentTimeMillis(),
+                        loggedAt = finishedAt,
                     )
                 )
                 logging = false

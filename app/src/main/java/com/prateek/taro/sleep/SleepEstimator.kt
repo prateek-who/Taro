@@ -9,7 +9,9 @@ data class SleepWindow(val start: Long, val end: Long) {
 object SleepEstimator {
     const val MIN_SLEEP_MS = 3 * 60 * 60 * 1000L
 
-    fun isPlausibleNight(start: Long, end: Long) = end - start >= MIN_SLEEP_MS
+    const val MAX_SLEEP_MS = 14 * 60 * 60 * 1000L
+
+    fun isPlausibleNight(start: Long, end: Long) = end - start in MIN_SLEEP_MS..MAX_SLEEP_MS
     const val MAX_WAKE_GAP_MS = 10 * 60 * 1000L
     const val MAX_AWAKE_SHARE = 0.15
     const val ACTIVE_STEPS_PER_MINUTE = 15
@@ -22,10 +24,12 @@ object SleepEstimator {
         stepsPerMinute: Map<Long, Int>,
     ): SleepWindow? {
         val active = mutableListOf<SleepWindow>()
+        val known = screen.lastOrNull { it.at <= windowStart }
+        val start = if (known != null) windowStart else screen.minOfOrNull { it.at } ?: return null
 
-        var screenOn = screen.lastOrNull { it.at <= windowStart }?.on ?: false
-        var onSince = windowStart
-        screen.filter { it.at in (windowStart + 1)..windowEnd }.sortedBy { it.at }.forEach { event ->
+        var screenOn = known?.on ?: false
+        var onSince = start
+        screen.filter { it.at in (start + 1)..windowEnd }.sortedBy { it.at }.forEach { event ->
             if (screenOn && !event.on) active += SleepWindow(onSince, event.at)
             if (!screenOn && event.on) onSince = event.at
             screenOn = event.on
@@ -38,7 +42,7 @@ object SleepEstimator {
             .forEach { active += SleepWindow(it, it + MINUTE_MS) }
 
         val idle = mutableListOf<SleepWindow>()
-        var cursor = windowStart
+        var cursor = start
         active.sortedBy { it.start }.forEach { busy ->
             if (busy.start > cursor) idle += SleepWindow(cursor, busy.start)
             cursor = maxOf(cursor, busy.end)
@@ -57,7 +61,7 @@ object SleepEstimator {
         }
 
         return merged
-            .filter { (window, awake) -> window.durationMs >= MIN_SLEEP_MS && awake <= window.durationMs * MAX_AWAKE_SHARE }
+            .filter { (window, awake) -> isPlausibleNight(window.start, window.end) && awake <= window.durationMs * MAX_AWAKE_SHARE }
             .maxByOrNull { it.first.durationMs }
             ?.first
     }

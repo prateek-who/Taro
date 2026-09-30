@@ -1,5 +1,7 @@
 package com.prateek.taro.util
 
+import com.prateek.taro.data.CustomFood
+import com.prateek.taro.data.FoodLog
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,6 +72,30 @@ internal class Database private constructor(private val dao: StepsDao) {
     internal fun screenEvents(from: Long, to: Long): List<ScreenEvent> =
         listOfNotNull(dao.lastScreenEventBefore(from)) + dao.screenEvents(from, to)
 
+    internal fun logFood(log: FoodLog): Long = changed { dao.insertFoodLog(log) }
+
+    internal fun updateFood(log: FoodLog) = changed { dao.updateFoodLog(log) }
+
+    internal fun deleteFood(id: Long) = changed { dao.deleteFoodLog(id) }
+
+    internal fun foodOn(date: String): List<FoodLog> = dao.foodLogsOn(date)
+
+    internal fun foodBetween(from: String, to: String): List<FoodLog> = dao.foodLogsBetween(from, to)
+
+    internal fun recentFood(limit: Int): List<FoodLog> = dao.recentFoodLogs(limit)
+
+    internal fun saveCustomFood(food: CustomFood): Long = changed { dao.saveCustomFood(food) }
+
+    internal fun deleteCustomFood(id: Long) = changed { dao.deleteCustomFood(id) }
+
+    internal fun customFoods(): List<CustomFood> = dao.allCustomFoods()
+
+    internal fun customFood(id: Long): CustomFood? = dao.customFood(id)
+
+    internal fun lastScreenEventBefore(before: Long): ScreenEvent? = dao.lastScreenEventBefore(before)
+
+    internal fun screenEventCount(since: Long): Int = dao.screenEventCount(since)
+
     internal fun pruneScreenEvents(before: Long) = dao.pruneScreenEvents(before)
 
     internal fun snapshot(): DataSnapshot = DataSnapshot(
@@ -79,6 +105,9 @@ internal class Database private constructor(private val dao: StepsDao) {
         activities = dao.allActivities(),
         weights = dao.allWeights(),
         sleeps = dao.allSleeps(),
+        screenEvents = dao.allScreenEvents(),
+        foodLogs = dao.allFoodLogs(),
+        customFoods = dao.allCustomFoods(),
     )
 
     internal fun restore(snapshot: DataSnapshot) = changed { dao.restoreAll(snapshot) }

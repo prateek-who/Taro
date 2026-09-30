@@ -46,7 +46,7 @@ class StepsDatabaseMigrationTest {
     }
 
     @Test
-    fun sleepIsOnePerWakeDateAndScreenEventsPrune() {
+    fun newestTablesWorkAfterUpgrade() {
         legacyDatabase("v2sleep.db", 2) {
             execSQL("CREATE TABLE History (date TEXT PRIMARY KEY, stepsy INT NOT NULL)")
         }
@@ -60,11 +60,17 @@ class StepsDatabaseMigrationTest {
         dao.pruneScreenEvents(1_000L)
         val sleeps = dao.sleepsSince("2026-01-01")
         val events = dao.screenEvents(0L, 10_000L)
+        dao.insertFoodLog(FoodLog(date = "2026-09-30", meal = "lunch", name = "Roti", grams = 80.0, amount = "2 rotis", kcal = 238.0, protein = 7.8, carbs = null, fat = null, foodKey = "in:roti", loggedAt = 1L))
+        val food = dao.foodLogsOn("2026-09-30")
+        val recipeId = dao.saveCustomFood(CustomFood(name = "Dal", kcal = 110.0, protein = 6.0, carbs = null, fat = null, servingLabel = null, servingGrams = null, createdAt = 1L, ingredients = "x", cookedGrams = 900.0, servings = 4))
+        val recipe = dao.customFood(recipeId)
         db.close()
 
         assertEquals(1, sleeps.size)
         assertEquals("manual", sleeps.single().source)
         assertEquals(true, sleeps.single().confirmed)
         assertEquals(listOf(ScreenEvent(5_000L, true)), events)
+        assertEquals(238.0, food.single().kcal, 0.0)
+        assertEquals(4, recipe?.servings)
     }
 }
