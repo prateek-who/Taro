@@ -25,6 +25,12 @@ object Meals {
 
     fun newKey() = "meal_${System.currentTimeMillis()}"
 
+    private val usualTimes = listOf("breakfast" to 8 * 60, "lunch" to 13 * 60, "snack" to 17 * 60, "dinner" to 20 * 60 + 30)
+
+    fun usualMinute(meal: MealSlot?): Int = usualTimes.firstOrNull { (word, _) ->
+        meal != null && (meal.key == word || meal.name.contains(word, ignoreCase = true))
+    }?.second ?: 12 * 60
+
     fun forTime(meals: List<MealSlot>, time: LocalTime = LocalTime.now()): String {
         val usual = when (time.hour) {
             in 4..10 -> "breakfast"

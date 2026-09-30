@@ -59,6 +59,7 @@ fun LogActivityDialog(
     weightKg: Double,
     onSave: (name: String, minutes: Int?, kcal: Double, date: LocalDate, finishedAt: Long) -> Unit,
     onDismiss: () -> Unit,
+    initialDate: LocalDate = Util.logicalToday(),
 ) {
     val context = LocalContext.current
     val toast = LocalToast.current
@@ -67,7 +68,7 @@ fun LogActivityDialog(
     var newName by remember { mutableStateOf(TextFieldValue()) }
     var intensity by remember { mutableStateOf(Intensity.MODERATE) }
     var minutes by remember { mutableStateOf(TextFieldValue()) }
-    var date by remember { mutableStateOf(Util.logicalToday()) }
+    var date by remember { mutableStateOf(initialDate) }
     var finished by remember { mutableIntStateOf(DayClock.minuteOfDay(System.currentTimeMillis())) }
     var kcalInput by remember { mutableStateOf<TextFieldValue?>(null) }
 

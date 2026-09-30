@@ -20,6 +20,9 @@ interface StepsDao {
     @Query("SELECT * FROM calibration_points ORDER BY recorded_at ASC")
     fun allCalibration(): List<CalibrationPoint>
 
+    @Query("SELECT * FROM logged_activities WHERE date BETWEEN :from AND :to")
+    fun activitiesBetween(from: String, to: String): List<LoggedActivity>
+
     @Query("SELECT * FROM logged_activities ORDER BY logged_at ASC")
     fun allActivities(): List<LoggedActivity>
 
@@ -67,6 +70,12 @@ interface StepsDao {
 
     @androidx.room.Update
     fun updateFoodLog(log: FoodLog)
+
+    @androidx.room.Update
+    fun updateFoodLogs(logs: List<FoodLog>)
+
+    @Query("SELECT * FROM food_logs WHERE food_key = :key")
+    fun foodLogsWithKey(key: String): List<FoodLog>
 
     @Query("DELETE FROM food_logs WHERE id = :id")
     fun deleteFoodLog(id: Long)

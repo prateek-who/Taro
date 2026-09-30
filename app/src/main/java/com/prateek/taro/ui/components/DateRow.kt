@@ -1,5 +1,7 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.ui.draw.rotate
+import androidx.compose.material3.IconButton
 import com.prateek.taro.util.DayClock
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
@@ -83,6 +85,64 @@ fun PickerRow(icon: Int, label: String, value: String, onClick: () -> Unit, modi
         Icon(painterResource(icon), contentDescription = null, tint = TaroTheme.colors.accent, modifier = Modifier.size(20.dp))
         Text(label, color = TaroTheme.colors.accent, modifier = Modifier.weight(1f))
         Text(value, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+fun dayLabel(date: LocalDate, today: LocalDate): String {
+    val format = remember { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
+    return when (date) {
+        today -> stringResource(R.string.header_today)
+        today.minusDays(1) -> stringResource(R.string.date_yesterday)
+        else -> format.format(Date(Util.dateStringToCalendarMillis(date.toString())))
+    }
+}
+
+@Composable
+fun DaySwitcher(date: LocalDate, today: LocalDate, onChange: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
+    var picking by remember { mutableStateOf(false) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+        modifier = modifier,
+    ) {
+        IconButton(onClick = { onChange(date.minusDays(1)) }, modifier = Modifier.size(36.dp)) {
+            Icon(
+                painter = painterResource(R.drawable.ic_chevron_right),
+                contentDescription = stringResource(R.string.day_previous),
+                tint = TaroTheme.colors.accent,
+                modifier = Modifier.rotate(180f),
+            )
+        }
+        Text(
+            text = dayLabel(date, today).uppercase(),
+            fontSize = 13.sp,
+            letterSpacing = 2.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (date == today) TaroTheme.colors.accent else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { picking = true }
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+        )
+        IconButton(onClick = { onChange(date.plusDays(1)) }, enabled = date.isBefore(today), modifier = Modifier.size(36.dp)) {
+            Icon(
+                painter = painterResource(R.drawable.ic_chevron_right),
+                contentDescription = stringResource(R.string.day_next),
+                tint = TaroTheme.colors.accent.copy(alpha = if (date.isBefore(today)) 1f else 0.25f),
+            )
+        }
+    }
+    if (picking) {
+        TaroDatePickerDialog(
+            initial = date,
+            latest = today,
+            onPick = {
+                picking = false
+                onChange(it)
+            },
+            onDismiss = { picking = false },
+        )
     }
 }
 

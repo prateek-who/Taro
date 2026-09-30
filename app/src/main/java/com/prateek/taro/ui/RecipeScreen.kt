@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.data.CustomFood
 import com.prateek.taro.ui.components.TaroDialog
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
@@ -81,6 +82,7 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
     var cooked by remember { mutableStateOf(TextFieldValue(existing?.cookedGrams?.let(Util::formatMeasure).orEmpty())) }
     var servings by remember { mutableStateOf(TextFieldValue((existing?.servings ?: 1).toString())) }
     var editing by remember { mutableStateOf<IngredientEdit?>(null) }
+    var pastEntries by remember { mutableStateOf<Pair<CustomFood, Int>?>(null) }
     var catalog by remember { mutableStateOf<List<FoodItem>>(emptyList()) }
     LaunchedEffect(Unit) { catalog = withContext(Dispatchers.IO) { FoodCatalog.load(context) } }
     val dataVersion = rememberDataVersion()
@@ -206,19 +208,24 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
                 text = stringResource(R.string.recipe_save),
                 enabled = valid,
                 onClick = {
-                    Database.getInstance(context).saveCustomFood(
-                        Recipes.build(
-                            name = name.text,
-                            items = items,
-                            cookedGrams = cookedValue,
-                            servings = servingCount ?: 1,
-                            servingLabel = servingLabel,
-                            id = existing?.id ?: 0,
-                            createdAt = existing?.createdAt ?: System.currentTimeMillis(),
-                        )
+                    val recipe = Recipes.build(
+                        name = name.text,
+                        items = items,
+                        cookedGrams = cookedValue,
+                        servings = servingCount ?: 1,
+                        servingLabel = servingLabel,
+                        id = existing?.id ?: 0,
+                        createdAt = existing?.createdAt ?: System.currentTimeMillis(),
                     )
-                    toast.show(context.getString(R.string.recipe_saved, name.text.trim()), ToastKind.SUCCESS)
-                    onDone()
+                    val database = Database.getInstance(context)
+                    database.saveCustomFood(recipe)
+                    val count = if (existing != null) database.pastEntryCount(recipe) else 0
+                    if (count > 0) {
+                        pastEntries = recipe to count
+                    } else {
+                        toast.show(context.getString(R.string.recipe_saved, name.text.trim()), ToastKind.SUCCESS)
+                        onDone()
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -241,6 +248,8 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
     }
 
     fun ingredientFrom(log: FoodLog) = Ingredient(log.foodKey, log.name, log.grams ?: 0.0, log.kcal, log.protein, log.carbs, log.fat)
+
+    pastEntries?.let { (recipe, count) -> PastEntriesDialog(recipe, count, onDone = onDone) }
 
     when (val edit = editing) {
         IngredientEdit.Pick -> IngredientPickerDialog(

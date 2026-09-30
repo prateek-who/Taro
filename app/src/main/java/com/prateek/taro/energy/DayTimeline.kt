@@ -25,6 +25,8 @@ object DayTimelines {
         food: List<TimedAmount>,
         activities: List<Pair<TimedSpan, Double>>,
         sleep: List<TimedSpan>,
+        activityFactor: Double = 1.0,
+        workoutFactor: Double = 1.0,
     ): DayTimeline {
         val count = ((end - start + HOUR - 1) / HOUR).toInt()
         val restingPerMs = (restingPerDay ?: 0.0) / (end - start)
@@ -34,10 +36,10 @@ object DayTimelines {
             val elapsed = overlap(from, to, start, now)
             val asleep = sleep.sumOf { overlap(from, to, it.start, it.end) }
             val inHour = minutes.filter { it.first in from until to }
-            val active = inHour.sumOf { EnergyModel.minuteKcal(body, it.second) }
+            val active = activityFactor * inHour.sumOf { EnergyModel.minuteKcal(body, it.second) }
             val logged = activities.sumOf { (span, kcal) ->
                 val length = (span.end - span.start).coerceAtLeast(MINUTE)
-                kcal * overlap(from, to, span.start, span.start + length) / length
+                workoutFactor * kcal * overlap(from, to, span.start, span.start + length) / length
             }
             val asleepSoFar = sleep.sumOf { overlap(from, minOf(to, now), it.start, it.end) }
             val resting = restingPerMs * (elapsed - asleepSoFar * Metabolism.SLEEP_REDUCTION)

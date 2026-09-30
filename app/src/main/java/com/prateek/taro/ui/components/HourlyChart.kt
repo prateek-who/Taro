@@ -50,6 +50,7 @@ fun HourlyChart(
     cumulative: Boolean = false,
     now: Long? = null,
     appearKey: Any? = null,
+    scaleMax: Double? = null,
 ) {
     val context = LocalContext.current
     val colors = TaroTheme.colors
@@ -109,7 +110,7 @@ fun HourlyChart(
         if (cumulative) {
             val lastHour = now?.let { ((it - start) / HOUR_MS).coerceIn(0f, count.toFloat()) } ?: count.toFloat()
             val totals = series.map { line -> line.values.runningFold(0.0) { sum, value -> sum + value } }
-            val max = totals.maxOf { it.maxOrNull() ?: 0.0 }.takeIf { it > 0 } ?: 1.0
+            val max = maxOf(scaleMax ?: 0.0, totals.maxOf { it.maxOrNull() ?: 0.0 }).takeIf { it > 0 } ?: 1.0
             series.forEachIndexed { s, line ->
                 val points = totals[s]
                 val path = Path()

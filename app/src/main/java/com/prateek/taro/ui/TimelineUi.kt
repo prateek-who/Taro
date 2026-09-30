@@ -1,5 +1,7 @@
 package com.prateek.taro.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.prateek.taro.util.AppPreferences
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +23,6 @@ import androidx.compose.ui.unit.sp
 import com.prateek.taro.R
 import com.prateek.taro.energy.DailyEnergy
 import com.prateek.taro.energy.DayTimeline
-import com.prateek.taro.ui.components.DateRow
 import com.prateek.taro.ui.components.HourSeries
 import com.prateek.taro.ui.components.HourlyChart
 import com.prateek.taro.ui.components.LegendItem
@@ -61,7 +62,8 @@ fun StepsByHourPanel(date: LocalDate, refreshKey: Any?, modifier: Modifier = Mod
     val context = LocalContext.current
     val dataVersion = rememberDataVersion()
     val now = System.currentTimeMillis()
-    val timeline = remember(date, refreshKey, dataVersion) { DailyEnergy.timeline(context, date, now) }
+    val factors by AppPreferences.energyFactorsFlow().collectAsStateWithLifecycle(AppPreferences.energyFactors)
+    val timeline = remember(date, refreshKey, dataVersion, factors) { DailyEnergy.timeline(context, date, factors, now) }
     var selected by remember(date) { mutableStateOf<Int?>(null) }
     val hourLabel = rememberHourLabel()
     val steps = timeline.hours.map { it.steps.toDouble() }
@@ -105,13 +107,13 @@ fun StepsByHourPanel(date: LocalDate, refreshKey: Any?, modifier: Modifier = Mod
 private enum class EnergyView { HOURLY, RUNNING }
 
 @Composable
-fun EnergyByHourPanel(refreshKey: Any?, modifier: Modifier = Modifier) {
+fun EnergyByHourPanel(date: LocalDate, dayNeed: Double?, refreshKey: Any?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val dataVersion = rememberDataVersion()
-    var date by rememberSaveable { mutableStateOf(Util.logicalToday()) }
     var view by rememberSaveable { mutableStateOf(EnergyView.HOURLY) }
     val now = System.currentTimeMillis()
-    val timeline = remember(date, refreshKey, dataVersion) { DailyEnergy.timeline(context, date, now) }
+    val factors by AppPreferences.energyFactorsFlow().collectAsStateWithLifecycle(AppPreferences.energyFactors)
+    val timeline = remember(date, refreshKey, dataVersion, factors) { DailyEnergy.timeline(context, date, factors, now) }
     var selected by remember(date, view) { mutableStateOf<Int?>(null) }
     val hourLabel = rememberHourLabel()
     val colors = TaroTheme.colors
@@ -121,13 +123,6 @@ fun EnergyByHourPanel(refreshKey: Any?, modifier: Modifier = Modifier) {
     fun kcal(value: Double) = Util.formatSteps(value.roundToInt())
 
     Panel(modifier = modifier) {
-        DateRow(
-            label = stringResource(R.string.date_label),
-            date = date,
-            today = Util.logicalToday(),
-            onChange = { date = it },
-            modifier = Modifier.padding(8.dp),
-        )
         ToggleGroup(
             options = listOf(
                 EnergyView.HOURLY to stringResource(R.string.timeline_per_hour),
@@ -135,7 +130,7 @@ fun EnergyByHourPanel(refreshKey: Any?, modifier: Modifier = Modifier) {
             ),
             selected = view,
             onSelect = { view = it },
-            modifier = Modifier.padding(horizontal = 8.dp),
+            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp),
         )
         val readout = selected?.let { index ->
             val hour = timeline.hours[index]
@@ -151,6 +146,8 @@ fun EnergyByHourPanel(refreshKey: Any?, modifier: Modifier = Modifier) {
             }
         } ?: stringResource(R.string.timeline_energy_total, kcal(burn.sum()), kcal(eaten.sum()))
         Readout(readout)
+        val incompleteDays by AppPreferences.incompleteFoodDaysFlow().collectAsStateWithLifecycle(AppPreferences.incompleteFoodDays)
+        if (eaten.sum() > 0) FoodDayChip(date.toString(), incompleteDays, Modifier.padding(start = 8.dp, bottom = 8.dp))
         HourlyChart(
             series = listOf(HourSeries(burn, colors.flame), HourSeries(eaten, colors.goal)),
             start = timeline.start,
@@ -158,6 +155,7 @@ fun EnergyByHourPanel(refreshKey: Any?, modifier: Modifier = Modifier) {
             selected = selected,
             onSelect = { selected = if (it == selected) null else it },
             cumulative = view == EnergyView.RUNNING,
+            scaleMax = dayNeed?.let { maxOf(it, eaten.sum()) },
             now = timeline.nowOrNull(now),
             appearKey = date,
             modifier = Modifier

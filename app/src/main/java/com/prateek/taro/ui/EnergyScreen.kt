@@ -1,5 +1,15 @@
 package com.prateek.taro.ui
 
+import androidx.compose.foundation.ScrollState
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import java.time.LocalDate
+import com.prateek.taro.ui.components.dayLabel
+import com.prateek.taro.ui.components.DaySwitcher
+import com.prateek.taro.ui.components.LocalTabActive
+import com.prateek.taro.ui.components.infoOf
+import com.prateek.taro.ui.components.InfoBox
+import com.prateek.taro.energy.ActivityProfile
 import androidx.compose.foundation.clickable
 import com.prateek.taro.ui.components.NumberInputDialog
 import com.prateek.taro.food.Meals
@@ -123,12 +133,30 @@ private fun EnergyContent(tracking: TrackingState) {
     val today = Util.millisToDateString(now)
 
     val toast = LocalToast.current
-    val dataVersion = rememberDataVersion()
-    val history = remember(age, sex, weight, height, today, tracking.refreshKey, dataVersion) { DailyEnergy.history(context) }
-    val todayBurn = remember(history, tracking.steps, now, dataVersion) {
-        history?.let { DailyEnergy.today(context, it.restingPerDay, tracking.steps, now) }
+    val tabActive = LocalTabActive.current
+    LaunchedEffect(tabActive) {
+        if (tabActive && !AppPreferences.infoHintShown) {
+            delay(900)
+            toast.show(context.getString(R.string.info_hint), ToastKind.INFO)
+            AppPreferences.infoHintShown = true
+        }
     }
-    val activities = remember(today, dataVersion) { Database.getInstance(context).activitiesOn(today) }
+    val dataVersion = rememberDataVersion()
+    val factors by AppPreferences.energyFactorsFlow().collectAsStateWithLifecycle(AppPreferences.energyFactors)
+    val insights by rememberBodyInsights(today, age, sex, height)
+    val history = remember(age, sex, weight, height, today, tracking.refreshKey, dataVersion, factors) { DailyEnergy.history(context, factors) }
+    val todayBurn = remember(history, tracking.steps, now, dataVersion) {
+        history?.let { DailyEnergy.today(context, it, tracking.steps, now) }
+    }
+    LaunchedEffect(tabActive) { if (!tabActive) EnergyTabState.date = null }
+    val selectedDate = EnergyTabState.date?.takeIf { !it.isAfter(Util.logicalToday()) } ?: Util.logicalToday()
+    fun select(date: LocalDate) {
+        EnergyTabState.date = date.takeIf { it != Util.logicalToday() }
+    }
+    val day = selectedDate.toString()
+    val isToday = day == today
+    val pastBurn = remember(history, day, dataVersion) { history?.takeIf { !isToday }?.let { DailyEnergy.day(context, it, day) } }
+    val activities = remember(day, dataVersion) { Database.getInstance(context).activitiesOn(day) }
 
     var profileStep by remember { mutableStateOf<ProfileStep?>(null) }
     var logging by remember { mutableStateOf(false) }
@@ -136,13 +164,15 @@ private fun EnergyContent(tracking: TrackingState) {
     var loggingWeight by remember { mutableStateOf(false) }
     var showWeighIns by rememberSaveable { mutableStateOf(true) }
     var showTrend by rememberSaveable { mutableStateOf(true) }
-    val foodToday = remember(today, dataVersion) { Database.getInstance(context).foodOn(today) }
+    val foodToday = remember(day, dataVersion) { Database.getInstance(context).foodOn(day) }
+    val incompleteDays by AppPreferences.incompleteFoodDaysFlow().collectAsStateWithLifecycle(AppPreferences.incompleteFoodDays)
     val proteinPerKg by AppPreferences.proteinPerKgFlow().collectAsStateWithLifecycle(AppPreferences.proteinPerKg)
     val meals by AppPreferences.mealsFlow(context).collectAsStateWithLifecycle(AppPreferences.meals(context))
     var editingFood by remember { mutableStateOf<FoodLog?>(null) }
     var editingProtein by remember { mutableStateOf(false) }
     val weightPoints = remember(dataVersion, tracking.refreshKey) { WeightJournal.points(context) }
-    val measured = remember(history, weightPoints) { history?.let { DailyEnergy.measured(context, it.restingPerDay, weightPoints) } }
+    val scroll = EnergyTabState.scroll
+    val scope = rememberCoroutineScope()
     val navigator = LocalNavigator.currentOrThrow
     val rootNavigator = navigator.parent ?: navigator
     val calorieGoal by AppPreferences.calorieGoalFlow().collectAsStateWithLifecycle(AppPreferences.calorieGoal)
@@ -150,10 +180,19 @@ private fun EnergyContent(tracking: TrackingState) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .statusBarsPadding(),
     ) {
-        AppOverflowMenu()
+        AppOverflowMenu(
+            center = { DaySwitcher(date = selectedDate, today = Util.logicalToday(), onChange = ::select) },
+            actions = listOf(
+                MenuEntry(R.string.food_log_button, R.string.quick_food_hint, R.drawable.ic_calorie_goal, TaroTheme.colors.goal) {
+                    rootNavigator.push(AddFoodScreen(selectedDate, Meals.forTime(meals)))
+                },
+                MenuEntry(R.string.energy_add_activity, R.string.quick_activity_hint, R.drawable.ic_calories, TaroTheme.colors.special) { logging = true },
+                MenuEntry(R.string.weight_log, R.string.quick_weight_hint, R.drawable.ic_weight, TaroTheme.colors.sleep) { loggingWeight = true },
+            ),
+        )
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
@@ -187,42 +226,53 @@ private fun EnergyContent(tracking: TrackingState) {
                 }
             } else {
                 val colors = TaroTheme.colors
-                val projected = Metabolism.withDigestion(history.restingPerDay + todayBurn.active + todayBurn.logged)
-                val todayNeed = maxOf(history.dailyNeed, projected)
+                val expectedRest = insights?.hourly?.let { ActivityProfile.expectedRemaining(it, Util.logicalToday(), Util.fractionOfToday(now)) }
+                val projected = Metabolism.withDigestion(
+                    history.restingPerDay + todayBurn.active + todayBurn.logged + factors.activity * (expectedRest ?: 0.0)
+                )
+                val todayNeed = if (expectedRest != null) projected else maxOf(history.dailyNeed, projected)
+                val needSd = factors.needSd(
+                    history.restingPerDay / factors.resting,
+                    todayBurn.active / factors.activity + (expectedRest ?: history.averageActive / factors.activity),
+                    todayBurn.logged / factors.workout,
+                )
+                val shown = pastBurn ?: todayBurn
+                val ringTarget = if (isToday) todayNeed else history.dailyNeed
                 val restingColor = lerp(colors.flame, colors.special, 0.3f).copy(alpha = 0.55f).compositeOver(colors.background)
                 val digestionColor = lerp(colors.flame, colors.special, 0.6f)
 
                 HeroRing(
                     segments = listOf(
-                        RingSegment(todayBurn.resting, restingColor),
-                        RingSegment(todayBurn.active, colors.flame),
-                        RingSegment(todayBurn.logged, colors.special),
-                        RingSegment(todayBurn.digestion, digestionColor),
+                        RingSegment(Metabolism.withDigestion(shown.resting), restingColor),
+                        RingSegment(Metabolism.withDigestion(shown.active), colors.flame),
+                        RingSegment(Metabolism.withDigestion(shown.logged), colors.special),
                     ),
-                    target = todayNeed,
+                    target = ringTarget,
                     overflow = false,
                     modifier = Modifier.padding(top = 8.dp),
                 ) {
                     Text(
-                        text = stringResource(R.string.header_today).uppercase(),
+                        text = dayLabel(selectedDate, Util.logicalToday()).uppercase(),
                         fontSize = 13.sp,
                         letterSpacing = 2.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = colors.accent,
                     )
                     RollingText(
-                        text = kcal(todayBurn.total),
+                        text = kcal(shown.total),
                         style = MaterialTheme.typography.displayMedium.copy(
                             fontSize = 52.sp,
                             fontWeight = FontWeight.Normal,
                             color = MaterialTheme.colorScheme.onSurface,
                         ),
                     )
-                    Text(
-                        text = stringResource(R.string.energy_ring_caption, kcal(todayNeed)),
-                        fontSize = 14.sp,
-                        color = colors.accent,
-                    )
+                    InfoBox(infoOf(R.string.info_ring_title, R.string.info_ring), Modifier.clip(RoundedCornerShape(10.dp)), color = colors.flame) {
+                        Text(
+                            text = stringResource(if (isToday) R.string.energy_ring_caption else R.string.energy_ring_caption_past, kcal(ringTarget)),
+                            fontSize = 14.sp,
+                            color = colors.accent,
+                        )
+                    }
                 }
 
                 FlowRow(
@@ -232,105 +282,22 @@ private fun EnergyContent(tracking: TrackingState) {
                         .fillMaxWidth()
                         .padding(top = 4.dp, bottom = 8.dp),
                 ) {
-                    StatPill(R.drawable.ic_sleep, "${stringResource(R.string.energy_resting)} ${kcal(todayBurn.resting)}", restingColor, lit = false)
-                    StatPill(R.drawable.ic_steps, "${stringResource(R.string.energy_steps_label)} ${kcal(todayBurn.active)}", colors.flame, lit = false)
-                    StatPill(R.drawable.ic_calories, "${stringResource(R.string.energy_logged)} ${kcal(todayBurn.logged)}", colors.special, lit = false)
-                    StatPill(R.drawable.ic_calorie_goal, "${stringResource(R.string.energy_digestion)} ${kcal(todayBurn.digestion)}", digestionColor, lit = false)
+                    StatPill(R.drawable.ic_sleep, "${stringResource(R.string.energy_resting)} ${kcal(shown.resting)}", restingColor, lit = false, info = infoOf(R.string.info_resting_title, R.string.info_resting))
+                    StatPill(R.drawable.ic_steps, "${stringResource(R.string.energy_steps_label)} ${kcal(shown.active)}", colors.flame, lit = false, info = infoOf(R.string.info_steps_title, R.string.info_steps))
+                    StatPill(R.drawable.ic_calories, "${stringResource(R.string.energy_logged)} ${kcal(shown.logged)}", colors.special, lit = false, info = infoOf(R.string.info_logged_title, R.string.info_logged))
+                    StatPill(R.drawable.ic_calorie_goal, "${stringResource(R.string.energy_digestion)} ${kcal(shown.digestion)}", digestionColor, lit = false, info = infoOf(R.string.info_digestion_title, R.string.info_digestion))
                 }
 
-                val eatNeed = todayNeed + (measured?.adjustment ?: 0.0)
-                val target = calorieGoal?.let { Metabolism.calorieTarget(eatNeed, it.goal, it.adjustment) } ?: eatNeed
-                val eaten = foodToday.totals()
-                val left = target - eaten.kcal
-                val proteinTarget = weight.toDouble() * proteinPerKg
-                Panel(modifier = Modifier.padding(top = 16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.calorie_goal_eat_today).uppercase(),
-                                fontSize = 12.sp,
-                                letterSpacing = 2.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = colors.accent,
-                            )
-                            RollingText(
-                                text = kcal(kotlin.math.abs(left)),
-                                style = MaterialTheme.typography.displaySmall.copy(
-                                    fontWeight = FontWeight.Normal,
-                                    color = if (left < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                                ),
-                            )
-                            Text(
-                                text = stringResource(if (left < 0) R.string.food_over else R.string.food_left, kcal(target)),
-                                fontSize = 13.sp,
-                                color = colors.accent,
-                            )
+                if (activities.isNotEmpty()) {
+                    Panel(modifier = Modifier.padding(top = 10.dp)) {
+                        activities.forEach { activity ->
+                            LoggedActivityRow(activity) {
+                                Database.getInstance(context).deleteActivity(activity.id)
+                                toast.show(context.getString(R.string.activity_deleted), ToastKind.INFO)
+                            }
                         }
-                        TintChip(
-                            text = goalChip(calorieGoal),
-                            color = if (calorieGoal == null) colors.accent else colors.goal,
-                            onClick = { editingGoal = true },
-                        )
                     }
-                    ProgressLine(
-                        fraction = (eaten.kcal / target).toFloat(),
-                        color = if (left < 0) MaterialTheme.colorScheme.error else colors.goal,
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                    )
-                    Text(
-                        text = stringResource(R.string.food_eaten, stringResource(R.string.energy_kcal, kcal(eaten.kcal))),
-                        fontSize = 12.sp,
-                        color = colors.accent,
-                        modifier = Modifier.padding(start = 8.dp, top = 6.dp),
-                    )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable { editingProtein = true }
-                            .padding(8.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.food_protein_target, kcal(eaten.protein), kcal(proteinTarget)),
-                            fontSize = 13.sp,
-                            color = PROTEIN_BLUE,
-                            modifier = Modifier.padding(bottom = 6.dp),
-                        )
-                        ProgressLine(fraction = (eaten.protein / proteinTarget).toFloat(), color = PROTEIN_BLUE)
-                    }
-                    if (calorieGoal != null && target < history.restingPerDay) {
-                        TintChip(
-                            text = stringResource(R.string.calorie_goal_below_resting),
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 4.dp),
-                        )
-                    }
-                    PrimaryButton(
-                        text = stringResource(R.string.food_log_button),
-                        onClick = { rootNavigator.push(AddFoodScreen(Util.logicalToday(), Meals.forTime(meals))) },
-                        icon = R.drawable.ic_add,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                    )
                 }
-
-                SectionLabel(stringResource(R.string.food_meals))
-                MealsSection(
-                    meals = meals,
-                    logs = foodToday,
-                    onAdd = { meal -> rootNavigator.push(AddFoodScreen(Util.logicalToday(), meal)) },
-                    onEdit = { editingFood = it },
-                    onDelete = { log ->
-                        Database.getInstance(context).deleteFood(log.id)
-                        toast.show(context.getString(R.string.food_removed, log.name), ToastKind.INFO)
-                    },
-                )
-
-                SectionLabel(stringResource(R.string.timeline_by_hour))
-                EnergyByHourPanel(refreshKey = "${tracking.refreshKey}-${tracking.steps}")
-
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier
@@ -340,36 +307,139 @@ private fun EnergyContent(tracking: TrackingState) {
                     StatTile(
                         label = stringResource(R.string.energy_daily_need),
                         value = stringResource(R.string.energy_kcal, kcal(history.dailyNeed)),
+                        info = infoOf(R.string.info_usual_title, R.string.info_usual),
                         modifier = Modifier.weight(1f),
                     )
                     StatTile(
-                        label = stringResource(R.string.energy_projected),
-                        value = stringResource(
-                            R.string.energy_kcal,
-                            kcal(projected),
-                        ),
+                        label = stringResource(if (isToday) R.string.energy_projected else R.string.energy_day_total),
+                        value = stringResource(R.string.energy_kcal, kcal(if (isToday) projected else shown.total)),
                         color = colors.flame,
                         modifier = Modifier.weight(1f),
+                        info = if (isToday) infoOf(R.string.info_projected_title, R.string.info_projected) else infoOf(R.string.info_day_total_title, R.string.info_day_total),
                     )
                 }
-                StatTile(
-                    label = stringResource(R.string.energy_measured_need),
-                    value = measured?.let { stringResource(R.string.energy_kcal, kcal(it.need)) } ?: stringResource(R.string.energy_measured_pending),
-                    color = if (measured != null) colors.goal else colors.accent,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp),
-                )
-                Text(
-                    text = measured?.let {
-                        stringResource(R.string.energy_measured_caption, it.days, (it.confidence * 100).roundToInt())
-                    } ?: stringResource(R.string.energy_measured_hint),
-                    fontSize = 12.sp,
-                    color = colors.accent,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp),
+
+
+                val dayNeed = if (isToday) todayNeed else shown.total
+                val target = calorieGoal?.let { Metabolism.calorieTarget(dayNeed, it.goal, it.adjustment) } ?: dayNeed
+                val eaten = foodToday.totals()
+                val left = target - eaten.kcal
+                val proteinTarget = weight.toDouble() * proteinPerKg
+                Panel(modifier = Modifier.padding(top = 16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            InfoBox(
+                                info = if (isToday) infoOf(R.string.info_eat_title, R.string.info_eat) else infoOf(R.string.info_eat_past_title, R.string.info_eat_past),
+                                modifier = Modifier.clip(RoundedCornerShape(8.dp)),
+                                color = colors.goal,
+                            ) {
+                                Text(
+                                    text = stringResource(if (isToday) R.string.calorie_goal_eat_today else R.string.food_target_day).uppercase(),
+                                    fontSize = 12.sp,
+                                    letterSpacing = 2.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colors.accent,
+                                )
+                            }
+                            RollingText(
+                                text = kcal(kotlin.math.abs(left)),
+                                style = MaterialTheme.typography.displaySmall.copy(
+                                    fontWeight = FontWeight.Normal,
+                                    color = if (left < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                ),
+                            )
+                            Text(
+                                text = if (isToday) {
+                                    stringResource(if (left < 0) R.string.food_over else R.string.food_left, kcal(target)) +
+                                        " " + stringResource(R.string.body_plus_minus, kcal(needSd))
+                                } else {
+                                    stringResource(if (left < 0) R.string.food_over_past else R.string.food_under_past, kcal(target))
+                                },
+                                fontSize = 13.sp,
+                                color = colors.accent,
+                            )
+                        }
+                        TintChip(
+                            text = goalChip(calorieGoal),
+                            color = if (calorieGoal == null) colors.accent else colors.goal,
+                            onClick = { editingGoal = true },
+                            info = infoOf(R.string.info_goal_title, R.string.info_goal),
+                        )
+                    }
+                    ProgressLine(
+                        fraction = (eaten.kcal / target).toFloat(),
+                        color = if (left < 0) MaterialTheme.colorScheme.error else colors.goal,
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 8.dp, end = 8.dp, top = 14.dp),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.food_eaten_label).uppercase(),
+                                fontSize = 11.sp,
+                                letterSpacing = 1.5.sp,
+                                color = colors.accent,
+                            )
+                            RollingText(
+                                text = stringResource(R.string.energy_kcal, kcal(eaten.kcal)),
+                                style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, color = colors.goal),
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                        if (eaten.kcal > 0) FoodDayChip(day, incompleteDays)
+                    }
+                    InfoBox(
+                        info = infoOf(R.string.info_protein_title, R.string.info_protein),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                            .clip(RoundedCornerShape(14.dp)),
+                        color = PROTEIN_BLUE,
+                        onClick = { editingProtein = true },
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text(
+                                text = stringResource(R.string.food_protein_target, kcal(eaten.protein), kcal(proteinTarget)),
+                                fontSize = 13.sp,
+                                color = PROTEIN_BLUE,
+                                modifier = Modifier.padding(bottom = 6.dp),
+                            )
+                            ProgressLine(fraction = (eaten.protein / proteinTarget).toFloat(), color = PROTEIN_BLUE)
+                        }
+                    }
+                    if (calorieGoal != null && target < history.restingPerDay) {
+                        TintChip(
+                            text = stringResource(R.string.calorie_goal_below_resting),
+                            color = MaterialTheme.colorScheme.error,
+                            info = infoOf(R.string.info_below_title, R.string.info_below),
+                            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 4.dp),
+                        )
+                    }
+                }
+
+                MealsSection(
+                    date = selectedDate,
+                    meals = meals,
+                    logs = foodToday,
+                    onAdd = { meal -> rootNavigator.push(AddFoodScreen(selectedDate, meal)) },
+                    onEdit = { editingFood = it },
+                    onDelete = { log ->
+                        Database.getInstance(context).deleteFood(log.id)
+                        toast.show(context.getString(R.string.food_removed, log.name), ToastKind.INFO)
+                    },
                 )
 
-                SectionLabel(stringResource(R.string.weight_title))
+                SectionLabel(stringResource(R.string.timeline_by_hour), info = infoOf(R.string.info_hour_title, R.string.info_hour))
+                EnergyByHourPanel(date = selectedDate, dayNeed = if (isToday) todayNeed else null, refreshKey = if (isToday) "${tracking.refreshKey}-${tracking.steps}" else tracking.refreshKey)
+
+                SectionLabel(stringResource(R.string.body_title), info = infoOf(R.string.info_body_title, R.string.info_body))
+                BodyCard(insights?.model, loaded = insights != null)
+
+                SectionLabel(stringResource(R.string.weight_title), info = infoOf(R.string.info_weight_title, R.string.info_weight))
                 Panel {
                     if (weightPoints.isEmpty()) {
                         Text(
@@ -398,11 +468,15 @@ private fun EnergyContent(tracking: TrackingState) {
                                 )
                             }
                             weekChange(weightPoints)?.let {
-                                TintChip(stringResource(R.string.weight_week_chip, Util.formatWeightChange(it)), colors.accent)
+                                TintChip(
+                                    text = stringResource(R.string.weight_week_chip, Util.formatWeightChange(it)),
+                                    color = colors.accent,
+                                    info = infoOf(R.string.info_week_title, R.string.info_week),
+                                )
                             }
                         }
                         WeightChart(
-                            points = weightPoints.filter { !it.date.isBefore(Util.logicalToday().minusDays(30)) },
+                            points = insights?.model.tissueTrend(weightPoints).filter { !it.date.isBefore(Util.logicalToday().minusDays(30)) },
                             toDisplay = Util::kgToDisplay,
                             showWeighIns = showWeighIns,
                             showTrend = showTrend,
@@ -447,40 +521,9 @@ private fun EnergyContent(tracking: TrackingState) {
                     }
                 }
 
-                SectionLabel(stringResource(R.string.energy_logged_title))
-                Panel {
-                    if (activities.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.energy_logged_empty),
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                            color = colors.accent,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                        )
-                    } else {
-                        activities.forEach { activity ->
-                            LoggedActivityRow(activity) {
-                                Database.getInstance(context).deleteActivity(activity.id)
-                                toast.show(context.getString(R.string.activity_deleted), ToastKind.INFO)
-                            }
-                        }
-                    }
-                    PrimaryButton(
-                        text = stringResource(R.string.energy_add_activity),
-                        onClick = { logging = true },
-                        icon = R.drawable.ic_calories,
-                        tint = colors.special,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                    )
-                }
-
                 val week = history.pastDays + todayBurn
-                var selectedBar by remember { mutableStateOf<Int?>(null) }
-                SectionLabel(stringResource(R.string.energy_last_7_days))
+                val selectedBar = week.indexOfFirst { it.date == day }.takeIf { it >= 0 }
+                SectionLabel(stringResource(R.string.energy_last_7_days), info = infoOf(R.string.info_week_chart_title, R.string.info_week_chart))
                 Panel(modifier = Modifier.height(260.dp)) {
                     Text(
                         text = stringResource(R.string.energy_last_7_days_caption),
@@ -500,7 +543,10 @@ private fun EnergyContent(tracking: TrackingState) {
                         goal = 0,
                         barTint = colors.flame,
                         selectedIndex = selectedBar,
-                        onBarClick = { selectedBar = if (selectedBar == it) null else it },
+                        onBarClick = { index ->
+                            select(LocalDate.parse(week[index].date))
+                            scope.launch { scroll.animateScrollTo(0) }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
@@ -585,6 +631,7 @@ private fun EnergyContent(tracking: TrackingState) {
                 toast.show(message, ToastKind.SUCCESS)
             },
             onDismiss = { logging = false },
+            initialDate = selectedDate,
         )
     }
 
@@ -650,4 +697,9 @@ private fun LoggedActivityRow(activity: LoggedActivity, onDelete: () -> Unit) {
             )
         }
     }
+}
+
+private object EnergyTabState {
+    var date by mutableStateOf<LocalDate?>(null)
+    val scroll = ScrollState(0)
 }

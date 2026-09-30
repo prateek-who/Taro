@@ -9,6 +9,7 @@ import com.prateek.taro.BuildConfig
 import com.prateek.taro.energy.Activities
 import com.prateek.taro.energy.CustomActivity
 import com.prateek.taro.energy.DietGoal
+import com.prateek.taro.energy.EnergyFactors
 import com.prateek.taro.energy.Sex
 import com.prateek.taro.food.MealSlot
 import com.prateek.taro.food.Meals
@@ -53,6 +54,9 @@ object AppPreferences {
         val THEME                                = stringPreferencesKey("theme")
         val CUSTOM_ACTIVITIES                    = stringPreferencesKey("custom_activities")
         val MEALS                                = stringPreferencesKey("meals")
+        val ENERGY_FACTORS                       = stringPreferencesKey("energy_factors")
+        val INFO_HINT_SHOWN                      = booleanPreferencesKey("info_hint_shown")
+        val INCOMPLETE_FOOD_DAYS                 = stringSetPreferencesKey("incomplete_food_days")
         val SHOWCASE_BADGES                      = stringPreferencesKey("showcase_badges")
         val PROTEIN_PER_KG                       = floatPreferencesKey("protein_per_kg")
         val HEIGHT                               = stringPreferencesKey("height")
@@ -312,11 +316,42 @@ object AppPreferences {
             }
         }
 
-    private val volatileKeys = setOf("STEPS", "DATE", "sensor_baseline", "sensor_boot_count", "sensor_boot_time", "last_celebration_date")
+    private const val MAX_INCOMPLETE_DAYS = 400
+
+    private val volatileKeys = setOf("STEPS", "DATE", "sensor_baseline", "sensor_boot_count", "sensor_boot_time", "last_celebration_date", "energy_factors")
 
     fun settingsVersionFlow(): Flow<Int> = dataStore.data
         .map { prefs -> prefs.asMap().filterKeys { it.name !in volatileKeys }.hashCode() }
         .distinctUntilChanged()
+
+    // Learned energy factors
+
+    fun energyFactorsFlow(): Flow<EnergyFactors> = dataStore.data.map { EnergyFactors.decode(it[PreferenceKeys.ENERGY_FACTORS]) }.distinctUntilChanged()
+
+    var energyFactors: EnergyFactors
+        get() = runBlocking { energyFactorsFlow().first() }
+        set(value) = runBlocking {
+            dataStore.edit {
+                it[PreferenceKeys.ENERGY_FACTORS] = value.encode()
+            }
+        }
+
+    var infoHintShown: Boolean
+        get() = runBlocking { dataStore.data.first()[PreferenceKeys.INFO_HINT_SHOWN] ?: false }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.INFO_HINT_SHOWN] = value } }
+
+    // Days the user marked as not fully logged
+
+    fun incompleteFoodDaysFlow(): Flow<Set<String>> = dataStore.data.map { it[PreferenceKeys.INCOMPLETE_FOOD_DAYS].orEmpty() }
+
+    val incompleteFoodDays: Set<String> get() = runBlocking { incompleteFoodDaysFlow().first() }
+
+    fun setFoodDayIncomplete(date: String, incomplete: Boolean) = runBlocking {
+        dataStore.edit { prefs ->
+            val current = prefs[PreferenceKeys.INCOMPLETE_FOOD_DAYS].orEmpty()
+            prefs[PreferenceKeys.INCOMPLETE_FOOD_DAYS] = (if (incomplete) current + date else current - date).sorted().takeLast(MAX_INCOMPLETE_DAYS).toSet()
+        }
+    }
 
     // Protein target
 

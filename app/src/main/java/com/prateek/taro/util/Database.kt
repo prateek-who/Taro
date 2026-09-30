@@ -1,5 +1,6 @@
 package com.prateek.taro.util
 
+import com.prateek.taro.food.FoodCatalog
 import com.prateek.taro.data.CustomFood
 import com.prateek.taro.data.FoodLog
 import kotlinx.coroutines.flow.update
@@ -51,6 +52,8 @@ internal class Database private constructor(private val dao: StepsDao) {
 
     internal fun activitiesOn(date: String): List<LoggedActivity> = dao.activitiesOn(date)
 
+    internal fun activitiesBetween(from: String, to: String): List<LoggedActivity> = dao.activitiesBetween(from, to)
+
     internal fun activityKcal(from: String, to: String): Double = dao.activityKcal(from, to)
 
     internal fun saveWeight(entry: WeightLog) = changed { dao.upsertWeight(entry) }
@@ -76,6 +79,8 @@ internal class Database private constructor(private val dao: StepsDao) {
 
     internal fun updateFood(log: FoodLog) = changed { dao.updateFoodLog(log) }
 
+    internal fun updateFoods(logs: List<FoodLog>) = changed { dao.updateFoodLogs(logs) }
+
     internal fun deleteFood(id: Long) = changed { dao.deleteFoodLog(id) }
 
     internal fun foodOn(date: String): List<FoodLog> = dao.foodLogsOn(date)
@@ -85,6 +90,28 @@ internal class Database private constructor(private val dao: StepsDao) {
     internal fun recentFood(limit: Int): List<FoodLog> = dao.recentFoodLogs(limit)
 
     internal fun saveCustomFood(food: CustomFood): Long = changed { dao.saveCustomFood(food) }
+
+    private fun weighedLogsOf(food: CustomFood) = dao.foodLogsWithKey(FoodCatalog.customKey(food.id)).filter { it.grams != null }
+
+    internal fun pastEntryCount(food: CustomFood): Int = weighedLogsOf(food).size
+
+    internal fun recalculateFoodLogs(food: CustomFood): Int = changed {
+        val item = FoodCatalog.custom(food)
+        val logs = weighedLogsOf(food)
+        dao.updateFoodLogs(
+            logs.map { log ->
+                val grams = log.grams ?: 0.0
+                log.copy(
+                    name = food.name,
+                    kcal = item.kcalFor(grams),
+                    protein = item.proteinFor(grams),
+                    carbs = item.carbsFor(grams),
+                    fat = item.fatFor(grams),
+                )
+            }
+        )
+        logs.size
+    }
 
     internal fun deleteCustomFood(id: Long) = changed { dao.deleteCustomFood(id) }
 

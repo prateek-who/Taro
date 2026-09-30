@@ -56,8 +56,10 @@ object FoodCatalog {
         )
     }
 
+    fun customKey(id: Long) = "custom:$id"
+
     fun custom(food: CustomFood) = FoodItem(
-        key = "custom:${food.id}",
+        key = customKey(food.id),
         name = food.name,
         source = SOURCE_CUSTOM,
         kcal = food.kcal,

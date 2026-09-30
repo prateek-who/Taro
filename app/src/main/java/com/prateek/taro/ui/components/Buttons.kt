@@ -1,5 +1,9 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -76,14 +80,16 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
 }
 
 @Composable
-fun StatRow(label: String, value: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+fun StatRow(label: String, value: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, info: Info? = null) {
+    val state = rememberInfoState()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .infoClickable(state, info, onClick)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
+        InfoPopup(state, info, TaroTheme.colors.accent)
         Text(label, fontSize = 15.sp, modifier = Modifier.weight(1f).alpha(0.7f))
         Text(value, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
     }
