@@ -14,19 +14,19 @@ object SleepRepository {
     private const val WINDOW_START_HOUR = 18
     private const val WINDOW_END_HOUR = 15
     private const val EARLIEST_ESTIMATE_HOUR = 5
-    private const val UP_FOR_MS = 30 * 60 * 1000L
 
     fun sessions(context: Context, days: Long): List<SleepSession> =
         Database.getInstance(context).sleepsSince(SleepDates.today().minusDays(days).toString())
 
-    fun saveDetected(context: Context, start: Long, end: Long, source: String) {
-        if (!SleepEstimator.isPlausibleNight(start, end)) return
+    fun saveDetected(context: Context, start: Long, end: Long, source: String): Boolean {
+        if (!SleepEstimator.isPlausibleNight(start, end)) return false
         val database = Database.getInstance(context)
         val wakeDate = SleepDates.wakeDateOf(end).toString()
         val existing = database.sleepOn(wakeDate)
-        if (existing != null && (existing.confirmed || existing.source == SOURCE_MANUAL)) return
-        if (existing?.source == SOURCE_GOOGLE && source == SOURCE_PHONE) return
+        if (existing != null && (existing.confirmed || existing.source == SOURCE_MANUAL)) return false
+        if (existing?.source == SOURCE_GOOGLE && source == SOURCE_PHONE) return false
         database.saveSleep(SleepSession(startAt = start, endAt = end, wakeDate = wakeDate, source = source, confirmed = false))
+        return true
     }
 
     fun saveManual(context: Context, start: Long, end: Long) {
@@ -57,13 +57,23 @@ object SleepRepository {
         val windowStart = at(today.minusDays(1), WINDOW_START_HOUR)
         val windowEnd = minOf(nowMs, at(today, WINDOW_END_HOUR))
         val database = Database.getInstance(context)
-        val screen = database.screenEvents(windowStart, windowEnd).map { ScreenState(it.at, it.screenOn) }
-        if (screen.isEmpty()) return
+        val events = listOfNotNull(database.lastScreenEventBefore(windowStart)) + database.screenEvents(windowStart, windowEnd)
+        val screen = events.map { ScreenState(it.at, it.screenOn) }
+        if (screen.isEmpty()) {
+            SleepDiagnostics.estimate("no screen events since 6 pm")
+            return
+        }
         val steps = database.getMinutes(today.minusDays(1).toString(), today.toString())
             .associate { it.minuteStart to it.steps }
 
-        val sleep = SleepEstimator.estimate(windowStart, windowEnd, screen, steps) ?: return
-        if (sleep.end > nowMs - UP_FOR_MS) return
-        saveDetected(context, sleep.start, sleep.end, SOURCE_PHONE)
+        val sleep = SleepEstimator.estimate(windowStart, windowEnd, screen, steps)
+        if (sleep == null) {
+            SleepDiagnostics.estimate("no quiet block of 3 h or more (${screen.size} screen events)")
+            return
+        }
+        val format = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+        val saved = saveDetected(context, sleep.start, sleep.end, SOURCE_PHONE)
+        val found = "found ${format.format(java.util.Date(sleep.start))} to ${format.format(java.util.Date(sleep.end))}"
+        SleepDiagnostics.estimate(if (saved) found else "$found, your entry kept")
     }
 }

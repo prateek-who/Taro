@@ -12,6 +12,9 @@ data class DataSnapshot(
     val activities: List<LoggedActivity> = emptyList(),
     val weights: List<WeightLog> = emptyList(),
     val sleeps: List<SleepSession> = emptyList(),
+    val screenEvents: List<ScreenEvent> = emptyList(),
+    val foodLogs: List<FoodLog> = emptyList(),
+    val customFoods: List<CustomFood> = emptyList(),
 )
 
 @Entity(tableName = "History")
@@ -72,4 +75,38 @@ data class SleepSession(
 data class ScreenEvent(
     @PrimaryKey val at: Long,
     @ColumnInfo(name = "screen_on") val screenOn: Boolean,
+)
+
+@Entity(tableName = "food_logs", indices = [Index("date")])
+data class FoodLog(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val date: String,
+    val meal: String,
+    val name: String,
+    val grams: Double?,
+    val amount: String?,
+    val kcal: Double,
+    val protein: Double,
+    val carbs: Double?,
+    val fat: Double?,
+    @ColumnInfo(name = "food_key") val foodKey: String?,
+    @ColumnInfo(name = "logged_at") val loggedAt: Long,
+    val unit: String? = null,
+)
+
+@Entity(tableName = "custom_foods")
+data class CustomFood(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val kcal: Double,
+    val protein: Double,
+    val carbs: Double?,
+    val fat: Double?,
+    @ColumnInfo(name = "serving_label") val servingLabel: String?,
+    @ColumnInfo(name = "serving_grams") val servingGrams: Double?,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    val ingredients: String? = null,
+    @ColumnInfo(name = "cooked_grams") val cookedGrams: Double? = null,
+    val servings: Int? = null,
+    val unit: String? = null,
 )

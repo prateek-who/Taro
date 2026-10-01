@@ -1,5 +1,9 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.ui.draw.rotate
+import androidx.compose.material3.IconButton
+import com.prateek.taro.util.DayClock
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -81,6 +85,88 @@ fun PickerRow(icon: Int, label: String, value: String, onClick: () -> Unit, modi
         Icon(painterResource(icon), contentDescription = null, tint = TaroTheme.colors.accent, modifier = Modifier.size(20.dp))
         Text(label, color = TaroTheme.colors.accent, modifier = Modifier.weight(1f))
         Text(value, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+fun dayLabel(date: LocalDate, today: LocalDate, todayLabel: String? = null): String {
+    val format = remember { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
+    return when {
+        date == today -> todayLabel ?: stringResource(R.string.header_today)
+        date == today.minusDays(1) && todayLabel == null -> stringResource(R.string.date_yesterday)
+        else -> format.format(Date(Util.dateStringToCalendarMillis(date.toString())))
+    }
+}
+
+@Composable
+fun DaySwitcher(date: LocalDate, today: LocalDate, onChange: (LocalDate) -> Unit, modifier: Modifier = Modifier, todayLabel: String? = null) {
+    var picking by remember { mutableStateOf(false) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+        modifier = modifier,
+    ) {
+        IconButton(onClick = { onChange(date.minusDays(1)) }, modifier = Modifier.size(36.dp)) {
+            Icon(
+                painter = painterResource(R.drawable.ic_chevron_right),
+                contentDescription = stringResource(R.string.day_previous),
+                tint = TaroTheme.colors.accent,
+                modifier = Modifier.rotate(180f),
+            )
+        }
+        Text(
+            text = dayLabel(date, today, todayLabel).uppercase(),
+            fontSize = 13.sp,
+            letterSpacing = 2.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (date == today) TaroTheme.colors.accent else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { picking = true }
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+        )
+        IconButton(onClick = { onChange(date.plusDays(1)) }, enabled = date.isBefore(today), modifier = Modifier.size(36.dp)) {
+            Icon(
+                painter = painterResource(R.drawable.ic_chevron_right),
+                contentDescription = stringResource(R.string.day_next),
+                tint = TaroTheme.colors.accent.copy(alpha = if (date.isBefore(today)) 1f else 0.25f),
+            )
+        }
+    }
+    if (picking) {
+        TaroDatePickerDialog(
+            initial = date,
+            latest = today,
+            onPick = {
+                picking = false
+                onChange(it)
+            },
+            onDismiss = { picking = false },
+        )
+    }
+}
+
+@Composable
+fun TimeRow(label: String, minuteOfDay: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var picking by remember { mutableStateOf(false) }
+    val format = remember { android.text.format.DateFormat.getTimeFormat(context) }
+    val value = remember(minuteOfDay) {
+        format.format(Date(DayClock.momentOf("2000-01-01", minuteOfDay, 0)))
+    }
+    PickerRow(R.drawable.ic_day_start, label, value, onClick = { picking = true }, modifier = modifier)
+    if (picking) {
+        TimePickerDialog(
+            title = label,
+            initialHour = minuteOfDay / 60,
+            initialMinute = minuteOfDay % 60,
+            is24Hour = android.text.format.DateFormat.is24HourFormat(context),
+            onConfirm = { hour, minute ->
+                picking = false
+                onChange(hour * 60 + minute)
+            },
+            onDismiss = { picking = false },
+        )
     }
 }
 

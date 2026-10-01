@@ -20,6 +20,9 @@ interface StepsDao {
     @Query("SELECT * FROM calibration_points ORDER BY recorded_at ASC")
     fun allCalibration(): List<CalibrationPoint>
 
+    @Query("SELECT * FROM logged_activities WHERE date BETWEEN :from AND :to")
+    fun activitiesBetween(from: String, to: String): List<LoggedActivity>
+
     @Query("SELECT * FROM logged_activities ORDER BY logged_at ASC")
     fun allActivities(): List<LoggedActivity>
 
@@ -50,6 +53,72 @@ interface StepsDao {
     @Query("DELETE FROM sleep_sessions")
     fun clearSleeps()
 
+    @Query("SELECT COUNT(*) FROM screen_events WHERE at >= :since")
+    fun screenEventCount(since: Long): Int
+
+    @Query("SELECT * FROM screen_events ORDER BY at ASC")
+    fun allScreenEvents(): List<ScreenEvent>
+
+    @Query("DELETE FROM screen_events")
+    fun clearScreenEvents()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertScreenEvents(events: List<ScreenEvent>)
+
+    @Insert
+    fun insertFoodLog(log: FoodLog): Long
+
+    @androidx.room.Update
+    fun updateFoodLog(log: FoodLog)
+
+    @androidx.room.Update
+    fun updateFoodLogs(logs: List<FoodLog>)
+
+    @Query("SELECT DISTINCT meal FROM food_logs")
+    fun usedMeals(): List<String>
+
+    @Query("SELECT * FROM food_logs WHERE food_key = :key")
+    fun foodLogsWithKey(key: String): List<FoodLog>
+
+    @Query("DELETE FROM food_logs WHERE id = :id")
+    fun deleteFoodLog(id: Long)
+
+    @Query("SELECT * FROM food_logs WHERE date = :date ORDER BY logged_at ASC")
+    fun foodLogsOn(date: String): List<FoodLog>
+
+    @Query("SELECT * FROM food_logs WHERE date >= :from AND date <= :to ORDER BY date ASC, logged_at ASC")
+    fun foodLogsBetween(from: String, to: String): List<FoodLog>
+
+    @Query("SELECT * FROM food_logs ORDER BY id DESC LIMIT :limit")
+    fun recentFoodLogs(limit: Int): List<FoodLog>
+
+    @Query("SELECT * FROM food_logs ORDER BY date ASC, logged_at ASC")
+    fun allFoodLogs(): List<FoodLog>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertFoodLogs(logs: List<FoodLog>)
+
+    @Query("DELETE FROM food_logs")
+    fun clearFoodLogs()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun saveCustomFood(food: CustomFood): Long
+
+    @Query("DELETE FROM custom_foods WHERE id = :id")
+    fun deleteCustomFood(id: Long)
+
+    @Query("SELECT * FROM custom_foods WHERE id = :id")
+    fun customFood(id: Long): CustomFood?
+
+    @Query("SELECT * FROM custom_foods ORDER BY name COLLATE NOCASE ASC")
+    fun allCustomFoods(): List<CustomFood>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertCustomFoods(foods: List<CustomFood>)
+
+    @Query("DELETE FROM custom_foods")
+    fun clearCustomFoods()
+
     @Transaction
     fun restoreAll(snapshot: DataSnapshot) {
         clearDays()
@@ -58,12 +127,18 @@ interface StepsDao {
         clearActivities()
         clearWeights()
         clearSleeps()
+        clearScreenEvents()
+        clearFoodLogs()
+        clearCustomFoods()
         insertDays(snapshot.days)
         insertMinutes(snapshot.minutes)
         insertCalibration(snapshot.calibration)
         insertActivities(snapshot.activities)
         insertWeights(snapshot.weights)
         insertSleeps(snapshot.sleeps)
+        insertScreenEvents(snapshot.screenEvents.orEmpty())
+        insertFoodLogs(snapshot.foodLogs.orEmpty())
+        insertCustomFoods(snapshot.customFoods.orEmpty())
     }
 
     @Query("SELECT MIN(date) FROM History WHERE date > ''")

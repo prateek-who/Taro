@@ -2,6 +2,7 @@ package com.prateek.taro.sleep
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
@@ -22,8 +23,10 @@ class SleepTest {
     }
 
     @Test
-    fun aMiddayNapIsNotANight() {
+    fun napsGapsAndMissingDataAreNotNights() {
         assertFalse(SleepEstimator.isPlausibleNight(11 * hour, 11 * hour + 42 * minute))
+        assertFalse(SleepEstimator.isPlausibleNight(22 * hour, 36 * hour + 15 * minute))
+        assertNull(SleepEstimator.estimate(18 * hour, 39 * hour, listOf(on(36.3), off(36.5)), emptyMap()))
     }
 
     @Test

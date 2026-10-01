@@ -1,5 +1,8 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.util.DayClock
+import com.prateek.taro.ui.components.TimeRow
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -54,8 +57,9 @@ private sealed interface Pick {
 @Composable
 fun LogActivityDialog(
     weightKg: Double,
-    onSave: (name: String, minutes: Int?, kcal: Double, date: LocalDate) -> Unit,
+    onSave: (name: String, minutes: Int?, kcal: Double, date: LocalDate, finishedAt: Long) -> Unit,
     onDismiss: () -> Unit,
+    initialDate: LocalDate = Util.logicalToday(),
 ) {
     val context = LocalContext.current
     val toast = LocalToast.current
@@ -64,7 +68,8 @@ fun LogActivityDialog(
     var newName by remember { mutableStateOf(TextFieldValue()) }
     var intensity by remember { mutableStateOf(Intensity.MODERATE) }
     var minutes by remember { mutableStateOf(TextFieldValue()) }
-    var date by remember { mutableStateOf(Util.logicalToday()) }
+    var date by remember { mutableStateOf(initialDate) }
+    var finished by remember { mutableIntStateOf(DayClock.minuteOfDay(System.currentTimeMillis())) }
     var kcalInput by remember { mutableStateOf<TextFieldValue?>(null) }
 
     val builtinName = (pick as? Pick.Builtin)?.let { stringResource(it.type.label) }
@@ -99,7 +104,7 @@ fun LogActivityDialog(
                 if (pick == Pick.New) {
                     AppPreferences.customActivities = Activities.withAdded(saved, CustomActivity(name, intensity.met))
                 }
-                onSave(name, minutesValue, kcalValue, date)
+                onSave(name, minutesValue, kcalValue, date, Util.momentOf(date, finished))
             }
         },
     ) {
@@ -112,6 +117,11 @@ fun LogActivityDialog(
                 date = date,
                 today = Util.logicalToday(),
                 onChange = { date = it },
+            )
+            TimeRow(
+                label = stringResource(R.string.activity_finished_at),
+                minuteOfDay = finished,
+                onChange = { finished = it },
             )
 
             FlowRow(modifier = Modifier.fillMaxWidth()) {

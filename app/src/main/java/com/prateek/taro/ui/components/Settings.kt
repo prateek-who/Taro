@@ -1,5 +1,8 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
 import com.prateek.taro.ui.theme.TaroMotion
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,8 +28,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,18 +48,22 @@ import com.prateek.taro.ui.theme.TaroTheme
 @Composable
 fun SettingsCard(
     modifier: Modifier = Modifier,
+    tint: Color? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = TaroTheme.colors.background),
+            .padding(bottom = 8.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(TaroTheme.colors.accentOpaque)
+            .padding(vertical = 4.dp),
     ) {
-        Column(content = content)
+        CompositionLocalProvider(LocalSettingsTint provides tint) { content() }
     }
 }
+
+val LocalSettingsTint = compositionLocalOf<Color?> { null }
 
 @Composable
 fun SettingsDivider() {

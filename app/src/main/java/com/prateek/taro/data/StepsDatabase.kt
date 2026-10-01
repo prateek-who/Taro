@@ -11,7 +11,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.prateek.taro.util.Database as LegacyDatabase
 
-@Database(entities = [DailySteps::class, MinuteSteps::class, CalibrationPoint::class, LoggedActivity::class, WeightLog::class, SleepSession::class, ScreenEvent::class], version = 7, exportSchema = true)
+@Database(entities = [DailySteps::class, MinuteSteps::class, CalibrationPoint::class, LoggedActivity::class, WeightLog::class, SleepSession::class, ScreenEvent::class, FoodLog::class, CustomFood::class], version = 10, exportSchema = true)
 abstract class StepsDatabase : RoomDatabase() {
 
     abstract fun steps(): StepsDao
@@ -29,7 +29,7 @@ abstract class StepsDatabase : RoomDatabase() {
 
         internal fun build(context: Context, name: String): StepsDatabase =
             Room.databaseBuilder(context.applicationContext, StepsDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                 .allowMainThreadQueries()
                 .build()
 
@@ -137,6 +137,38 @@ abstract class StepsDatabase : RoomDatabase() {
                 )
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_sleep_sessions_wake_date ON sleep_sessions (wake_date)")
                 db.execSQL("CREATE TABLE IF NOT EXISTS screen_events (at INTEGER NOT NULL, screen_on INTEGER NOT NULL, PRIMARY KEY(at))")
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS food_logs (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, date TEXT NOT NULL, meal TEXT NOT NULL, name TEXT NOT NULL, " +
+                        "grams REAL, amount TEXT, kcal REAL NOT NULL, protein REAL NOT NULL, carbs REAL, fat REAL, " +
+                        "food_key TEXT, logged_at INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_food_logs_date ON food_logs (date)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS custom_foods (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL, kcal REAL NOT NULL, protein REAL NOT NULL, " +
+                        "carbs REAL, fat REAL, serving_label TEXT, serving_grams REAL, created_at INTEGER NOT NULL)"
+                )
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE custom_foods ADD COLUMN ingredients TEXT")
+                db.execSQL("ALTER TABLE custom_foods ADD COLUMN cooked_grams REAL")
+                db.execSQL("ALTER TABLE custom_foods ADD COLUMN servings INTEGER")
+            }
+        }
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE custom_foods ADD COLUMN unit TEXT")
+                db.execSQL("ALTER TABLE food_logs ADD COLUMN unit TEXT")
             }
         }
     }

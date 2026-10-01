@@ -1,5 +1,6 @@
 package com.prateek.taro.achievements
 
+import com.prateek.taro.util.GoalHistory
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import com.prateek.taro.R
@@ -9,6 +10,7 @@ import com.prateek.taro.sleep.SleepInsights
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
+import kotlin.math.abs
 
 enum class BadgeCategory(@StringRes val label: Int) {
     STEPS(R.string.badge_cat_steps),
@@ -17,10 +19,15 @@ enum class BadgeCategory(@StringRes val label: Int) {
     ENERGY(R.string.badge_cat_energy),
     WEIGHT(R.string.badge_cat_weight),
     SLEEP(R.string.badge_cat_sleep),
+    FOOD(R.string.badge_cat_food),
+    MIND(R.string.badge_cat_mind),
+    SKILLS(R.string.badge_cat_skills),
+    STRENGTH(R.string.badge_cat_strength),
     EXPLORER(R.string.badge_cat_explorer),
+    LEGENDS(R.string.badge_cat_legends),
 }
 
-enum class BadgeUnit { STEPS, KM, METERS, DAYS, KCAL, COUNT, KG, NIGHTS, FLAG }
+enum class BadgeUnit { STEPS, KM, METERS, DAYS, KCAL, COUNT, KG, NIGHTS, MINUTES, FLAG }
 
 data class DayStat(
     val date: LocalDate,
@@ -30,7 +37,11 @@ data class DayStat(
     val ascentM: Double = 0.0,
     val earlySteps: Int = 0,
     val lateSteps: Int = 0,
+    val stepsBeforeNoon: Int = 0,
+    val longestWalkMin: Int = 0,
 )
+
+data class FoodDayStat(val date: LocalDate, val kcal: Double, val protein: Double, val meals: Int)
 
 data class AchievementInputs(
     val days: List<DayStat> = emptyList(),
@@ -43,7 +54,17 @@ data class AchievementInputs(
     val accuracyCheckedOn: LocalDate? = null,
     val backedUpOn: LocalDate? = null,
     val firstDayOfWeek: DayOfWeek = DayOfWeek.MONDAY,
-)
+    val foods: List<FoodDayStat> = emptyList(),
+    val proteinTarget: Double = 0.0,
+    val recipes: List<LocalDate> = emptyList(),
+    val customFoods: List<LocalDate> = emptyList(),
+    val claimed: Map<String, LocalDate> = emptyMap(),
+    val goals: GoalHistory? = null,
+) {
+    fun goalOn(date: LocalDate): Int = goals?.on(date) ?: goal
+
+    fun metGoal(day: DayStat): Boolean = goalOn(day.date).let { it > 0 && day.steps >= it }
+}
 
 data class BadgeProgress(val value: Double, val earnedOn: LocalDate?)
 
@@ -56,6 +77,8 @@ data class BadgeDef(
     val target: Double,
     val unit: BadgeUnit,
     val rule: (AchievementInputs) -> BadgeProgress,
+    val claimable: Boolean = false,
+    val group: SkillGroup? = null,
 )
 
 data class BadgeResult(val def: BadgeDef, val progress: BadgeProgress) {
@@ -103,8 +126,11 @@ object Rules {
 
     fun flag(date: LocalDate?) = BadgeProgress(if (date != null) 1.0 else 0.0, date)
 
+    fun goalShare(inputs: AchievementInputs, day: DayStat): Double =
+        inputs.goalOn(day.date).let { if (it > 0) day.steps.toDouble() / it else 0.0 }
+
     fun goalDays(inputs: AchievementInputs): List<LocalDate> =
-        if (inputs.goal <= 0) emptyList() else inputs.days.filter { it.steps >= inputs.goal }.map { it.date }
+        inputs.days.filter(inputs::metGoal).map { it.date }
 
     fun perfectWeek(inputs: AchievementInputs): BadgeProgress {
         val goalDays = goalDays(inputs).toSet()
@@ -131,6 +157,66 @@ object Rules {
             if (earned == null && moved >= kg - 1e-9) earned = point.date
         }
         return BadgeProgress(best, earned)
+    }
+
+    fun firstDay(dates: Iterable<LocalDate>): BadgeProgress = flag(dates.minOrNull())
+
+    fun zeno(inputs: AchievementInputs): BadgeProgress =
+        firstDay(inputs.days.filter { day -> inputs.goalOn(day.date).let { day.steps >= it * 0.99 && day.steps < it } }.map { it.date })
+
+    fun respawn(inputs: AchievementInputs): BadgeProgress {
+        val goals = goalDays(inputs).toSet()
+        return firstDay(goals.filter { day -> (1L..3L).none { day.minusDays(it) in goals } && inputs.days.any { it.date < day.minusDays(3) } })
+    }
+
+    fun groundhog(inputs: AchievementInputs): BadgeProgress {
+        val byDate = inputs.days.associateBy { it.date }
+        return firstDay(
+            inputs.days.filter { day ->
+                val before = byDate[day.date.minusDays(1)] ?: return@filter false
+                inputs.metGoal(day) && inputs.metGoal(before) && abs(day.steps - before.steps) <= 50
+            }.map { it.date }
+        )
+    }
+
+    fun kaizen(inputs: AchievementInputs, weeks: Int): BadgeProgress {
+        val totals = inputs.days.groupBy { it.date.with(TemporalAdjusters.previousOrSame(inputs.firstDayOfWeek)) }
+            .mapValues { (_, days) -> days.sumOf { it.steps } }
+            .toSortedMap()
+        var run = 0
+        var best = 0
+        var earned: LocalDate? = null
+        var previous: Pair<LocalDate, Int>? = null
+        for ((week, total) in totals) {
+            run = if (previous != null && week == previous.first.plusWeeks(1) && total > previous.second) run + 1 else 0
+            best = maxOf(best, run)
+            if (earned == null && run >= weeks) earned = week.plusDays(6)
+            previous = week to total
+        }
+        return BadgeProgress(best.toDouble(), earned)
+    }
+
+    fun legDay(inputs: AchievementInputs): BadgeProgress {
+        val workoutDays = inputs.workouts.map { it.first }.toSet()
+        return firstDay(inputs.days.filter { it.steps >= 20_000 && it.date.minusDays(1) in workoutDays }.map { it.date })
+    }
+
+    fun homeostasis(points: List<TrendPoint>, days: Long, band: Double): BadgeProgress {
+        val sorted = points.sortedBy { it.date }
+        for ((index, end) in sorted.withIndex()) {
+            val window = sorted.subList(0, index + 1).filter { !it.date.isBefore(end.date.minusDays(days)) }
+            if (window.size < 8 || window.first().date.isAfter(end.date.minusDays(days - 2))) continue
+            if (window.maxOf { it.trend } - window.minOf { it.trend } <= band) return flag(end.date)
+        }
+        return flag(null)
+    }
+
+    fun proteinDays(inputs: AchievementInputs): List<LocalDate> =
+        if (inputs.proteinTarget <= 0) emptyList() else inputs.foods.filter { it.protein >= inputs.proteinTarget }.map { it.date }
+
+    fun activeKcalDays(inputs: AchievementInputs): List<DayStat> {
+        val logged = inputs.workouts.groupBy({ it.first }) { it.second }.mapValues { it.value.sum() }
+        return inputs.days.map { it.copy(activeKcal = it.activeKcal + (logged[it.date] ?: 0.0)) }
     }
 
     fun steadyBedtimes(nights: List<Night>, spreadMinutes: Double): BadgeProgress {
@@ -194,6 +280,17 @@ object Badges {
             Rules.singleDay(days, kcal.toDouble()) { day -> day.activeKcal }
         }
 
+    private fun distanceTotal(id: String, category: BadgeCategory, title: Int, description: Int, km: Double) =
+        def(id, category, title, description, R.drawable.ic_badge_hike, km, BadgeUnit.KM) {
+            Rules.cumulative(it.days, km * 1000) { day -> day.distanceM }.let { p -> p.copy(value = p.value / 1000) }
+        }
+
+    private fun foodDays(id: String, title: Int, description: Int, count: Int, streak: Boolean = false) =
+        def(id, BadgeCategory.FOOD, title, description, R.drawable.ic_calorie_goal, count.toDouble(), BadgeUnit.DAYS) { inputs ->
+            val dates = inputs.foods.map { it.date }
+            if (streak) Rules.streak(dates, count) else Rules.nth(dates, count)
+        }
+
     private fun weighIns(id: String, title: Int, count: Int) =
         def(id, BadgeCategory.WEIGHT, title, R.string.badge_desc_weigh_ins, R.drawable.ic_weight, count.toDouble(), BadgeUnit.COUNT) {
             Rules.nth(it.weights.map { point -> point.date }, count)
@@ -245,10 +342,10 @@ object Badges {
         goalStreak("streak_60", R.string.badge_streak_60, 60),
         goalStreak("streak_100", R.string.badge_streak_100, 100),
         def("double_goal", BadgeCategory.GOALS, R.string.badge_double_goal, R.string.badge_desc_multiplier, R.drawable.ic_badge_star, 2.0, BadgeUnit.COUNT) {
-            if (it.goal <= 0) BadgeProgress(0.0, null) else Rules.singleDay(it.days, 2.0) { day -> day.steps.toDouble() / it.goal }
+            Rules.singleDay(it.days, 2.0) { day -> Rules.goalShare(it, day) }
         },
         def("triple_goal", BadgeCategory.GOALS, R.string.badge_triple_goal, R.string.badge_desc_multiplier, R.drawable.ic_badge_star, 3.0, BadgeUnit.COUNT) {
-            if (it.goal <= 0) BadgeProgress(0.0, null) else Rules.singleDay(it.days, 3.0) { day -> day.steps.toDouble() / it.goal }
+            Rules.singleDay(it.days, 3.0) { day -> Rules.goalShare(it, day) }
         },
         def("perfect_week", BadgeCategory.GOALS, R.string.badge_perfect_week, R.string.badge_desc_perfect_week, R.drawable.ic_badge_week, 7.0, BadgeUnit.DAYS, Rules::perfectWeek),
         def("weekend_warrior", BadgeCategory.GOALS, R.string.badge_weekend_warrior, R.string.badge_desc_weekend, R.drawable.ic_badge_week, 1.0, BadgeUnit.FLAG, Rules::weekendWarrior),
@@ -307,11 +404,112 @@ object Badges {
         def("night_owl", BadgeCategory.EXPLORER, R.string.badge_night_owl, R.string.badge_desc_night_owl, R.drawable.ic_badge_night, 1_000.0, BadgeUnit.STEPS) {
             Rules.singleDay(it.days, 1_000.0) { day -> day.lateSteps.toDouble() }
         },
+        def("speedrunner", BadgeCategory.GOALS, R.string.badge_speedrunner, R.string.badge_desc_speedrunner, R.drawable.ic_badge_bolt, 1.0, BadgeUnit.FLAG) { inputs ->
+            Rules.firstDay(inputs.days.filter { day -> inputs.goalOn(day.date).let { it > 0 && day.stepsBeforeNoon >= it } }.map { it.date })
+        },
+        def("zeno", BadgeCategory.GOALS, R.string.badge_zeno, R.string.badge_desc_zeno, R.drawable.ic_small_target, 1.0, BadgeUnit.FLAG, Rules::zeno),
+        def("respawn", BadgeCategory.GOALS, R.string.badge_respawn, R.string.badge_desc_respawn, R.drawable.ic_badge_star, 1.0, BadgeUnit.FLAG, Rules::respawn),
+        def("garfield", BadgeCategory.GOALS, R.string.badge_garfield, R.string.badge_desc_garfield, R.drawable.ic_badge_week, 10.0, BadgeUnit.DAYS) {
+            Rules.nth(Rules.goalDays(it).filter { day -> day.dayOfWeek == DayOfWeek.MONDAY }, 10)
+        },
+        def("groundhog", BadgeCategory.GOALS, R.string.badge_groundhog, R.string.badge_desc_groundhog, R.drawable.ic_badge_week, 1.0, BadgeUnit.FLAG, Rules::groundhog),
+
+        def("sisyphus", BadgeCategory.CLIMB, R.string.badge_sisyphus, R.string.badge_desc_sisyphus, R.drawable.ic_badge_climb, 30.0, BadgeUnit.DAYS) {
+            Rules.nth(it.days.filter { day -> day.ascentM >= 10 }.map { day -> day.date }, 30)
+        },
+        def("icarus", BadgeCategory.CLIMB, R.string.badge_icarus, R.string.badge_desc_floors_day, R.drawable.ic_badge_climb, 300.0, BadgeUnit.METERS) {
+            Rules.singleDay(it.days, 300.0) { day -> day.ascentM }
+        },
+        climbTotal("olympus", R.string.badge_olympus, 2_917),
+
+        activeDay("ironman", R.string.badge_ironman, 1_500),
+        def("spartan", BadgeCategory.ENERGY, R.string.badge_spartan, R.string.badge_desc_spartan, R.drawable.ic_badge_bolt, 30.0, BadgeUnit.DAYS) {
+            Rules.nth(Rules.activeKcalDays(it).filter { day -> day.activeKcal >= 300 }.map { day -> day.date }, 30)
+        },
+        def("leg_day", BadgeCategory.ENERGY, R.string.badge_leg_day, R.string.badge_desc_leg_day, R.drawable.ic_badge_bolt, 1.0, BadgeUnit.FLAG, Rules::legDay),
+        def("saitama", BadgeCategory.ENERGY, R.string.badge_saitama, R.string.badge_desc_saitama, R.drawable.ic_badge_hike, 7.0, BadgeUnit.DAYS) {
+            Rules.streak(it.days.filter { day -> day.distanceM >= 10_000 }.map { day -> day.date }, 7)
+        },
+
+        foodDays("tabula_rasa", R.string.badge_tabula_rasa, R.string.badge_desc_food_first, 1),
+        foodDays("mise_en_place", R.string.badge_mise_en_place, R.string.badge_desc_food_days, 7),
+        foodDays("habit_loop", R.string.badge_habit_loop, R.string.badge_desc_habit_loop, 21, streak = true),
+        foodDays("sixty_six", R.string.badge_sixty_six, R.string.badge_desc_sixty_six, 66, streak = true),
+        foodDays("quantified_self", R.string.badge_quantified_self, R.string.badge_desc_food_days, 100),
+        def("popeye", BadgeCategory.FOOD, R.string.badge_popeye, R.string.badge_desc_protein_first, R.drawable.ic_badge_star, 1.0, BadgeUnit.DAYS) {
+            Rules.nth(Rules.proteinDays(it), 1)
+        },
+        def("rocky", BadgeCategory.FOOD, R.string.badge_rocky, R.string.badge_desc_protein_streak, R.drawable.ic_badge_star, 7.0, BadgeUnit.DAYS) {
+            Rules.streak(Rules.proteinDays(it), 7)
+        },
+        def("milo", BadgeCategory.FOOD, R.string.badge_milo, R.string.badge_desc_milo, R.drawable.ic_badge_medal, 30.0, BadgeUnit.DAYS) {
+            Rules.nth(Rules.proteinDays(it), 30)
+        },
+        def("second_breakfast", BadgeCategory.FOOD, R.string.badge_second_breakfast, R.string.badge_desc_second_breakfast, R.drawable.ic_calorie_goal, 1.0, BadgeUnit.FLAG) {
+            Rules.firstDay(it.foods.filter { day -> day.meals >= 4 }.map { day -> day.date })
+        },
+        def("fine_print", BadgeCategory.FOOD, R.string.badge_fine_print, R.string.badge_desc_fine_print, R.drawable.ic_badge_explore, 1.0, BadgeUnit.FLAG) {
+            Rules.firstDay(it.customFoods)
+        },
+        def("alchemist", BadgeCategory.FOOD, R.string.badge_alchemist, R.string.badge_desc_recipes, R.drawable.ic_badge_star, 1.0, BadgeUnit.COUNT) {
+            Rules.nth(it.recipes, 1)
+        },
+        def("crafting_table", BadgeCategory.FOOD, R.string.badge_crafting_table, R.string.badge_desc_recipes, R.drawable.ic_badge_medal, 5.0, BadgeUnit.COUNT) {
+            Rules.nth(it.recipes, 5)
+        },
+
+        def("peripatetic", BadgeCategory.MIND, R.string.badge_peripatetic, R.string.badge_desc_peripatetic, R.drawable.ic_badge_hike, 10.0, BadgeUnit.COUNT) {
+            Rules.nth(it.days.filter { day -> day.longestWalkMin >= 30 }.map { day -> day.date }, 10)
+        },
+        def("solvitur", BadgeCategory.MIND, R.string.badge_solvitur, R.string.badge_desc_walk_minutes, R.drawable.ic_badge_hike, 45.0, BadgeUnit.MINUTES) {
+            Rules.singleDay(it.days, 45.0) { day -> day.longestWalkMin.toDouble() }
+        },
+        def("flow_state", BadgeCategory.MIND, R.string.badge_flow_state, R.string.badge_desc_walk_minutes, R.drawable.ic_badge_star, 60.0, BadgeUnit.MINUTES) {
+            Rules.singleDay(it.days, 60.0) { day -> day.longestWalkMin.toDouble() }
+        },
+        def("deep_work", BadgeCategory.MIND, R.string.badge_deep_work, R.string.badge_desc_walk_minutes, R.drawable.ic_badge_star, 90.0, BadgeUnit.MINUTES) {
+            Rules.singleDay(it.days, 90.0) { day -> day.longestWalkMin.toDouble() }
+        },
+        def("kaizen", BadgeCategory.MIND, R.string.badge_kaizen, R.string.badge_desc_kaizen, R.drawable.ic_badge_week, 4.0, BadgeUnit.COUNT) { Rules.kaizen(it, 4) },
+        def("know_thyself", BadgeCategory.MIND, R.string.badge_know_thyself, R.string.badge_desc_know_thyself, R.drawable.ic_weight, 14.0, BadgeUnit.DAYS) {
+            Rules.streak(it.weights.map { point -> point.date }, 14)
+        },
+        def("homeostasis", BadgeCategory.WEIGHT, R.string.badge_homeostasis, R.string.badge_desc_homeostasis, R.drawable.ic_weight, 1.0, BadgeUnit.FLAG) {
+            Rules.homeostasis(it.weights, 30, 0.5)
+        },
+        weighIns("ship_of_theseus", R.string.badge_ship_of_theseus, 365),
+
+        def("rip_van_winkle", BadgeCategory.SLEEP, R.string.badge_rip_van_winkle, R.string.badge_desc_rip_van_winkle, R.drawable.ic_sleep, 1.0, BadgeUnit.FLAG) {
+            Rules.firstDay(it.nights.filter { night -> night.minutes >= 600 }.map { night -> night.wakeDate })
+        },
+        def("morpheus", BadgeCategory.SLEEP, R.string.badge_morpheus, R.string.badge_desc_morpheus, R.drawable.ic_badge_night, 7.0, BadgeUnit.NIGHTS) {
+            Rules.streak(it.nights.filter { night -> night.minutes >= 480 }.map { night -> night.wakeDate }, 7)
+        },
+        nights("nights_watch", R.string.badge_nights_watch, 365),
+
+
+
+        distanceTotal("camino", BadgeCategory.LEGENDS, R.string.badge_camino, R.string.badge_desc_camino, 780.0),
+        distanceTotal("forrest", BadgeCategory.LEGENDS, R.string.badge_forrest, R.string.badge_desc_forrest, 1_000.0),
+        distanceTotal("fellowship", BadgeCategory.LEGENDS, R.string.badge_fellowship, R.string.badge_desc_fellowship, 2_900.0),
+
         def("explorer_all", BadgeCategory.EXPLORER, R.string.badge_explorer_all, R.string.badge_desc_explorer_all, R.drawable.ic_badge_explore, 3.0, BadgeUnit.COUNT) {
             val dates = listOfNotNull(it.calibratedOn, it.accuracyCheckedOn, it.backedUpOn)
             BadgeProgress(dates.size.toDouble(), if (dates.size == 3) dates.max() else null)
         },
     )
 
-    fun evaluate(inputs: AchievementInputs): List<BadgeResult> = all.map { BadgeResult(it, it.rule(inputs)) }
+    private fun collector(id: String, title: Int, count: Int) =
+        def(id, BadgeCategory.LEGENDS, title, R.string.badge_desc_collector, R.drawable.ic_small_trophy, count.toDouble(), BadgeUnit.COUNT) { BadgeProgress(0.0, null) }
+
+    private val collectors = listOf(
+        collector("achievement_hunter", R.string.badge_achievement_hunter, 25),
+        collector("platinum", R.string.badge_platinum, 50),
+    )
+
+    fun evaluate(inputs: AchievementInputs): List<BadgeResult> {
+        val base = (all + Skills.badges).map { BadgeResult(it, it.rule(inputs)) }
+        val earned = base.mapNotNull { it.progress.earnedOn }
+        return base + collectors.map { BadgeResult(it, Rules.nth(earned, it.target.toInt())) }
+    }
 }

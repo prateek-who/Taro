@@ -31,9 +31,13 @@ object CalibrationRepository {
     }
 
     fun refit(context: Context): StepLengthFit {
-        val points = StepsDatabase.get(context).steps().calibrationSince(System.currentTimeMillis() - HISTORY_MS)
+        val all = StepsDatabase.get(context).steps().calibrationSince(System.currentTimeMillis() - HISTORY_MS)
+        val measured = all.filter { it.source == SOURCE_KNOWN_DISTANCE }
+        val points = measured.ifEmpty { all }
         val fit = StepLengthModel.fit(points.map { CalibrationSample(it.cadence, it.stepLengthM, it.distanceM) })
-        AppPreferences.stepCalibration = fit.walkingStepM?.let { walking ->
+        val estimateM = AppPreferences.estimatedStepLength / 100.0
+        val trusted = measured.isNotEmpty() || fit.walkingStepM?.let { StepLengthModel.plausible(it, estimateM) } == true
+        AppPreferences.stepCalibration = fit.walkingStepM?.takeIf { trusted }?.let { walking ->
             StepCalibration(
                 walkingStepCm = (walking * 100).toFloat(),
                 walkingSlope = fit.walkingSlope.toFloat(),

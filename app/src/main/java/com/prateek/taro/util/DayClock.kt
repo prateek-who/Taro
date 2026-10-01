@@ -29,6 +29,19 @@ object DayClock {
         }.timeInMillis
     }
 
+    fun momentOf(date: String, minuteOfDay: Int, dayStartMinutes: Int, zone: TimeZone = TimeZone.getDefault()): Long {
+        val day = LocalDate.parse(date).let { if (minuteOfDay < dayStartMinutes) it.plusDays(1) else it }
+        return Calendar.getInstance(zone).apply {
+            clear()
+            set(day.year, day.monthValue - 1, day.dayOfMonth, minuteOfDay / 60, minuteOfDay % 60, 0)
+        }.timeInMillis
+    }
+
+    fun minuteOfDay(millis: Long, zone: TimeZone = TimeZone.getDefault()): Int {
+        val calendar = Calendar.getInstance(zone).apply { timeInMillis = millis }
+        return calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+    }
+
     fun nextStart(nowMs: Long, dayStartMinutes: Int, zone: TimeZone = TimeZone.getDefault()): Long {
         val tomorrow = LocalDate.parse(dateOf(nowMs, dayStartMinutes, zone)).plusDays(1).toString()
         return startOf(tomorrow, dayStartMinutes, zone)

@@ -26,7 +26,10 @@ object SleepDetector {
         val available = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
         val granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
-        if (!available || !granted) return
+        if (!available || !granted) {
+            SleepDiagnostics.registerFailed(if (!available) "Play Services unavailable" else "Activity permission missing")
+            return
+        }
 
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
@@ -38,14 +41,30 @@ object SleepDetector {
         )
         ActivityRecognition.getClient(context)
             .requestSleepSegmentUpdates(pendingIntent, SleepSegmentRequest(SleepSegmentRequest.SEGMENT_EVENTS_ONLY))
-            .addOnFailureListener { Log.w(TAG, "Sleep API unavailable", it) }
+            .addOnSuccessListener { SleepDiagnostics.registered() }
+            .addOnFailureListener {
+                Log.w(TAG, "Sleep API unavailable", it)
+                SleepDiagnostics.registerFailed(it.message ?: it.javaClass.simpleName)
+            }
     }
 }
 
 class SleepSegmentReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (!SleepSegmentEvent.hasEvents(intent)) return
-        SleepSegmentEvent.extractEvents(intent)
+        val events = SleepSegmentEvent.extractEvents(intent)
+        val format = java.text.SimpleDateFormat("dd MMM HH:mm", java.util.Locale.getDefault())
+        SleepDiagnostics.googleEvent(
+            events.joinToString("; ") { event ->
+                val status = when (event.status) {
+                    SleepSegmentEvent.STATUS_SUCCESSFUL -> "ok"
+                    SleepSegmentEvent.STATUS_MISSING_DATA -> "missing data"
+                    else -> "not detected"
+                }
+                "${format.format(java.util.Date(event.startTimeMillis))} to ${format.format(java.util.Date(event.endTimeMillis))} ($status)"
+            }
+        )
+        events
             .filter { it.status == SleepSegmentEvent.STATUS_SUCCESSFUL }
             .forEach { SleepRepository.saveDetected(context, it.startTimeMillis, it.endTimeMillis, SleepRepository.SOURCE_GOOGLE) }
     }

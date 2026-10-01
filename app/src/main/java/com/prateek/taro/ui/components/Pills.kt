@@ -1,5 +1,7 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -114,15 +116,18 @@ fun <T> PillSelector(
 }
 
 @Composable
-fun StatPill(icon: Int, text: String, color: Color, lit: Boolean, modifier: Modifier = Modifier) {
+fun StatPill(icon: Int, text: String, color: Color, lit: Boolean, modifier: Modifier = Modifier, info: Info? = null) {
+    val state = rememberInfoState()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .clip(CircleShape)
             .background(color.copy(alpha = 0.12f))
+            .infoClickable(state, info)
             .padding(start = 6.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
     ) {
         GlowingIcon(icon = icon, lit = lit, litColor = color, modifier = Modifier.padding(end = 4.dp))
         RollingText(text, TextStyle(fontSize = 16.sp, color = color, fontFamily = MaterialTheme.typography.bodyLarge.fontFamily))
+        InfoPopup(state, info, color)
     }
 }

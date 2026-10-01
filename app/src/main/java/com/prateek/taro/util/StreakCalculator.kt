@@ -43,7 +43,10 @@ internal object StreakCalculator {
             val today = Util.calendarToDateString(calendar)
             val todaySteps = database.getSumSteps(today, today)
 
-            if (todaySteps >= dailyGoalTarget) {
+            val history = AppPreferences.goalHistory
+            fun met(date: String, steps: Int) = history.on(java.time.LocalDate.parse(date)).let { it > 0 && steps >= it }
+
+            if (met(today, todaySteps)) {
                 streakCount++
             }
 
@@ -53,7 +56,7 @@ internal object StreakCalculator {
                 val dateStr = Util.calendarToDateString(calendar)
                 val daySteps = database.getSumSteps(dateStr, dateStr)
 
-                if (daySteps >= dailyGoalTarget) {
+                if (met(dateStr, daySteps)) {
                     streakCount++
                     calendar.add(Calendar.DAY_OF_YEAR, -1)
                 } else {

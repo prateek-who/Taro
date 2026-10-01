@@ -76,6 +76,7 @@ fun StepsBarChart(
     goal: Int,
     modifier: Modifier = Modifier,
     highlightGoal: Int = goal,
+    goals: List<Int>? = null,
     valueLabel: (Int) -> String = { it.toString() },
     showMultiplier: Boolean = true,
     appearKey: Any? = Unit,
@@ -108,7 +109,8 @@ fun StepsBarChart(
     val goalColor = TaroTheme.colors.accent.copy(alpha = 100 / 255f)
     val goalMetColor = metColor ?: TaroTheme.colors.goal
     val starColor = TaroTheme.colors.special
-    val anyGoalMet = highlightGoal > 0 && values.any { it >= highlightGoal }
+    fun goalAt(index: Int) = goals?.getOrNull(index) ?: highlightGoal
+    val anyGoalMet = values.indices.any { goalAt(it) > 0 && values[it] >= goalAt(it) }
     val measurer = rememberTextMeasurer()
     val valueStyle = TextStyle(color = AxisGray, fontSize = 10.sp, fontFamily = Chivo)
     val labelStyle = valueStyle.copy(fontSize = 12.sp)
@@ -159,7 +161,7 @@ fun StepsBarChart(
             }
             val grown = growth(index)
             val height = value / axisMax * plotHeight * grown
-            val metGoal = highlightGoal > 0 && values[index] >= highlightGoal
+            val metGoal = goalAt(index) > 0 && values[index] >= goalAt(index)
             val dim = if (selectedIndex != null && selectedIndex != index) 0.3f else 1f
             val barTop = baseline - height
             val barLeft = slotStart + (slot - barWidth) / 2
@@ -202,7 +204,7 @@ fun StepsBarChart(
                 val starRadius = 6.dp.toPx()
                 val starCenter = Offset(slotStart + slot / 2, labelTop - gap - starRadius)
                 drawStar(starCenter, starRadius, starColor)
-                Util.goalMultiplier(values[index], highlightGoal)?.takeIf { showMultiplier }?.let { multiplier ->
+                Util.goalMultiplier(values[index], goalAt(index))?.takeIf { showMultiplier }?.let { multiplier ->
                     val layout = measurer.measure(multiplier, multiplierStyle)
                     drawText(
                         layout,

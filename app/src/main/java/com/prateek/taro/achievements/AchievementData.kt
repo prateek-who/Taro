@@ -22,6 +22,20 @@ import java.time.ZoneId
 object AchievementData {
     private const val EARLY_HOUR = 7
     private const val LATE_HOUR = 22
+    private const val NOON = 12
+    private const val WALKING_STEPS_PER_MINUTE = 60
+
+    fun longestWalk(minutes: List<Pair<Long, Int>>): Int {
+        var best = 0
+        var run = 0
+        var previous: Long? = null
+        for ((start, steps) in minutes.sortedBy { it.first }) {
+            run = if (steps < WALKING_STEPS_PER_MINUTE) 0 else if (previous != null && start - previous == 60_000L) run + 1 else 1
+            best = maxOf(best, run)
+            previous = start
+        }
+        return best
+    }
     val LAST_BACKUP_DATE = stringPreferencesKey("last_backup_date")
     private val SEEN = stringSetPreferencesKey("achievements_seen")
 
@@ -46,6 +60,8 @@ object AchievementData {
                 ascentM = minutes.sumOf { it.ascentMeters.toDouble() },
                 earlySteps = hours.filter { it.first < EARLY_HOUR }.sumOf { it.second },
                 lateSteps = hours.filter { it.first >= LATE_HOUR }.sumOf { it.second },
+                stepsBeforeNoon = hours.filter { it.first < NOON }.sumOf { it.second },
+                longestWalkMin = longestWalk(minutes.map { it.minuteStart to it.steps }),
             )
         }
         val accuracy = listOfNotNull(date(AppPreferences.accuracyResults.stepDate), date(AppPreferences.accuracyResults.distanceDate)).minOrNull()
@@ -53,6 +69,7 @@ object AchievementData {
         return AchievementInputs(
             days = days,
             goal = AppPreferences.dailyGoalTarget,
+            goals = AppPreferences.goalHistory,
             workouts = snapshot.activities.mapNotNull { activity -> date(activity.date)?.let { it to activity.kcal } },
             weights = WeightJournal.points(context),
             losingWeight = AppPreferences.calorieGoal?.goal != DietGoal.BULK,
@@ -61,6 +78,13 @@ object AchievementData {
             accuracyCheckedOn = accuracy,
             backedUpOn = date(AppPreferences.stringValue(LAST_BACKUP_DATE)),
             firstDayOfWeek = DayOfWeek.of(((AppPreferences.firstDayOfWeek + 5) % 7) + 1),
+            foods = snapshot.foodLogs.orEmpty().groupBy { it.date }.mapNotNull { (day, logs) ->
+                date(day)?.let { FoodDayStat(it, logs.sumOf { log -> log.kcal }, logs.sumOf { log -> log.protein }, logs.map { log -> log.meal }.distinct().size) }
+            },
+            proteinTarget = AppPreferences.weight * AppPreferences.proteinPerKg,
+            recipes = snapshot.customFoods.orEmpty().filter { it.ingredients != null }.map { Instant.ofEpochMilli(it.createdAt).atZone(zone).toLocalDate() },
+            customFoods = snapshot.customFoods.orEmpty().filter { it.ingredients == null }.map { Instant.ofEpochMilli(it.createdAt).atZone(zone).toLocalDate() },
+            claimed = AppPreferences.claimedBadges,
         )
     }
 

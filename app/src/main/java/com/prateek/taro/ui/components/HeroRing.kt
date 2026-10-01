@@ -119,28 +119,30 @@ fun HeroRing(
                     if (full) {
                         drawArcAt(SolidColor(color), 0f, 360f, radius, stroke, StrokeCap.Butt)
                     } else {
-                        val dim = lerp(color, fade, 0.55f)
-                        val brush = Brush.sweepGradient(0f to dim, firstLap to color, 1f to dim, center = center)
+                        val dim = lerp(color, fade, 0.55f * (firstLap / GRADIENT_RAMP).coerceAtMost(1f))
+                        val brush = sweep(dim, color, firstLap, capFraction(stroke, radius))
                         drawArcAt(brush, 0f, firstLap * 360f, radius, stroke, StrokeCap.Round)
                     }
                 } else {
+                    val parts = mutableListOf<Triple<Float, Float, Color>>()
                     var cursor = 0f
-                    var firstColor: Color? = null
-                    var lastColor: Color? = null
-                    var drawnTo = 0f
                     segments.forEachIndexed { index, segment ->
                         val sweep = minOf(fractions[index], firstLap - cursor)
-                        if (sweep > 0f) {
-                            drawArcAt(SolidColor(segment.color), cursor * 360f, sweep * 360f, radius, stroke, StrokeCap.Butt)
-                            if (firstColor == null) firstColor = segment.color
-                            lastColor = segment.color
-                            drawnTo = cursor + sweep
-                        }
+                        if (sweep > 0f) parts += Triple(cursor, cursor + sweep, segment.color)
                         cursor += fractions[index]
                     }
-                    if (!full) {
-                        firstColor?.let { drawCap(it, 0f, radius, stroke) }
-                        lastColor?.let { drawCap(it, drawnTo * 360f, radius, stroke) }
+                    if (full) {
+                        parts.forEach { (from, to, color) -> drawArcAt(SolidColor(color), from * 360f, (to - from) * 360f, radius, stroke, StrokeCap.Butt) }
+                    } else if (parts.isNotEmpty()) {
+                        val drawnTo = parts.last().second
+                        val cap = capFraction(stroke, radius)
+                        absorbSlivers(parts, cap * SOLID_BELOW_CAPS / 2)
+                        val brush = if (drawnTo < cap * SOLID_BELOW_CAPS || parts.size == 1) {
+                            SolidColor(parts.maxBy { it.second - it.first }.third)
+                        } else {
+                            segmentSweep(parts, drawnTo, cap)
+                        }
+                        drawArcAt(brush, 0f, drawnTo * 360f, radius, stroke, StrokeCap.Round)
                     }
                 }
 
@@ -150,18 +152,21 @@ fun HeroRing(
                     if (laps >= 2) drawArcAt(SolidColor(base), 0f, 360f, radius, stroke, StrokeCap.Butt)
                     val partial = shown - laps
                     if (partial > 0.002f) {
-                        val tip = pointAt(partial * 360f + 4f, radius)
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent),
-                                center = tip,
+                        val shadow = 0.55f * (partial / SHADOW_RAMP).coerceAtMost(1f)
+                        if (shadow > 0.01f) {
+                            val tip = pointAt(partial * 360f + 2f, radius)
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    listOf(Color.Black.copy(alpha = shadow), Color.Transparent),
+                                    center = tip,
+                                    radius = stroke * 0.9f,
+                                ),
                                 radius = stroke * 0.9f,
-                            ),
-                            radius = stroke * 0.9f,
-                            center = tip,
-                        )
+                                center = tip,
+                            )
+                        }
                         val next = lapColor(laps)
-                        val brush = Brush.sweepGradient(0f to base, partial to next, 1f to base, center = center)
+                        val brush = sweep(base, next, partial, capFraction(stroke, radius))
                         drawArcAt(brush, 0f, partial * 360f, radius, stroke, StrokeCap.Round)
                     }
                 }
@@ -186,15 +191,62 @@ private fun DrawScope.drawGlow(color: Color, sweep: Float, radius: Float, stroke
 }
 
 private const val MAX_LAPS = 10
+private const val GRADIENT_RAMP = 0.5f
+private const val SHADOW_RAMP = 0.12f
+private const val SOLID_BELOW_CAPS = 4f
+
+private fun capFraction(stroke: Float, radius: Float): Float = (stroke / 2 / radius / (2 * Math.PI)).toFloat()
+
+private fun DrawScope.sweep(from: Color, to: Color, tip: Float, cap: Float): Brush {
+    val stops = buildList {
+        add(0f to from)
+        add(tip to to)
+        if (tip + cap < 1f) add(tip + cap to to)
+        add(1f to from)
+    }
+    return Brush.sweepGradient(*stops.toTypedArray(), center = center)
+}
+private fun absorbSlivers(parts: MutableList<Triple<Float, Float, Color>>, minimum: Float) {
+    var index = 0
+    while (parts.size > 1 && index < parts.size) {
+        val (from, to, _) = parts[index]
+        if (to - from >= minimum) {
+            index++
+            continue
+        }
+        if (index > 0) {
+            parts[index - 1] = parts[index - 1].copy(second = to)
+        } else {
+            parts[1] = parts[1].copy(first = from)
+        }
+        parts.removeAt(index)
+    }
+}
+
+private fun DrawScope.segmentSweep(parts: List<Triple<Float, Float, Color>>, drawnTo: Float, cap: Float): Brush {
+    val first = parts.first().third
+    val last = parts.last().third
+    val stops = buildList {
+        add(0f to first)
+        parts.zipWithNext().forEach { (before, after) ->
+            add(before.second to before.third)
+            add(after.first to after.third)
+        }
+        add(drawnTo to last)
+        if (drawnTo + cap < 1f) {
+            add(drawnTo + cap to last)
+            add(drawnTo + cap to first)
+        }
+        add(1f to first)
+    }
+    return Brush.sweepGradient(*stops.toTypedArray(), center = center)
+}
+
 private val LAP_PINK = Color(0xFFFF6FAE)
 
 private fun DrawScope.pointAt(degrees: Float, radius: Float): Offset {
     val angle = Math.toRadians(degrees.toDouble())
     return Offset(center.x + radius * cos(angle).toFloat(), center.y + radius * sin(angle).toFloat())
-}
-
-private fun DrawScope.drawCap(color: Color, degrees: Float, radius: Float, stroke: Float) {
-    drawCircle(color = color, radius = stroke / 2, center = pointAt(degrees, radius))
 }
 
 private fun DrawScope.drawArcAt(brush: Brush, start: Float, sweep: Float, radius: Float, stroke: Float, cap: StrokeCap) {

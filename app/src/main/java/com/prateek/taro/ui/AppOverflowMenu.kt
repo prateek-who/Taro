@@ -37,63 +37,75 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.prateek.taro.R
 import com.prateek.taro.ui.theme.TaroMotion
 import com.prateek.taro.ui.theme.TaroTheme
 
-private data class MenuEntry(val title: Int, val hint: Int, val icon: Int, val color: Color, val screen: Screen)
+data class MenuEntry(val title: Int, val hint: Int, val icon: Int, val color: Color, val onClick: () -> Unit)
 
 @Composable
-fun AppOverflowMenu() {
+fun AppOverflowMenu(center: @Composable () -> Unit = {}, actions: List<MenuEntry> = emptyList()) {
     val navigator = LocalNavigator.currentOrThrow
     val rootNavigator = navigator.parent ?: navigator
-    var open by remember { mutableStateOf(false) }
-    val rotation by animateFloatAsState(if (open) 90f else 0f, TaroMotion.snappy(), label = "menu icon")
     val colors = TaroTheme.colors
     val entries = listOf(
-        MenuEntry(R.string.achievements_title, R.string.menu_achievements_hint, R.drawable.ic_small_trophy, colors.special, AchievementsScreen),
-        MenuEntry(R.string.daily_goals, R.string.menu_goals_hint, R.drawable.ic_small_target, colors.goal, DailyGoalsScreen),
-        MenuEntry(R.string.header_data_backup, R.string.menu_backup_hint, R.drawable.ic_small_backup, colors.flame, BackupScreen),
-        MenuEntry(R.string.settings, R.string.menu_settings_hint, R.drawable.ic_small_settings, MaterialTheme.colorScheme.onSurface, SettingsScreen),
+        MenuEntry(R.string.achievements_title, R.string.menu_achievements_hint, R.drawable.ic_small_trophy, colors.special) { rootNavigator.push(AchievementsScreen) },
+        MenuEntry(R.string.daily_goals, R.string.menu_goals_hint, R.drawable.ic_small_target, colors.goal) { rootNavigator.push(DailyGoalsScreen) },
+        MenuEntry(R.string.header_data_backup, R.string.menu_backup_hint, R.drawable.ic_small_backup, colors.flame) { rootNavigator.push(BackupScreen) },
+        MenuEntry(R.string.settings, R.string.menu_settings_hint, R.drawable.ic_small_settings, MaterialTheme.colorScheme.onSurface) { rootNavigator.push(SettingsScreen) },
     )
 
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
-        Box(modifier = Modifier.padding(top = 4.dp, end = 12.dp, bottom = 8.dp)) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(colors.accentOpaque)
-                    .clickable(role = Role.Button) { open = true },
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_more_vert),
-                    contentDescription = stringResource(androidx.appcompat.R.string.abc_action_menu_overflow_description),
-                    modifier = Modifier.rotate(rotation),
-                )
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, top = 4.dp, end = 12.dp, bottom = 8.dp),
+    ) {
+        center()
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.align(Alignment.CenterEnd)) {
+            if (actions.isNotEmpty()) {
+                MenuButton(R.drawable.ic_add, stringResource(R.string.quick_add), actions, openRotation = 45f, modifier = Modifier.padding(end = 8.dp))
             }
-            DropdownMenu(
-                expanded = open,
-                onDismissRequest = { open = false },
-                shape = RoundedCornerShape(24.dp),
-                containerColor = colors.dialogSurface,
-                shadowElevation = 12.dp,
-                modifier = Modifier.width(280.dp),
-            ) {
-                entries.forEachIndexed { index, entry ->
-                    val visible = remember { MutableTransitionState(false).apply { targetState = true } }
-                    AnimatedVisibility(
-                        visibleState = visible,
-                        enter = fadeIn(tween(220, index * 45)) + slideInHorizontally(tween(320, index * 45)) { it / 5 },
-                    ) {
-                        MenuRow(entry) {
-                            open = false
-                            rootNavigator.push(entry.screen)
-                        }
+            MenuButton(R.drawable.ic_more_vert, stringResource(androidx.appcompat.R.string.abc_action_menu_overflow_description), entries, openRotation = 90f)
+        }
+    }
+}
+
+@Composable
+private fun MenuButton(icon: Int, description: String, entries: List<MenuEntry>, openRotation: Float, modifier: Modifier = Modifier) {
+    var open by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(if (open) openRotation else 0f, TaroMotion.snappy(), label = "menu icon")
+    val colors = TaroTheme.colors
+    Box(modifier = modifier) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(colors.accentOpaque)
+                .clickable(role = Role.Button) { open = true },
+        ) {
+            Icon(painter = painterResource(icon), contentDescription = description, modifier = Modifier.rotate(rotation))
+        }
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            shape = RoundedCornerShape(24.dp),
+            containerColor = colors.dialogSurface,
+            shadowElevation = 12.dp,
+            modifier = Modifier.width(280.dp),
+        ) {
+            entries.forEachIndexed { index, entry ->
+                val visible = remember { MutableTransitionState(false).apply { targetState = true } }
+                AnimatedVisibility(
+                    visibleState = visible,
+                    enter = fadeIn(tween(220, index * 45)) + slideInHorizontally(tween(320, index * 45)) { it / 5 },
+                ) {
+                    MenuRow(entry) {
+                        open = false
+                        entry.onClick()
                     }
                 }
             }

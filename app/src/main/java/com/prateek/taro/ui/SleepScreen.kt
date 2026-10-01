@@ -1,5 +1,25 @@
 package com.prateek.taro.ui
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.foundation.Canvas
+import androidx.compose.animation.AnimatedVisibility
+import com.prateek.taro.ui.components.ActionChip
+import com.prateek.taro.ui.components.infoOf
+import com.prateek.taro.ui.components.InfoBox
+import com.prateek.taro.ui.components.dayLabel
+import com.prateek.taro.ui.components.DaySwitcher
+import com.prateek.taro.ui.components.LocalTabActive
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.prateek.taro.ui.components.StatRow
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.prateek.taro.util.Database
+import com.prateek.taro.sleep.SleepDiagnostics
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -112,11 +132,22 @@ private fun SleepContent(tracking: TrackingState) {
     val toast = LocalToast.current
     var version by remember { mutableIntStateOf(0) }
     var dialog by remember { mutableStateOf<SleepDialog?>(null) }
+    var showDetection by rememberSaveable { mutableStateOf(false) }
+    val quickLog = rememberQuickLog()
+    val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
 
     val today = SleepDates.today()
+    val tabActive = LocalTabActive.current
+    LaunchedEffect(tabActive) { if (!tabActive) SleepTabState.date = null }
+    val selected = SleepTabState.date?.takeIf { !it.isAfter(today) } ?: today
+    fun select(date: LocalDate) {
+        SleepTabState.date = date.takeIf { it != today }
+    }
     val dataVersion = rememberDataVersion()
-    val sessions = remember(version, tracking.refreshKey, dataVersion) { SleepRepository.sessions(context, 14) }
-    val lastNight = sessions.firstOrNull { it.wakeDate == today.toString() }
+    val sessions = rememberRefreshed(version, tracking.refreshKey, dataVersion) { SleepRepository.sessions(context, HISTORY_DAYS) }
+    val lastNight = sessions.firstOrNull { it.wakeDate == selected.toString() }
+    val nightLabel = dayLabel(selected, today, stringResource(R.string.sleep_last_night))
     val week = sessions.filter { !LocalDate.parse(it.wakeDate).isBefore(today.minusDays(6)) }.map { it.toNight() }
     val timeFormat = remember { android.text.format.DateFormat.getTimeFormat(context) }
     val dateFormat = remember { SimpleDateFormat(AppPreferences.dateFormatString, Locale.getDefault()) }
@@ -126,13 +157,21 @@ private fun SleepContent(tracking: TrackingState) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .statusBarsPadding(),
     ) {
-        AppOverflowMenu()
+        AppOverflowMenu(
+            center = { DaySwitcher(date = selected, today = today, onChange = ::select, todayLabel = stringResource(R.string.sleep_last_night)) },
+            actions = listOf(
+                MenuEntry(R.string.sleep_add, R.string.quick_sleep_hint, R.drawable.ic_sleep, TaroTheme.colors.sleep) { dialog = SleepDialog.Edit(selected, lastNight) },
+            ) + quickLogActions(quickLog, Util.logicalToday()),
+        )
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(scroll)
+                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
         ) {
             val sleepColor = TaroTheme.colors.sleep
             val minutes = lastNight?.durationMinutes ?: 0L
@@ -144,7 +183,7 @@ private fun SleepContent(tracking: TrackingState) {
                 modifier = Modifier.padding(top = 8.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.sleep_last_night).uppercase(),
+                    text = nightLabel.uppercase(),
                     fontSize = 13.sp,
                     letterSpacing = 2.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -171,12 +210,23 @@ private fun SleepContent(tracking: TrackingState) {
                         color = TaroTheme.colors.accent,
                     )
                 }
-                Text(
-                    text = stringResource(R.string.sleep_of_goal, durationLabel(SLEEP_TARGET_MIN)),
-                    fontSize = 12.sp,
-                    color = TaroTheme.colors.accent,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
+                InfoBox(
+                    info = infoOf(R.string.info_sleep_goal_title, R.string.info_sleep_goal),
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    color = sleepColor,
+                ) {
+                    Text(
+                        text = stringResource(R.string.sleep_of_goal, durationLabel(SLEEP_TARGET_MIN)),
+                        fontSize = 12.sp,
+                        color = TaroTheme.colors.accent,
+                    )
+                }
+            }
+
+            if (lastNight != null) {
+                NightBar(lastNight.startAt, lastNight.endAt, selected, sleepColor, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp))
             }
 
             val streak = SleepInsights.streak(week, today)
@@ -187,13 +237,14 @@ private fun SleepContent(tracking: TrackingState) {
                     color = sleepColor,
                     lit = streak >= 3,
                     modifier = Modifier.padding(top = 4.dp),
+                    info = infoOf(R.string.info_sleep_streak_title, R.string.info_sleep_streak),
                 )
             }
 
             when {
                 lastNight == null -> PrimaryButton(
                     text = stringResource(R.string.sleep_add),
-                    onClick = { dialog = SleepDialog.Edit(today, null) },
+                    onClick = { dialog = SleepDialog.Edit(selected, null) },
                     icon = R.drawable.ic_sleep,
                     modifier = Modifier.padding(top = 12.dp),
                 )
@@ -219,7 +270,8 @@ private fun SleepContent(tracking: TrackingState) {
                         )
                         SecondaryButton(
                             text = stringResource(R.string.sleep_edit),
-                            onClick = { dialog = SleepDialog.Edit(today, lastNight) },
+                            onClick = { dialog = SleepDialog.Edit(selected, lastNight) },
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
@@ -238,18 +290,19 @@ private fun SleepContent(tracking: TrackingState) {
                     value = SleepInsights.average(week)?.let { durationLabel(it) } ?: "-",
                     color = sleepColor,
                     modifier = Modifier.weight(1f),
+                    info = infoOf(R.string.info_sleep_average_title, R.string.info_sleep_average),
                 )
                 StatTile(
                     label = stringResource(R.string.sleep_spread_short),
                     value = SleepInsights.bedtimeSpreadMinutes(week)?.let { stringResource(R.string.sleep_spread_value, it.toInt()) } ?: "-",
                     modifier = Modifier.weight(1f),
+                    info = infoOf(R.string.info_sleep_spread_title, R.string.info_sleep_spread),
                 )
             }
 
             val days = (6 downTo 0).map { today.minusDays(it.toLong()) }
             val byDate = week.associateBy { it.wakeDate }
-            var selectedBar by remember { mutableStateOf<Int?>(null) }
-            SectionLabel(stringResource(R.string.sleep_last_7))
+            SectionLabel(stringResource(R.string.sleep_last_7), info = infoOf(R.string.info_sleep_week_title, R.string.info_sleep_week))
             Panel(modifier = Modifier.height(260.dp)) {
                 Text(
                     text = stringResource(R.string.sleep_last_7_caption),
@@ -267,28 +320,31 @@ private fun SleepContent(tracking: TrackingState) {
                     valueLabel = { "${it / 60}h${"%02d".format(it % 60)}" },
                     showMultiplier = false,
                     metColor = sleepColor,
-                    selectedIndex = selectedBar,
-                    onBarClick = { selectedBar = if (selectedBar == it) null else it },
+                    selectedIndex = days.indexOf(selected).takeIf { it >= 0 && selected != today },
+                    onBarClick = {
+                        select(days[it])
+                        scope.launch { scroll.animateScrollTo(0) }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
                 )
             }
 
-            if (sessions.isNotEmpty()) {
-                SectionLabel(stringResource(R.string.sleep_nights))
+            val recent = sessions.filter { !LocalDate.parse(it.wakeDate).isBefore(today.minusDays(LIST_DAYS)) }
+            if (recent.isNotEmpty()) {
+                SectionLabel(stringResource(R.string.sleep_nights), info = infoOf(R.string.info_sleep_nights_title, R.string.info_sleep_nights))
                 Panel {
-                    sessions.asReversed().forEach { session ->
+                    recent.asReversed().forEach { session ->
                         val wake = LocalDate.parse(session.wakeDate)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 4.dp, vertical = 3.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(sleepColor.copy(alpha = 0.08f))
+                                .padding(vertical = 2.dp)
+                                .clip(RoundedCornerShape(14.dp))
                                 .clickable { dialog = SleepDialog.Edit(wake, session) }
-                                .padding(start = 14.dp, top = 6.dp, bottom = 6.dp),
+                                .padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
@@ -327,6 +383,19 @@ private fun SleepContent(tracking: TrackingState) {
                     }
                 }
             }
+            SectionLabel(
+                text = stringResource(R.string.sleep_diag_title),
+                info = infoOf(R.string.info_sleep_detection_title, R.string.info_sleep_detection),
+                action = {
+                    ActionChip(
+                        text = stringResource(if (showDetection) R.string.sleep_diag_hide else R.string.sleep_diag_show),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        onClick = { showDetection = !showDetection },
+                        trailingIcon = if (showDetection) R.drawable.ic_expand_less else R.drawable.ic_expand_more,
+                    )
+                },
+            )
+            AnimatedVisibility(visible = showDetection) { SleepDetectionCard() }
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -346,6 +415,50 @@ private fun SleepContent(tracking: TrackingState) {
             },
             onDismiss = { dialog = null },
         )
+    }
+
+    QuickLogDialogs(quickLog, Util.logicalToday())
+}
+
+private object SleepTabState {
+    var date by mutableStateOf<LocalDate?>(null)
+}
+
+private const val HISTORY_DAYS = 120L
+private const val LIST_DAYS = 14L
+private const val BAR_START_HOUR = 18
+private const val BAR_HOURS = 20
+
+@Composable
+private fun NightBar(startAt: Long, endAt: Long, wakeDate: LocalDate, color: Color, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val origin = millisAt(wakeDate.minusDays(1), BAR_START_HOUR * 60)
+    val span = BAR_HOURS * 3_600_000f
+    val track = TaroTheme.colors.accentOpaque
+    val format = remember { SimpleDateFormat(if (android.text.format.DateFormat.is24HourFormat(context)) "HH:mm" else "h a", Locale.getDefault()) }
+    Column(modifier = modifier.fillMaxWidth(0.86f)) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(14.dp),
+        ) {
+            val radius = CornerRadius(size.height / 2)
+            drawRoundRect(track, cornerRadius = radius)
+            val left = ((startAt - origin) / span).coerceIn(0f, 1f) * size.width
+            val right = ((endAt - origin) / span).coerceIn(0f, 1f) * size.width
+            if (right > left) drawRoundRect(color, topLeft = Offset(left, 0f), size = Size(right - left, size.height), cornerRadius = radius)
+        }
+        Row(modifier = Modifier.padding(top = 4.dp)) {
+            (0..BAR_HOURS step 6).forEachIndexed { index, hour ->
+                Text(
+                    text = format.format(Date(origin + hour * 3_600_000L)).lowercase(Locale.getDefault()),
+                    fontSize = 11.sp,
+                    color = TaroTheme.colors.accent,
+                    textAlign = if (index == 0) TextAlign.Start else TextAlign.Center,
+                    modifier = Modifier.weight(if (index == 0) 0.5f else 1f),
+                )
+            }
+        }
     }
 }
 
@@ -441,4 +554,37 @@ private fun SleepEditDialog(
             onDismiss = { picking = null },
         )
     }
+}
+
+@Composable
+private fun SleepDetectionCard() {
+    val context = LocalContext.current
+    val state by remember { SleepDiagnostics.flow() }.collectAsStateWithLifecycle(null)
+    val dataVersion = rememberDataVersion()
+    val screenEvents = rememberRefreshed(dataVersion, state) {
+        Database.getInstance(context).screenEventCount(System.currentTimeMillis() - 24 * 60 * 60 * 1000L)
+    }
+    val format = remember { SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()) }
+    val never = stringResource(R.string.sleep_diag_never)
+    fun time(at: Long?) = at?.let { format.format(Date(it)) } ?: never
+    val current = state ?: return
+
+    Panel {
+        StatRow(stringResource(R.string.sleep_diag_registered), current.registerError?.let { "${time(current.registeredAt)}, $it" } ?: time(current.registeredAt))
+        StatRow(stringResource(R.string.sleep_diag_google), time(current.googleAt))
+        current.googleSummary?.let { DiagnosticNote(it) }
+        StatRow(stringResource(R.string.sleep_diag_estimate), time(current.estimateAt))
+        current.estimateSummary?.let { DiagnosticNote(it) }
+        StatRow(stringResource(R.string.sleep_diag_screen), screenEvents.toString())
+    }
+}
+
+@Composable
+private fun DiagnosticNote(text: String) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        color = TaroTheme.colors.accent,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+    )
 }

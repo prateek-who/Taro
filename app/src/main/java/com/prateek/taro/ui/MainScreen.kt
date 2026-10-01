@@ -1,5 +1,11 @@
 package com.prateek.taro.ui
 
+import kotlinx.coroutines.delay
+import com.prateek.taro.ui.components.LocalTabActive
+import com.prateek.taro.ui.components.rememberInfoState
+import com.prateek.taro.ui.components.InfoPopup
+import com.prateek.taro.ui.components.ToggleGroup
+import com.prateek.taro.ui.components.infoOf
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.LocalNavigator
 import androidx.compose.animation.AnimatedVisibility
@@ -206,21 +212,25 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
     var dialog by remember { mutableStateOf<MainDialog?>(null) }
 
     val goalTarget by AppPreferences.dailyGoalTargetFlow().collectAsStateWithLifecycle(AppPreferences.dailyGoalTarget)
+    val goalHistory by AppPreferences.goalHistoryFlow().collectAsStateWithLifecycle(AppPreferences.goalHistory)
     val goalChartLine by AppPreferences.dailyGoalChartLineFlow().collectAsStateWithLifecycle(AppPreferences.dailyGoalChartLine)
 
-    val years = remember(refreshKey) { yearsWithData(context) }
-    val minDate = remember(refreshKey) { firstEntryDate(context) }
-    val summary = remember(selection, pickedDay, steps, refreshKey) {
+    val factors by AppPreferences.energyFactorsFlow().collectAsStateWithLifecycle(AppPreferences.energyFactors)
+    val quickLog = rememberQuickLog()
+    val years = rememberRefreshed(refreshKey) { yearsWithData(context) }
+    val minDate = rememberRefreshed(refreshKey) { firstEntryDate(context) }
+    val summary = rememberRefreshed(selection, pickedDay, steps, refreshKey, factors, goalHistory) {
         pickedDay?.let { daySummary(context, it) } ?: summary(context, selection, steps)
     }
-    val chart = remember(past7Days, selectedDate, steps, refreshKey) { chartData(context, past7Days, selectedDate, steps) }
-    val goal = remember(goalTarget, refreshKey) { goalLine(context, goalTarget) }
+    val chart = rememberRefreshed(past7Days, selectedDate, steps, refreshKey) { chartData(context, past7Days, selectedDate, steps) }
+    val goal = rememberRefreshed(goalTarget, goalHistory, refreshKey) { goalLine(context, goalTarget) }
     val isToday = pickedDay == null && selection == Selection.Range(StepRange.TODAY)
     val dayView = isToday || pickedDay != null
-    val ringValue = if (dayView) summary.steps else summary.averageSteps ?: 0
-    val dayTotals = remember(refreshKey) { stepsByDay(context) }
-    val heat = remember(dayTotals, steps, goalTarget) {
-        heatFractions(dayTotals + (Util.logicalToday() to steps), goalTarget)
+    val ringValue = summary.steps
+    val ringTarget = if (goalTarget > 0) summary.goalTotal else 0
+    val dayTotals = rememberRefreshed(refreshKey) { stepsByDay(context) }
+    val heat = remember(dayTotals, steps, goalHistory) {
+        heatFractions(dayTotals + (Util.logicalToday() to steps), goalHistory)
     }
     val scrollState = rememberScrollState()
     var heroBottom by remember { mutableFloatStateOf(1f) }
@@ -247,6 +257,15 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
             AppPreferences.lastCelebrationDate = today
             celebrate = true
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+
+    val tabActive = LocalTabActive.current
+    LaunchedEffect(tabActive) {
+        if (tabActive && !AppPreferences.stepsHintShown) {
+            delay(1_500)
+            toast.show(context.getString(R.string.home_steps_hint), ToastKind.INFO)
+            AppPreferences.stepsHintShown = true
         }
     }
 
@@ -287,142 +306,162 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
             }
         },
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(scrollState)
-                    .statusBarsPadding(),
-            ) {
-                AppOverflowMenu()
-
-                PillSelector(
-                    options = selectionOptions,
-                    selected = if (pickedDay == null) selection else null,
-                    onSelect = { if (it != null) select(it) },
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .statusBarsPadding(),
+        ) {
+            AppOverflowMenu(
+                actions = quickLogActions(quickLog, Util.logicalToday()) +
+                    MenuEntry(R.string.home_edit_steps, R.string.home_edit_steps_hint, R.drawable.ic_steps, TaroTheme.colors.goal) { dialog = MainDialog.EditSteps },
+            )
+            Box(modifier = Modifier.weight(1f)) {
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .onPlaced { heroBottom = it.positionInParent().y + it.size.height }
-                        .graphicsLayer {
-                            val fraction = (scrollState.value / heroBottom).coerceIn(0f, 1f)
-                            alpha = 1f - fraction * 0.9f
-                            scaleX = 1f - fraction * 0.12f
-                            scaleY = scaleX
-                        }
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .fillMaxSize()
+                        .verticalScroll(scrollState),
                 ) {
-                    Hero(
-                        summary = summary,
-                        goal = goalTarget,
-                        ringValue = ringValue,
-                        dayView = dayView,
-                        onStepsLongClick = { if (isToday) dialog = MainDialog.EditSteps },
+                    PillSelector(
+                        options = selectionOptions,
+                        selected = if (pickedDay == null) selection else null,
+                        onSelect = { if (it != null) select(it) },
+                        modifier = Modifier.padding(horizontal = 16.dp),
                     )
-                    AnimatedVisibility(visible = pickedDay != null) {
-                        SecondaryButton(
-                            text = stringResource(R.string.back_to_range, selectionLabel(selection)),
-                            onClick = { pickedDay = null },
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                    goal?.let {
-                        if (it.streak) {
-                            StatPill(
-                                icon = R.drawable.ic_calories,
-                                text = it.text,
-                                color = TaroTheme.colors.special,
-                                lit = true,
-                                modifier = Modifier.padding(top = 10.dp),
-                            )
-                        } else {
-                            Text(
-                                text = it.text.uppercase(),
-                                fontSize = 14.sp,
-                                letterSpacing = 1.sp,
-                                color = TaroTheme.colors.accent,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 10.dp),
-                            )
-                        }
-                    }
-                }
 
-                Spacer(Modifier.height(16.dp))
-
-                Panel(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .height(300.dp),
-                ) {
-                    CenteredText(
-                        text = chart.header,
-                        fontSize = 16.sp,
-                        modifier = Modifier.clickable {
-                            past7Days = !past7Days
-                            savePast7DaysMode(context, past7Days)
-                            resetCalendarToToday()
-                        },
-                    )
-                    CenteredText(chart.range, fontSize = 14.sp, modifier = Modifier.padding(bottom = 12.dp))
-                    StepsBarChart(
-                        values = chart.values,
-                        labels = chart.labels,
-                        goal = if (goalTarget > 0 && goalChartLine) goalTarget else 0,
-                        highlightGoal = goalTarget,
-                        appearKey = chart.range,
-                        selectedIndex = pickedDay?.let { chart.dates.indexOf(it) }?.takeIf { it >= 0 },
-                        onBarClick = { index ->
-                            val date = chart.dates[index]
-                            if (!date.isAfter(Util.logicalToday())) {
-                                selectedDate = date
-                                pickedDay = date.takeIf { it != Util.logicalToday() }
-                                scope.launch { scrollState.animateScrollTo(0) }
-                            }
-                        },
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f),
+                            .onPlaced { heroBottom = it.positionInParent().y + it.size.height }
+                            .graphicsLayer {
+                                val fraction = (scrollState.value / heroBottom).coerceIn(0f, 1f)
+                                alpha = 1f - fraction * 0.9f
+                                scaleX = 1f - fraction * 0.12f
+                                scaleY = scaleX
+                            }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
+                        Hero(
+                            summary = summary,
+                            goal = ringTarget,
+                            ringValue = ringValue,
+                            dayView = dayView,
+                            onStepsLongClick = { if (isToday) dialog = MainDialog.EditSteps },
+                        )
+                        AnimatedVisibility(visible = pickedDay != null) {
+                            SecondaryButton(
+                                text = stringResource(R.string.back_to_range, selectionLabel(selection)),
+                                onClick = { pickedDay = null },
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                        goal?.let {
+                            if (it.streak) {
+                                StatPill(
+                                    icon = R.drawable.ic_calories,
+                                    text = it.text,
+                                    color = TaroTheme.colors.special,
+                                    lit = true,
+                                    modifier = Modifier.padding(top = 10.dp),
+                                    info = infoOf(R.string.info_streak_title, R.string.info_streak),
+                                )
+                            } else {
+                                Text(
+                                    text = it.text.uppercase(),
+                                    fontSize = 14.sp,
+                                    letterSpacing = 1.sp,
+                                    color = TaroTheme.colors.accent,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 10.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Panel(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .height(330.dp),
+                    ) {
+                        ToggleGroup(
+                            options = listOf(true to stringResource(R.string.header_7d), false to stringResource(R.string.home_calendar_week)),
+                            selected = past7Days,
+                            onSelect = {
+                                past7Days = it
+                                savePast7DaysMode(context, it)
+                                resetCalendarToToday()
+                            },
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                        )
+                        CenteredText(
+                            text = if (past7Days) chart.range else "${chart.header} · ${chart.range}",
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(top = 10.dp, bottom = 12.dp),
+                        )
+                        StepsBarChart(
+                            values = chart.values,
+                            labels = chart.labels,
+                            goal = if (goalTarget > 0 && goalChartLine) goalTarget else 0,
+                            highlightGoal = goalTarget,
+                            goals = if (goalTarget > 0) chart.dates.map(goalHistory::on) else null,
+                            appearKey = chart.range,
+                            selectedIndex = pickedDay?.let { chart.dates.indexOf(it) }?.takeIf { it >= 0 },
+                            onBarClick = { index ->
+                                val date = chart.dates[index]
+                                if (!date.isAfter(Util.logicalToday())) {
+                                    selectedDate = date
+                                    pickedDay = date.takeIf { it != Util.logicalToday() }
+                                    scope.launch { scrollState.animateScrollTo(0) }
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                        )
+                    }
+
+                    StepsByHourPanel(
+                        date = selectedDate,
+                        refreshKey = if (selectedDate == Util.logicalToday()) "$refreshKey-$steps" else refreshKey,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
                     )
+
+                    Panel(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 52.dp)) {
+                        MonthCalendar(
+                            heat = heat,
+                            selected = selectedDate,
+                            minDate = minDate,
+                            maxDate = Util.logicalToday(),
+                            firstDayOfWeek = calendarDayOfWeek[AppPreferences.firstDayOfWeek - 1],
+                            jumpKey = calendarJump,
+                            onSelect = {
+                                selectedDate = it
+                                past7Days = false
+                                pickedDay = it.takeIf { date -> date != Util.logicalToday() }
+                                scope.launch { scrollState.animateScrollTo(0) }
+                            },
+                        )
+                    }
+
+                    Spacer(Modifier.navigationBarsPadding().height(24.dp))
                 }
 
-                Panel(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 52.dp)) {
-                    MonthCalendar(
-                        heat = heat,
-                        selected = selectedDate,
-                        minDate = minDate,
-                        maxDate = Util.logicalToday(),
-                        firstDayOfWeek = calendarDayOfWeek[AppPreferences.firstDayOfWeek - 1],
-                        jumpKey = calendarJump,
-                        onSelect = {
-                            selectedDate = it
-                            past7Days = false
-                            pickedDay = it.takeIf { date -> date != Util.logicalToday() }
-                            scope.launch { scrollState.animateScrollTo(0) }
-                        },
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = collapsed,
+                    enter = slideInVertically(TaroMotion.snappy()) { -it } + fadeIn(),
+                    exit = slideOutVertically { -it } + fadeOut(),
+                ) {
+                    CompactHeader(
+                        summary = summary,
+                        progress = if (ringTarget > 0) ringValue.toFloat() / ringTarget else 0f,
+                        lit = ringTarget > 0 && ringValue >= ringTarget,
+                        onClick = { scope.launch { scrollState.animateScrollTo(0) } },
                     )
                 }
-
-                Spacer(Modifier.navigationBarsPadding().height(24.dp))
-            }
-
-            AnimatedVisibility(
-                visible = collapsed,
-                enter = slideInVertically(TaroMotion.snappy()) { -it } + fadeIn(),
-                exit = slideOutVertically { -it } + fadeOut(),
-            ) {
-                CompactHeader(
-                    summary = summary,
-                    progress = if (goalTarget > 0) ringValue.toFloat() / goalTarget else 0f,
-                    lit = goalTarget > 0 && ringValue >= goalTarget,
-                    onClick = { scope.launch { scrollState.animateScrollTo(0) } },
-                )
             }
         }
     }
@@ -430,6 +469,8 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
     if (celebrate) {
         ConfettiBurst(onFinished = { celebrate = false })
     }
+
+    QuickLogDialogs(quickLog, Util.logicalToday())
 
     when (val current = dialog) {
         MainDialog.EditSteps -> NumberInputDialog(
@@ -487,9 +528,11 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
 @Composable
 private fun Hero(summary: Summary, goal: Int, ringValue: Int, dayView: Boolean, onStepsLongClick: () -> Unit) {
     val lit = goal > 0 && ringValue >= goal
+    val stepsInfo = rememberInfoState()
     val multiplier = Util.goalMultiplier(ringValue, goal)
     val caption = when {
-        !dayView -> stringResource(R.string.ring_average, Util.formatSteps(ringValue))
+        !dayView && goal > 0 -> stringResource(R.string.ring_of_goal_average, Util.formatSteps(goal), Util.formatSteps(summary.averageSteps ?: 0))
+        !dayView -> stringResource(R.string.ring_average, Util.formatSteps(summary.averageSteps ?: 0))
         goal > 0 -> stringResource(R.string.ring_of_goal, Util.formatSteps(goal))
         else -> stringResource(R.string.ring_steps)
     }
@@ -514,8 +557,11 @@ private fun Hero(summary: Summary, goal: Int, ringValue: Int, dayView: Boolean, 
                 fontWeight = FontWeight.Normal,
                 color = MaterialTheme.colorScheme.onSurface,
             ),
-            modifier = Modifier.combinedClickable(onClick = {}, onLongClick = onStepsLongClick),
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .combinedClickable(onClick = { stepsInfo.open = true }, onLongClick = onStepsLongClick),
         )
+        InfoPopup(stepsInfo, infoOf(R.string.info_steps_count_title, R.string.info_steps_count), TaroTheme.colors.goal)
         AnimatedContent(
             targetState = caption,
             transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(200)) },
@@ -546,8 +592,8 @@ private fun Hero(summary: Summary, goal: Int, ringValue: Int, dayView: Boolean, 
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
     ) {
-        StatPill(R.drawable.ic_steps, summary.distance, TaroTheme.colors.goal, lit)
-        StatPill(R.drawable.ic_calories, summary.calories, TaroTheme.colors.flame, lit)
+        StatPill(R.drawable.ic_steps, summary.distance, TaroTheme.colors.goal, lit, info = infoOf(R.string.info_distance_title, R.string.info_distance))
+        StatPill(R.drawable.ic_calories, summary.calories, TaroTheme.colors.flame, lit, info = infoOf(R.string.info_home_kcal_title, R.string.info_home_kcal))
     }
 }
 
@@ -581,7 +627,6 @@ private fun CompactHeader(summary: Summary, progress: Float, lit: Boolean, onCli
             .fillMaxWidth()
             .background(TaroTheme.colors.background.copy(alpha = 0.96f))
             .clickable(onClick = onClick)
-            .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         HeroRing(

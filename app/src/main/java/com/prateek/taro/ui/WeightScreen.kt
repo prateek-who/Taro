@@ -113,7 +113,8 @@ private fun WeightContent(onBack: () -> Unit) {
     var showTrend by rememberSaveable { mutableStateOf(true) }
     val allPoints = remember(version, dataVersion) { WeightJournal.points(context) }
     val today = Util.logicalToday()
-    val points = allPoints.filter { !it.date.isBefore(today.minusDays(rangeDays.toLong())) }
+    val insights by rememberBodyInsights(version)
+    val points = insights?.model.tissueTrend(allPoints).filter { !it.date.isBefore(today.minusDays(rangeDays.toLong())) }
     val calorieGoal by AppPreferences.calorieGoalFlow().collectAsStateWithLifecycle(AppPreferences.calorieGoal)
     val reminder by AppPreferences.weightReminderFlow().collectAsStateWithLifecycle(AppPreferences.weightReminder)
     val dateFormat = remember { SimpleDateFormat(AppPreferences.dateFormatString, Locale.getDefault()) }
