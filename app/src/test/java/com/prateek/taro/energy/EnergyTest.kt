@@ -8,12 +8,14 @@ class EnergyTest {
     private val body = Body(weightKg = 70.0, walkingStepM = 0.75, runningStepM = 1.0)
 
     @Test
-    fun walkingAndRunningFollowAcsm() {
-        val walkKm = EnergyModel.metresPerMinute(body, 100) / 1000.0
+    fun walkingFollowsHeightAndSpeedAndRunningFollowsAcsm() {
         val runKm = EnergyModel.metresPerMinute(body, 160) / 1000.0
-        assertEquals(0.5, EnergyModel.minuteKcal(body, MinuteSample(steps = 100)) / walkKm / body.weightKg, 1e-9)
+        val speed = 100 * 0.75 / 60
+        val steadyMinute = (3.85 + 5.97 * speed * speed / 1.7) * 70.0 / 1000 * 5
+        assertEquals(steadyMinute, EnergyModel.minuteKcal(body, MinuteSample(steps = 100)), 1e-9)
+        assertEquals(EnergyModel.minuteKcal(body, MinuteSample(steps = 80)) / 4, EnergyModel.minuteKcal(body, MinuteSample(steps = 20)), 1e-9)
         assertEquals(1.0, EnergyModel.minuteKcal(body, MinuteSample(steps = 160)) / runKm / body.weightKg, 1e-9)
-        assertEquals(262.5, EnergyModel.walkingStepsKcal(body, 10_000), 1e-9)
+        assertEquals(EnergyModel.minuteKcal(body, MinuteSample(steps = 80)) * 125, EnergyModel.walkingStepsKcal(body, 10_000), 1e-9)
     }
 
     @Test
