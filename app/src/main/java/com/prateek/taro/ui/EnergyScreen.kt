@@ -1,6 +1,8 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.ActionChip
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.layout.Box
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import java.time.LocalDate
@@ -144,10 +146,11 @@ private fun EnergyContent(tracking: TrackingState) {
     val dataVersion = rememberDataVersion()
     val factors by AppPreferences.energyFactorsFlow().collectAsStateWithLifecycle(AppPreferences.energyFactors)
     val insights by rememberBodyInsights(today, age, sex, height)
-    val history = remember(age, sex, weight, height, today, tracking.refreshKey, dataVersion, factors) { DailyEnergy.history(context, factors) }
-    val todayBurn = remember(history, tracking.steps, now, dataVersion) {
+    val historyLoad = rememberInBackground(age, sex, weight, height, today, tracking.refreshKey, dataVersion, factors) { DailyEnergy.history(context, factors) }
+    val history = historyLoad?.value
+    val todayBurn = rememberInBackground(history, tracking.steps, now, dataVersion) {
         history?.let { DailyEnergy.today(context, it, tracking.steps, now) }
-    }
+    }?.value
     LaunchedEffect(tabActive) { if (!tabActive) EnergyTabState.date = null }
     val selectedDate = EnergyTabState.date?.takeIf { !it.isAfter(Util.logicalToday()) } ?: Util.logicalToday()
     fun select(date: LocalDate) {
@@ -155,13 +158,12 @@ private fun EnergyContent(tracking: TrackingState) {
     }
     val day = selectedDate.toString()
     val isToday = day == today
-    val pastBurn = remember(history, day, dataVersion) { history?.takeIf { !isToday }?.let { DailyEnergy.day(context, it, day) } }
+    val pastBurn = rememberInBackground(history, day, dataVersion) { history?.takeIf { !isToday }?.let { DailyEnergy.day(context, it, day) } }?.value
     val activities = remember(day, dataVersion) { Database.getInstance(context).activitiesOn(day) }
 
     var profileStep by remember { mutableStateOf<ProfileStep?>(null) }
-    var logging by remember { mutableStateOf(false) }
+    val quickLog = rememberQuickLog()
     var editingGoal by remember { mutableStateOf(false) }
-    var loggingWeight by remember { mutableStateOf(false) }
     var showWeighIns by rememberSaveable { mutableStateOf(true) }
     var showTrend by rememberSaveable { mutableStateOf(true) }
     val foodToday = remember(day, dataVersion) { Database.getInstance(context).foodOn(day) }
@@ -180,24 +182,23 @@ private fun EnergyContent(tracking: TrackingState) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(scroll)
             .statusBarsPadding(),
     ) {
         AppOverflowMenu(
             center = { DaySwitcher(date = selectedDate, today = Util.logicalToday(), onChange = ::select) },
-            actions = listOf(
-                MenuEntry(R.string.food_log_button, R.string.quick_food_hint, R.drawable.ic_calorie_goal, TaroTheme.colors.goal) {
-                    rootNavigator.push(AddFoodScreen(selectedDate, Meals.forTime(meals)))
-                },
-                MenuEntry(R.string.energy_add_activity, R.string.quick_activity_hint, R.drawable.ic_calories, TaroTheme.colors.special) { logging = true },
-                MenuEntry(R.string.weight_log, R.string.quick_weight_hint, R.drawable.ic_weight, TaroTheme.colors.sleep) { loggingWeight = true },
-            ),
+            actions = quickLogActions(quickLog, selectedDate),
         )
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(scroll)
+                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
         ) {
-            if (history == null || todayBurn == null) {
+            if (historyLoad == null || (history != null && todayBurn == null) || (history != null && !isToday && pastBurn == null)) {
+                Box(modifier = Modifier.height(320.dp))
+            } else if (history == null || todayBurn == null) {
                 Panel(modifier = Modifier.padding(top = 24.dp)) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -359,10 +360,11 @@ private fun EnergyContent(tracking: TrackingState) {
                                 color = colors.accent,
                             )
                         }
-                        TintChip(
+                        ActionChip(
                             text = goalChip(calorieGoal),
-                            color = if (calorieGoal == null) colors.accent else colors.goal,
+                            color = if (calorieGoal == null) MaterialTheme.colorScheme.onSurface else colors.goal,
                             onClick = { editingGoal = true },
+                            trailingIcon = R.drawable.ic_expand_more,
                             info = infoOf(R.string.info_goal_title, R.string.info_goal),
                         )
                     }
@@ -513,7 +515,7 @@ private fun EnergyContent(tracking: TrackingState) {
                     ) {
                         PrimaryButton(
                             text = stringResource(R.string.weight_log),
-                            onClick = { loggingWeight = true },
+                            onClick = { quickLog.weight = true },
                             icon = R.drawable.ic_weight,
                             modifier = Modifier.weight(1f),
                         )
@@ -583,20 +585,6 @@ private fun EnergyContent(tracking: TrackingState) {
         )
     }
 
-    if (loggingWeight) {
-        LogWeightDialog(
-            title = stringResource(R.string.weight_dialog_title),
-            initialKg = weightPoints.lastOrNull()?.kg ?: AppPreferences.weight,
-            onSave = { kg, date ->
-                WeightJournal.log(context, date.toString(), kg)
-                WeightReminderScheduler.dismissNotification(context)
-                loggingWeight = false
-                toast.show(context.getString(R.string.weight_saved), ToastKind.SUCCESS)
-            },
-            onDismiss = { loggingWeight = false },
-        )
-    }
-
     if (editingGoal) {
         CalorieGoalDialog(
             current = calorieGoal,
@@ -609,31 +597,7 @@ private fun EnergyContent(tracking: TrackingState) {
         )
     }
 
-    if (logging) {
-        LogActivityDialog(
-            weightKg = weight.toDouble(),
-            onSave = { name, minutes, kcal, date, finishedAt ->
-                Database.getInstance(context).addActivity(
-                    LoggedActivity(
-                        date = date.toString(),
-                        name = name,
-                        kcal = kcal,
-                        durationMinutes = minutes,
-                        loggedAt = finishedAt,
-                    )
-                )
-                logging = false
-                val message = if (date == Util.logicalToday()) {
-                    context.getString(R.string.activity_saved)
-                } else {
-                    context.getString(R.string.saved_for_date, SimpleDateFormat(AppPreferences.dateFormatString, Locale.getDefault()).format(Date(Util.dateStringToCalendarMillis(date.toString()))))
-                }
-                toast.show(message, ToastKind.SUCCESS)
-            },
-            onDismiss = { logging = false },
-            initialDate = selectedDate,
-        )
-    }
+    QuickLogDialogs(quickLog, selectedDate)
 
     when (profileStep) {
         ProfileStep.AGE -> AgeDialog(

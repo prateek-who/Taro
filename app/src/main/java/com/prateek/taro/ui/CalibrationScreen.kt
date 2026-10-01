@@ -316,7 +316,11 @@ private fun CalibrationContent(onBack: () -> Unit) {
                                 scope.launch {
                                     withContext(Dispatchers.IO) { CalibrationRepository.save(context, resultWindows, source) }
                                     finished = false
-                                    message(R.string.calibration_saved, ToastKind.SUCCESS)
+                                    if (AppPreferences.stepCalibration != null) {
+                                        message(R.string.calibration_saved, ToastKind.SUCCESS)
+                                    } else {
+                                        message(R.string.calibration_rejected, ToastKind.ERROR)
+                                    }
                                 }
                             },
                         )

@@ -74,6 +74,9 @@ interface StepsDao {
     @androidx.room.Update
     fun updateFoodLogs(logs: List<FoodLog>)
 
+    @Query("SELECT DISTINCT meal FROM food_logs")
+    fun usedMeals(): List<String>
+
     @Query("SELECT * FROM food_logs WHERE food_key = :key")
     fun foodLogsWithKey(key: String): List<FoodLog>
 

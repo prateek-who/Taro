@@ -1,5 +1,6 @@
 package com.prateek.taro.util
 
+import com.prateek.taro.food.MealOrders
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
@@ -27,6 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.time.LocalDate
 
 data class StepCalibration(
     val walkingStepCm: Float,
@@ -55,6 +57,8 @@ object AppPreferences {
         val CUSTOM_ACTIVITIES                    = stringPreferencesKey("custom_activities")
         val MEALS                                = stringPreferencesKey("meals")
         val ENERGY_FACTORS                       = stringPreferencesKey("energy_factors")
+        val CLAIMED_BADGES                       = stringSetPreferencesKey("claimed_badges")
+        val STEPS_HINT_SHOWN                     = booleanPreferencesKey("steps_hint_shown")
         val INFO_HINT_SHOWN                      = booleanPreferencesKey("info_hint_shown")
         val INCOMPLETE_FOOD_DAYS                 = stringSetPreferencesKey("incomplete_food_days")
         val SHOWCASE_BADGES                      = stringPreferencesKey("showcase_badges")
@@ -73,6 +77,8 @@ object AppPreferences {
         val BACKUP_RETENTION_COUNT               = intPreferencesKey("backup_retention")
         val DAILY_GOAL_NOTIFICATION              = booleanPreferencesKey("daily_goal_notification")
         val DAILY_GOAL_TARGET                    = intPreferencesKey("daily_goal_target")
+        val GOAL_HISTORY                         = stringPreferencesKey("goal_history")
+        val MEAL_ORDERS                          = stringPreferencesKey("meal_orders")
         val DAILY_GOAL_NOTIFICATION_PROGRESSBAR  = booleanPreferencesKey("daily_goal_notification_progressbar")
         val ENCOURAGING_NOTIFICATIONS            = booleanPreferencesKey("encouraging_notifications")
         val DAILY_GOAL_CHART_LINE                = booleanPreferencesKey("daily_goal_chart_line")
@@ -336,9 +342,31 @@ object AppPreferences {
             }
         }
 
+    var stepsHintShown: Boolean
+        get() = runBlocking { dataStore.data.first()[PreferenceKeys.STEPS_HINT_SHOWN] ?: false }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.STEPS_HINT_SHOWN] = value } }
+
     var infoHintShown: Boolean
         get() = runBlocking { dataStore.data.first()[PreferenceKeys.INFO_HINT_SHOWN] ?: false }
         set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.INFO_HINT_SHOWN] = value } }
+
+    // Badges the user claimed themselves
+
+    fun claimedBadgesFlow(): Flow<Map<String, LocalDate>> = dataStore.data.map { prefs ->
+        prefs[PreferenceKeys.CLAIMED_BADGES].orEmpty().mapNotNull { entry ->
+            val date = runCatching { LocalDate.parse(entry.substringAfter('|')) }.getOrNull() ?: return@mapNotNull null
+            entry.substringBefore('|') to date
+        }.toMap()
+    }
+
+    val claimedBadges: Map<String, LocalDate> get() = runBlocking { claimedBadgesFlow().first() }
+
+    fun setBadgeClaim(id: String, date: LocalDate?) = runBlocking {
+        dataStore.edit { prefs ->
+            val others = prefs[PreferenceKeys.CLAIMED_BADGES].orEmpty().filterNot { it.substringBefore('|') == id }.toSet()
+            prefs[PreferenceKeys.CLAIMED_BADGES] = if (date == null) others else others + "$id|$date"
+        }
+    }
 
     // Days the user marked as not fully logged
 
@@ -538,7 +566,33 @@ object AppPreferences {
 
     var dailyGoalTarget: Int
         get() = runBlocking { dailyGoalTargetFlow().first() }
-        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.DAILY_GOAL_TARGET] = value } }
+        set(value) {
+            val today = Util.logicalToday()
+            runBlocking { dataStore.edit { setGoal(it, value, today) } }
+        }
+
+    fun setGoal(prefs: MutablePreferences, goal: Int, today: LocalDate) {
+        val old = prefs[PreferenceKeys.DAILY_GOAL_TARGET] ?: 10000
+        if (old != goal) prefs[PreferenceKeys.GOAL_HISTORY] = GoalHistory.changed(prefs[PreferenceKeys.GOAL_HISTORY], old, goal, today)
+        prefs[PreferenceKeys.DAILY_GOAL_TARGET] = goal
+    }
+
+    fun goalHistoryFlow(): Flow<GoalHistory> = dataStore.data.map {
+        GoalHistory.decode(it[PreferenceKeys.GOAL_HISTORY], it[PreferenceKeys.DAILY_GOAL_TARGET] ?: 10000)
+    }.distinctUntilChanged()
+
+    val goalHistory: GoalHistory get() = runBlocking { goalHistoryFlow().first() }
+
+    fun mealOrdersFlow(): Flow<MealOrders> = dataStore.data.map { MealOrders.decode(it[PreferenceKeys.MEAL_ORDERS]) }.distinctUntilChanged()
+
+    val mealOrders: MealOrders get() = runBlocking { mealOrdersFlow().first() }
+
+    fun saveMealOrder(date: LocalDate, keys: List<String>, fallback: List<String>) {
+        val today = Util.logicalToday()
+        runBlocking {
+            dataStore.edit { it[PreferenceKeys.MEAL_ORDERS] = MealOrders.decode(it[PreferenceKeys.MEAL_ORDERS]).with(date, keys, today, fallback).encode() }
+        }
+    }
 
     fun dailyGoalNotificationProgressbarFlow(): Flow<Boolean> = dataStore.data.map {
         it[PreferenceKeys.DAILY_GOAL_NOTIFICATION_PROGRESSBAR] ?: true

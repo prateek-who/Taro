@@ -113,7 +113,7 @@ class CalibrationSession(context: Context) {
         }
         if (speed != null) {
             usableFixes++
-            recorder.addSpeed(now, speed)
+            if (usableFixes > WARM_UP_FIXES) recorder.addSpeed(now, speed)
         }
 
         previousFix = location.takeIf { it.accuracy <= MAX_ACCURACY_M }
@@ -147,8 +147,9 @@ class CalibrationSession(context: Context) {
     }
 
     private companion object {
-        const val MAX_ACCURACY_M = 25f
-        const val MAX_SPEED_ERROR_MPS = 1.5f
+        const val MAX_ACCURACY_M = 15f
+        const val MAX_SPEED_ERROR_MPS = 0.5f
+        const val WARM_UP_FIXES = 10
         const val MAX_FIX_GAP_S = 5.0
     }
 }

@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.calibration.CalibrationRepository
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import com.prateek.taro.ui.components.ConfettiBurst
@@ -132,6 +133,7 @@ fun TaroApp() {
     val toast = rememberToastState()
     val dataVersion = rememberDataVersion()
     var badgeConfetti by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { runCatching { CalibrationRepository.refit(context) } } }
     LaunchedEffect(refreshKey, dataVersion) {
         val unlocked = withContext(Dispatchers.IO) { runCatching { AchievementData.newlyEarned(context) }.getOrDefault(emptyList()) }
         val first = unlocked.firstOrNull() ?: return@LaunchedEffect

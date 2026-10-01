@@ -1,5 +1,9 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -20,22 +24,21 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.prateek.taro.R
 import com.prateek.taro.ui.theme.TaroTheme
 
 @Composable
-fun SectionHeader(text: String, topPadding: Dp = 16.dp) {
+fun SectionHeader(text: String, topPadding: Dp = 24.dp) {
     Text(
-        text = text,
+        text = text.uppercase(),
         color = TaroTheme.colors.accent,
         fontSize = 12.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.05.em,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 2.sp,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = topPadding, bottom = 8.dp),
+            .padding(start = 8.dp, end = 8.dp, top = topPadding, bottom = 10.dp),
     )
 }
 
@@ -56,20 +59,23 @@ fun PreferenceRow(
             .fillMaxWidth()
             .alpha(if (enabled) 1f else 0.4f)
             .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier)
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface,
+        val tint = LocalSettingsTint.current ?: MaterialTheme.colorScheme.onSurface
+        Box(
+            contentAlignment = Alignment.Center,
             modifier = Modifier
-                .padding(end = 16.dp)
-                .size(24.dp),
-        )
+                .padding(end = 14.dp)
+                .size(38.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(tint.copy(alpha = 0.14f)),
+        ) {
+            Icon(painter = painterResource(icon), contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+        }
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontSize = 16.sp)
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             if (!summary.isNullOrEmpty()) {
-                Text(summary, fontSize = 13.sp, modifier = Modifier.alpha(0.6f))
+                Text(summary, fontSize = 13.sp, color = TaroTheme.colors.accent, modifier = Modifier.padding(top = 2.dp))
             }
         }
         trailing()
@@ -90,6 +96,6 @@ fun PreferenceRow(
 fun PreferenceDivider() {
     HorizontalDivider(
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-        modifier = Modifier.padding(start = 60.dp, end = 20.dp),
+        modifier = Modifier.padding(start = 66.dp, end = 14.dp),
     )
 }

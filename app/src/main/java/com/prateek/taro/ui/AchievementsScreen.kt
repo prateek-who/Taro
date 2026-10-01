@@ -1,5 +1,7 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.PrimaryButton
+import com.prateek.taro.ui.components.DateRow
 import com.prateek.taro.util.AppPreferences
 import com.prateek.taro.ui.components.ToastKind
 import com.prateek.taro.ui.components.SecondaryButton
@@ -84,6 +86,8 @@ object AchievementsScreen : Screen {
 
 private val WEIGHT_PINK = Color(0xFFFF6FAE)
 private val EXPLORER_BLUE = Color(0xFF4FC3F7)
+private val MIND_VIOLET = Color(0xFFB388FF)
+private val STRENGTH_RED = Color(0xFFFF6E6E)
 
 @Composable
 private fun categoryColor(category: BadgeCategory): Color = when (category) {
@@ -93,6 +97,11 @@ private fun categoryColor(category: BadgeCategory): Color = when (category) {
     BadgeCategory.WEIGHT -> WEIGHT_PINK
     BadgeCategory.SLEEP -> TaroTheme.colors.sleep
     BadgeCategory.EXPLORER -> EXPLORER_BLUE
+    BadgeCategory.FOOD -> TaroTheme.colors.goal
+    BadgeCategory.MIND -> MIND_VIOLET
+    BadgeCategory.SKILLS -> TaroTheme.colors.flame
+    BadgeCategory.STRENGTH -> STRENGTH_RED
+    BadgeCategory.LEGENDS -> TaroTheme.colors.special
 }
 
 private data class Records(val bestDay: DayRecord?, val bestWeek: Int, val bestMonth: Int, val longestStreak: Int, val total: Int)
@@ -123,6 +132,7 @@ private fun formatValue(unit: BadgeUnit, value: Double): String = when (unit) {
     BadgeUnit.KM -> "%.1f km".format(Locale.getDefault(), value)
     BadgeUnit.METERS -> "%.0f m".format(Locale.getDefault(), value)
     BadgeUnit.KG -> "%.1f kg".format(Locale.getDefault(), value)
+    BadgeUnit.MINUTES -> "%.0f min".format(Locale.getDefault(), value)
     else -> "%.0f".format(Locale.getDefault(), value)
 }
 
@@ -133,6 +143,7 @@ private fun descriptionParam(result: BadgeResult): String {
         BadgeUnit.KM -> "%.1f km".format(Locale.getDefault(), target)
         BadgeUnit.METERS -> "%.0f m".format(Locale.getDefault(), target)
         BadgeUnit.KG -> "%.0f kg".format(Locale.getDefault(), target)
+        BadgeUnit.MINUTES -> "%.0f".format(Locale.getDefault(), target)
         else -> "%.0f".format(Locale.getDefault(), target)
     }
 }
@@ -281,20 +292,33 @@ private fun AchievementsContent(onBack: () -> Unit) {
                 modifier = Modifier.padding(vertical = 16.dp),
             )
 
-            val shown = current.badges
-                .filter { category == null || it.def.category == category }
-                .sortedWith(compareByDescending<BadgeResult> { it.earned }.thenByDescending { if (it.earned) 0f else it.fraction })
-            shown.chunked(3).forEach { row ->
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 10.dp),
-                ) {
-                    row.forEach { badge ->
-                        BadgeTile(badge, dateFormat, onClick = { open = badge }, modifier = Modifier.weight(1f))
+            val inCategory = current.badges.filter { badge ->
+                if (category == null) !badge.def.claimable || badge.earned else badge.def.category == category
+            }
+            val groups = if (inCategory.any { it.def.group != null }) {
+                inCategory.groupBy { it.def.group }.toList().sortedBy { it.first?.ordinal ?: -1 }
+            } else {
+                listOf(null to inCategory.sortedWith(compareByDescending<BadgeResult> { it.earned }.thenByDescending { if (it.earned) 0f else it.fraction }))
+            }
+            groups.forEach { (group, badges) ->
+                if (group != null) {
+                    SectionLabel(
+                        text = "${stringResource(group.label)}  ${badges.count { it.earned }}/${badges.size}",
+                        modifier = Modifier.padding(top = 0.dp),
+                    )
+                }
+                badges.chunked(3).forEach { row ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 10.dp),
+                    ) {
+                        row.forEach { badge ->
+                            BadgeTile(badge, dateFormat, onClick = { open = badge }, modifier = Modifier.weight(1f))
+                        }
+                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
-                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
 
@@ -354,6 +378,11 @@ private fun AchievementsContent(onBack: () -> Unit) {
                         toast.show(context.getString(R.string.badge_showcase_added), ToastKind.SUCCESS)
                     }
                 }
+                open = null
+            },
+            onClaim = { date ->
+                AppPreferences.setBadgeClaim(badge.def.id, date)
+                if (date != null) toast.show(context.getString(R.string.badge_claimed, context.getString(badge.def.title)), ToastKind.SUCCESS)
                 open = null
             },
             onDismiss = { open = null },
@@ -428,9 +457,11 @@ private fun BadgeDialog(
     dateFormat: DateTimeFormatter,
     showcased: Boolean,
     onToggleShowcase: () -> Unit,
+    onClaim: (LocalDate?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val color = categoryColor(badge.def.category)
+    var claimDate by remember { mutableStateOf(Util.logicalToday()) }
     TaroDialog(
         title = stringResource(badge.def.title),
         onDismiss = onDismiss,
@@ -458,6 +489,38 @@ private fun BadgeDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp),
+                )
+                if (badge.def.claimable) {
+                    SecondaryButton(
+                        text = stringResource(R.string.badge_unclaim),
+                        onClick = { onClaim(null) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                    )
+                }
+            } else if (badge.def.claimable) {
+                Text(
+                    text = stringResource(R.string.badge_claim_hint),
+                    color = TaroTheme.colors.accent,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+                DateRow(
+                    label = stringResource(R.string.badge_claimed_on),
+                    date = claimDate,
+                    today = Util.logicalToday(),
+                    onChange = { claimDate = it },
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+                PrimaryButton(
+                    text = stringResource(R.string.badge_claim),
+                    onClick = { onClaim(claimDate) },
+                    tint = color,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp),
                 )
             } else if (badge.def.unit != BadgeUnit.FLAG) {
                 Box(

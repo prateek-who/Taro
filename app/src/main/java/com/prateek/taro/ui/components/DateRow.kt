@@ -89,17 +89,17 @@ fun PickerRow(icon: Int, label: String, value: String, onClick: () -> Unit, modi
 }
 
 @Composable
-fun dayLabel(date: LocalDate, today: LocalDate): String {
+fun dayLabel(date: LocalDate, today: LocalDate, todayLabel: String? = null): String {
     val format = remember { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
-    return when (date) {
-        today -> stringResource(R.string.header_today)
-        today.minusDays(1) -> stringResource(R.string.date_yesterday)
+    return when {
+        date == today -> todayLabel ?: stringResource(R.string.header_today)
+        date == today.minusDays(1) && todayLabel == null -> stringResource(R.string.date_yesterday)
         else -> format.format(Date(Util.dateStringToCalendarMillis(date.toString())))
     }
 }
 
 @Composable
-fun DaySwitcher(date: LocalDate, today: LocalDate, onChange: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
+fun DaySwitcher(date: LocalDate, today: LocalDate, onChange: (LocalDate) -> Unit, modifier: Modifier = Modifier, todayLabel: String? = null) {
     var picking by remember { mutableStateOf(false) }
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -115,7 +115,7 @@ fun DaySwitcher(date: LocalDate, today: LocalDate, onChange: (LocalDate) -> Unit
             )
         }
         Text(
-            text = dayLabel(date, today).uppercase(),
+            text = dayLabel(date, today, todayLabel).uppercase(),
             fontSize = 13.sp,
             letterSpacing = 2.sp,
             fontWeight = FontWeight.SemiBold,

@@ -1,5 +1,7 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.theme.TaroTheme
+import androidx.compose.ui.graphics.Color
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.LocalActivity
@@ -192,13 +194,12 @@ private fun SettingsContent(
     TaroScaffold(title = stringResource(R.string.settings), onBack = onBack) { padding ->
         ScrollingColumn(padding) {
             SectionHeader(stringResource(R.string.header_personal_data))
-            SettingsCard {
+            SettingsCard(tint = TaroTheme.colors.goal) {
                 PreferenceRow(
                     icon = R.drawable.ic_height,
                     title = stringResource(R.string.pref_height),
                     summary = heightLabel(height, imperial),
                     onClick = { dialog = SettingsDialog.HEIGHT },
-                    showChevron = false,
                 )
                 PreferenceDivider()
                 PreferenceRow(
@@ -206,7 +207,6 @@ private fun SettingsContent(
                     title = stringResource(R.string.pref_weight),
                     summary = weightLabel(weight, imperial),
                     onClick = { dialog = SettingsDialog.WEIGHT },
-                    showChevron = false,
                 )
                 PreferenceDivider()
                 PreferenceRow(
@@ -214,7 +214,6 @@ private fun SettingsContent(
                     title = stringResource(R.string.pref_age),
                     summary = age?.toString() ?: stringResource(R.string.pref_not_set),
                     onClick = { dialog = SettingsDialog.AGE },
-                    showChevron = false,
                 )
                 PreferenceDivider()
                 PreferenceRow(
@@ -222,7 +221,6 @@ private fun SettingsContent(
                     title = stringResource(R.string.pref_sex),
                     summary = sex?.let { sexLabel(it) } ?: stringResource(R.string.pref_not_set),
                     onClick = { dialog = SettingsDialog.SEX },
-                    showChevron = false,
                 )
                 PreferenceDivider()
                 PreferenceRow(
@@ -230,7 +228,6 @@ private fun SettingsContent(
                     title = stringResource(R.string.calorie_goal),
                     summary = calorieGoalSummary(calorieGoal),
                     onClick = { dialog = SettingsDialog.CALORIE_GOAL },
-                    showChevron = false,
                 )
                 PreferenceDivider()
                 PreferenceRow(
@@ -238,7 +235,6 @@ private fun SettingsContent(
                     title = stringResource(R.string.pref_leg_length),
                     summary = legLength?.let { legLengthLabel(it, imperial) } ?: stringResource(R.string.pref_leg_length_not_set),
                     onClick = { dialog = SettingsDialog.LEG_LENGTH },
-                    showChevron = false,
                 )
                 PreferenceDivider()
                 PreferenceRow(
@@ -251,7 +247,6 @@ private fun SettingsContent(
                         else -> stepLengthLabel(stepLength, imperial)
                     },
                     onClick = { dialog = SettingsDialog.STEP_LENGTH },
-                    showChevron = false,
                 )
                 PreferenceDivider()
                 PreferenceRow(
@@ -272,7 +267,7 @@ private fun SettingsContent(
             }
 
             SectionHeader(stringResource(R.string.header_general))
-            SettingsCard {
+            SettingsCard(tint = TaroTheme.colors.flame) {
                 PreferenceRow(
                     icon = R.drawable.ic_car,
                     title = stringResource(R.string.pref_vehicle_filter_title),
@@ -281,7 +276,6 @@ private fun SettingsContent(
                     ),
                     enabled = hasPlayServices,
                     onClick = { onVehicleFilterChange(!vehicleFilter) },
-                    showChevron = false,
                 ) {
                     TaroSwitch(
                         checked = hasPlayServices && vehicleFilter,
@@ -321,7 +315,7 @@ private fun SettingsContent(
             }
 
             SectionHeader(stringResource(R.string.header_appearance))
-            SettingsCard {
+            SettingsCard(tint = TaroTheme.colors.special) {
                 PreferenceRow(
                     icon = R.drawable.ic_language,
                     title = stringResource(R.string.app_language),
@@ -338,7 +332,7 @@ private fun SettingsContent(
             }
 
             SectionHeader(stringResource(R.string.header_about))
-            SettingsCard {
+            SettingsCard(tint = ABOUT_BLUE) {
                 PreferenceRow(
                     icon = R.drawable.ic_info,
                     title = stringResource(R.string.about_stepsy),
@@ -535,3 +529,5 @@ private fun SettingsContent(
         null -> Unit
     }
 }
+
+private val ABOUT_BLUE = Color(0xFF4FC3F7)

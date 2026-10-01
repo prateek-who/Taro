@@ -16,7 +16,10 @@ data class FoodItem(
     val fat: Double?,
     val portions: List<Portion>,
     val recipeId: Long? = null,
+    val unit: String = Units.GRAMS,
 ) {
+    val words: List<String> by lazy(LazyThreadSafetyMode.PUBLICATION) { FoodCatalog.words(name) }
+
     fun kcalFor(grams: Double) = kcal * grams / 100
     fun proteinFor(grams: Double) = protein * grams / 100
     fun carbsFor(grams: Double) = carbs?.let { it * grams / 100 }
@@ -26,6 +29,7 @@ data class FoodItem(
 object FoodCatalog {
     const val SOURCE_INDIAN = "in"
     const val SOURCE_CUSTOM = "custom"
+    const val SOURCE_USDA = "usda"
 
     @Volatile
     private var cache: List<FoodItem>? = null
@@ -71,15 +75,16 @@ object FoodCatalog {
             food.servings?.takeIf { it > 1 }?.let { count -> food.servingGrams?.let { Portion("whole recipe", it * count) } },
         ),
         recipeId = food.id.takeIf { food.ingredients != null },
+        unit = food.unit ?: Units.GRAMS,
     )
 
-    private fun words(text: String) = text.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotEmpty() }
+    fun words(text: String) = text.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotEmpty() }
 
     fun search(items: List<FoodItem>, query: String, limit: Int = 40): List<FoodItem> {
         val tokens = words(query)
         if (tokens.isEmpty()) return emptyList()
         return items.mapNotNull { item ->
-            val nameWords = words(item.name)
+            val nameWords = item.words
             var score = 0
             for (token in tokens) {
                 val index = nameWords.indexOfFirst { it.startsWith(token) }

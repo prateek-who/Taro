@@ -79,6 +79,8 @@ internal class Database private constructor(private val dao: StepsDao) {
 
     internal fun updateFood(log: FoodLog) = changed { dao.updateFoodLog(log) }
 
+    internal fun usedMealKeys(): Set<String> = dao.usedMeals().toSet()
+
     internal fun updateFoods(logs: List<FoodLog>) = changed { dao.updateFoodLogs(logs) }
 
     internal fun deleteFood(id: Long) = changed { dao.deleteFoodLog(id) }
@@ -103,6 +105,7 @@ internal class Database private constructor(private val dao: StepsDao) {
                 val grams = log.grams ?: 0.0
                 log.copy(
                     name = food.name,
+                    unit = food.unit,
                     kcal = item.kcalFor(grams),
                     protein = item.proteinFor(grams),
                     carbs = item.carbsFor(grams),

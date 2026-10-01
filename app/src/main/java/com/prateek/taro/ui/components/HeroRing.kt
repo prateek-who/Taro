@@ -194,7 +194,6 @@ private const val MAX_LAPS = 10
 private const val GRADIENT_RAMP = 0.5f
 private const val SHADOW_RAMP = 0.12f
 private const val SOLID_BELOW_CAPS = 4f
-private const val BLEND_CAPS = 1.5f
 
 private fun capFraction(stroke: Float, radius: Float): Float = (stroke / 2 / radius / (2 * Math.PI)).toFloat()
 
@@ -230,10 +229,8 @@ private fun DrawScope.segmentSweep(parts: List<Triple<Float, Float, Color>>, dra
     val stops = buildList {
         add(0f to first)
         parts.zipWithNext().forEach { (before, after) ->
-            val boundary = before.second
-            val blend = minOf(cap * BLEND_CAPS, (before.second - before.first) / 2, (after.second - after.first) / 2)
-            add(boundary - blend to before.third)
-            add(boundary + blend to after.third)
+            add(before.second to before.third)
+            add(after.first to after.third)
         }
         add(drawnTo to last)
         if (drawnTo + cap < 1f) {

@@ -62,7 +62,7 @@ class StepsDatabaseMigrationTest {
         val events = dao.screenEvents(0L, 10_000L)
         dao.insertFoodLog(FoodLog(date = "2026-09-30", meal = "lunch", name = "Roti", grams = 80.0, amount = "2 rotis", kcal = 238.0, protein = 7.8, carbs = null, fat = null, foodKey = "in:roti", loggedAt = 1L))
         val food = dao.foodLogsOn("2026-09-30")
-        val recipeId = dao.saveCustomFood(CustomFood(name = "Dal", kcal = 110.0, protein = 6.0, carbs = null, fat = null, servingLabel = null, servingGrams = null, createdAt = 1L, ingredients = "x", cookedGrams = 900.0, servings = 4))
+        val recipeId = dao.saveCustomFood(CustomFood(name = "Dal", kcal = 110.0, protein = 6.0, carbs = null, fat = null, servingLabel = null, servingGrams = null, createdAt = 1L, ingredients = "x", cookedGrams = 900.0, servings = 4, unit = "ml"))
         val recipe = dao.customFood(recipeId)
         db.close()
 
@@ -72,5 +72,6 @@ class StepsDatabaseMigrationTest {
         assertEquals(listOf(ScreenEvent(5_000L, true)), events)
         assertEquals(238.0, food.single().kcal, 0.0)
         assertEquals(4, recipe?.servings)
+        assertEquals("ml", recipe?.unit)
     }
 }

@@ -1,5 +1,18 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.ToggleGroup
+import com.prateek.taro.food.FoodUnit
+import com.prateek.taro.food.Units
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.produceState
+import com.prateek.taro.food.LabelScanner
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.net.Uri
+import com.prateek.taro.ui.components.ActionChip
 import com.prateek.taro.ui.components.TimePickerDialog
 import com.prateek.taro.ui.components.infoOf
 import java.util.Date
@@ -93,6 +106,7 @@ import kotlin.math.roundToInt
 val PROTEIN_BLUE = Color(0xFF4FC3F7)
 
 private const val SEPARATE_TIME_MS = 15 * 60_000L
+private const val SEARCH_DELAY_MS = 120L
 
 data class FoodTotals(val kcal: Double, val protein: Double)
 
@@ -137,11 +151,21 @@ fun MealsSection(
     val timeFormat = remember { android.text.format.DateFormat.getTimeFormat(context) }
     val known = meals.map { it.key }.toSet()
     val orphans = logs.filter { it.meal !in known }
-    val groups = meals + listOfNotNull(orphans.takeIf { it.isNotEmpty() }?.let { MealSlot("", stringResource(R.string.meal_other)) })
+    val orders by AppPreferences.mealOrdersFlow().collectAsStateWithLifecycle(AppPreferences.mealOrders)
+    val arranged = orders.arrange(meals, date)
+    val shown = arranged.filter { meal -> meal.daily || logs.any { it.meal == meal.key } }
+    val groups = shown + listOfNotNull(orphans.takeIf { it.isNotEmpty() }?.let { MealSlot("", stringResource(R.string.meal_other)) })
     SectionLabel(
         text = stringResource(R.string.food_meals),
         info = infoOf(R.string.info_meals_title, R.string.info_meals),
-        action = stringResource(R.string.meal_edit_short) to { managing = true },
+        action = {
+            ActionChip(
+                text = stringResource(R.string.meal_edit_short),
+                color = MaterialTheme.colorScheme.onSurface,
+                onClick = { managing = true },
+                icon = R.drawable.ic_edit,
+            )
+        },
     )
     Panel {
         groups.forEachIndexed { index, meal ->
@@ -156,7 +180,14 @@ fun MealsSection(
                         .background(TaroTheme.colors.background.copy(alpha = 0.6f)),
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 4.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .then(if (meal.key.isNotEmpty()) Modifier.clickable { onAdd(meal.key) } else Modifier)
+                    .padding(start = 8.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
+            ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -168,36 +199,41 @@ fun MealsSection(
                             modifier = Modifier.weight(1f, fill = false),
                         )
                         start?.let { first ->
-                            Text(
+                            ActionChip(
                                 text = timeFormat.format(Date(first)),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
                                 color = TaroTheme.colors.accent,
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(TaroTheme.colors.accentOpaque)
-                                    .clickable { retiming = entries }
-                                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                                onClick = { retiming = entries },
+                                icon = R.drawable.ic_schedule,
+                                modifier = Modifier.padding(start = 8.dp),
                             )
                         }
                     }
-                    if (entries.isNotEmpty()) {
-                        val totals = entries.totals()
-                        Text(
-                            text = stringResource(R.string.food_meal_total, number(totals.kcal), number(totals.protein)),
-                            fontSize = 12.sp,
-                            color = TaroTheme.colors.accent,
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
-                    }
+                    Text(
+                        text = if (entries.isEmpty()) {
+                            stringResource(R.string.meal_empty)
+                        } else {
+                            entries.totals().let { stringResource(R.string.food_meal_total, number(it.kcal), number(it.protein)) }
+                        },
+                        fontSize = 12.sp,
+                        color = TaroTheme.colors.accent,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
                 }
                 if (meal.key.isNotEmpty()) {
-                    TintChip(
-                        text = stringResource(R.string.meal_add_food),
-                        color = TaroTheme.colors.goal,
-                        onClick = { onAdd(meal.key) },
-                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(TaroTheme.colors.goal.copy(alpha = 0.16f)),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_add),
+                            contentDescription = stringResource(R.string.food_add_to, meal.name),
+                            tint = TaroTheme.colors.goal,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 }
             }
             entries.forEach { log ->
@@ -214,7 +250,7 @@ fun MealsSection(
                         Text(log.name, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val ownTime = timeFormat.format(Date(log.loggedAt)).takeIf { start != null && log.loggedAt - start >= SEPARATE_TIME_MS }
                         Text(
-                            text = listOfNotNull(ownTime, log.amount, log.grams?.let(::grams)).distinct().joinToString(" · "),
+                            text = listOfNotNull(ownTime, log.amount, log.grams?.let { Units.format(it, log.unit) }).distinct().joinToString(" · "),
                             fontSize = 12.sp,
                             color = TaroTheme.colors.accent,
                         )
@@ -249,9 +285,13 @@ fun MealsSection(
 
     if (managing) {
         ManageMealsDialog(
-            meals = meals,
-            onSave = {
-                AppPreferences.saveMeals(it)
+            meals = arranged,
+            onSave = { list ->
+                val edited = list.associateBy { it.key }
+                val saved = meals.mapNotNull { edited[it.key] } + list.filter { meal -> meals.none { it.key == meal.key } }
+                AppPreferences.saveMeals(saved)
+                val keys = list.map { it.key }
+                if (orders.arrange(saved, date).map { it.key } != keys) AppPreferences.saveMealOrder(date, keys, meals.map { it.key })
                 managing = false
             },
             onDismiss = { managing = false },
@@ -261,7 +301,9 @@ fun MealsSection(
 
 @Composable
 private fun ManageMealsDialog(meals: List<MealSlot>, onSave: (List<MealSlot>) -> Unit, onDismiss: () -> Unit) {
-    var list by remember { mutableStateOf(meals) }
+    val context = LocalContext.current
+    val used = remember { Database.getInstance(context).usedMealKeys() }
+    var list by remember { mutableStateOf(meals.filter { it.daily || it.key in used }) }
     var naming by remember { mutableStateOf<MealSlot?>(null) }
     var dragKey by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
@@ -344,14 +386,28 @@ private fun ManageMealsDialog(meals: List<MealSlot>, onSave: (List<MealSlot>) ->
                                 fontSize = 16.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
+                                color = if (meal.daily) MaterialTheme.colorScheme.onSurface else TaroTheme.colors.accent,
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(10.dp))
                                     .clickable { naming = meal }
                                     .padding(vertical = 10.dp, horizontal = 4.dp),
                             )
-                            if (list.size > 1) {
-                                IconButton(onClick = { list = list.filterNot { it.key == meal.key } }) {
+                            if (!meal.daily) {
+                                ActionChip(
+                                    text = stringResource(R.string.meal_show_daily),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    onClick = { list = list.map { if (it.key == meal.key) it.copy(daily = true) else it } },
+                                    icon = R.drawable.ic_add,
+                                )
+                            } else if (list.count { it.daily } > 1) {
+                                IconButton(onClick = {
+                                    list = if (meal.key in used) {
+                                        list.map { if (it.key == meal.key) it.copy(daily = false) else it }
+                                    } else {
+                                        list.filterNot { it.key == meal.key }
+                                    }
+                                }) {
                                     Icon(
                                         painter = painterResource(R.drawable.ic_delete),
                                         contentDescription = stringResource(R.string.meal_delete_named, meal.name),
@@ -364,6 +420,12 @@ private fun ManageMealsDialog(meals: List<MealSlot>, onSave: (List<MealSlot>) ->
                     }
                 }
             }
+            Text(
+                text = stringResource(R.string.meal_order_hint),
+                fontSize = 12.sp,
+                color = TaroTheme.colors.accent,
+                modifier = Modifier.padding(top = 6.dp),
+            )
             SecondaryButton(
                 text = stringResource(R.string.meal_add),
                 onClick = { naming = MealSlot(Meals.newKey(), "") },
@@ -453,7 +515,8 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
     val recent = remember(dataVersion) {
         Database.getInstance(context).recentFood(60).distinctBy { it.name.lowercase() to it.grams }.take(12)
     }
-    val results = remember(query.text, catalog, custom) { FoodCatalog.search(custom + catalog, query.text) }
+    val searchable = remember(catalog, custom) { custom + catalog }
+    val results = rememberFoodSearch(searchable, query.text)
     LaunchedEffect(date, meal, meals) {
         if (!timeTouched) {
             minute = if (date == Util.logicalToday()) {
@@ -483,7 +546,7 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
                     .padding(top = 8.dp),
             )
             PillSelector(
-                options = meals.map { it.key to it.name },
+                options = AppPreferences.mealOrders.arrange(meals, date).map { it.key to it.name },
                 selected = meal,
                 onSelect = { meal = it },
                 modifier = Modifier.padding(top = 12.dp),
@@ -524,7 +587,7 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
                         recent.forEach { log ->
                             FoodRow(
                                 title = log.name,
-                                subtitle = listOfNotNull(log.amount, log.grams?.let(::grams)).distinct().joinToString(" · "),
+                                subtitle = listOfNotNull(log.amount, log.grams?.let { Units.format(it, log.unit) }).distinct().joinToString(" · "),
                                 kcal = log.kcal,
                                 protein = log.protein,
                                 onClick = { save(log.copy(id = 0)) },
@@ -539,7 +602,8 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
                         custom.forEach { item ->
                             FoodRow(
                                 title = item.name,
-                                subtitle = stringResource(if (item.recipeId != null) R.string.recipe_per_100g else R.string.food_per_100g),
+                                subtitle = if (item.recipeId != null) stringResource(R.string.recipe_per_100g) else stringResource(R.string.food_per_100g, item.unit),
+                                unit = item.unit,
                                 kcal = item.kcal,
                                 protein = item.protein,
                                 perHundred = true,
@@ -583,6 +647,7 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
                                 kcal = item.kcal,
                                 protein = item.protein,
                                 perHundred = true,
+                                unit = item.unit,
                                 onClick = { dialog = FoodDialog.Amount(item) },
                             )
                         }
@@ -629,6 +694,19 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
 }
 
 @Composable
+fun rememberFoodSearch(items: List<FoodItem>, query: String, limit: Int = 40): List<FoodItem> {
+    val results by produceState(emptyList<FoodItem>(), items, query) {
+        if (query.isBlank()) {
+            value = emptyList()
+            return@produceState
+        }
+        delay(SEARCH_DELAY_MS)
+        value = withContext(Dispatchers.Default) { FoodCatalog.search(items, query, limit) }
+    }
+    return results
+}
+
+@Composable
 fun PastEntriesDialog(food: CustomFood, count: Int, onDone: () -> Unit) {
     val context = LocalContext.current
     val toast = LocalToast.current
@@ -662,6 +740,7 @@ internal fun FoodRow(
     protein: Double,
     onClick: () -> Unit,
     perHundred: Boolean = false,
+    unit: String = Units.GRAMS,
     onEdit: (() -> Unit)? = null,
 ) {
     Row(
@@ -678,7 +757,7 @@ internal fun FoodRow(
         }
         Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 12.dp)) {
             Text(
-                text = stringResource(if (perHundred) R.string.food_kcal_per_100 else R.string.energy_kcal, number(kcal)),
+                text = if (perHundred) stringResource(R.string.food_kcal_per_100, number(kcal), unit) else stringResource(R.string.energy_kcal, number(kcal)),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -702,9 +781,12 @@ fun AmountDialog(
     header: (@Composable () -> Unit)? = null,
 ) {
     val start = initialGrams ?: item.portions.firstOrNull()?.grams ?: 100.0
+    val baseUnit = Units.base(item)
     var text by remember { mutableStateOf(TextFieldValue(Util.formatMeasure(start))) }
     var portion by remember { mutableStateOf<Portion?>(item.portions.firstOrNull { it.grams == start }) }
-    val amount = Util.parseMeasure(text.text)?.takeIf { it > 0 && it < 5_000 }
+    var unit by remember { mutableStateOf(baseUnit) }
+    val entered = Util.parseMeasure(text.text)?.takeIf { it > 0 }
+    val amount = entered?.let { Units.toBase(it, unit, item) }?.takeIf { it < 5_000 }
 
     TaroDialog(
         title = item.name,
@@ -719,7 +801,9 @@ fun AmountDialog(
                     meal = "",
                     name = item.name,
                     grams = grams,
-                    amount = portion?.takeIf { it.grams == grams }?.label,
+                    amount = portion?.takeIf { it.grams == grams }?.label
+                        ?: entered?.takeIf { unit != baseUnit }?.let { "${Util.formatMeasure(it)} ${unit.label}" },
+                    unit = item.unit.takeIf { it != Units.GRAMS },
                     kcal = item.kcalFor(grams),
                     protein = item.proteinFor(grams),
                     carbs = item.carbsFor(grams),
@@ -740,18 +824,37 @@ fun AmountDialog(
                 },
                 label = stringResource(R.string.food_amount),
                 decimal = true,
-                suffix = "g",
+                suffix = unit.label,
                 large = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+            PillSelector(
+                options = FoodUnit.entries.map { it to it.label },
+                selected = unit,
+                onSelect = {
+                    unit = it
+                    portion = null
+                },
+            )
+            if (unit != baseUnit) {
+                Text(
+                    text = stringResource(
+                        if (Units.approximate(unit, item)) R.string.food_unit_approx else R.string.food_unit_equals,
+                        Units.format(amount ?: 0.0, item.unit),
+                    ),
+                    fontSize = 12.sp,
+                    color = TaroTheme.colors.accent,
+                )
+            }
             if (item.portions.isNotEmpty()) {
                 FlowRow {
                     item.portions.forEach { option ->
                         RangeChip(
-                            label = "${option.label} (${grams(option.grams)})",
+                            label = "${option.label} (${Units.format(option.grams, item.unit)})",
                             selected = portion == option,
                             onClick = {
                                 portion = option
+                                unit = baseUnit
                                 text = TextFieldValue(Util.formatMeasure(option.grams))
                             },
                         )
@@ -764,7 +867,7 @@ fun AmountDialog(
                 TintChip(stringResource(R.string.food_protein_short, number(item.proteinFor(grams))), PROTEIN_BLUE)
             }
             Text(
-                text = stringResource(R.string.food_per_100g_values, number(item.kcal), number(item.protein)),
+                text = stringResource(R.string.food_per_100g_values, number(item.kcal), number(item.protein), item.unit),
                 fontSize = 12.sp,
                 color = TaroTheme.colors.accent,
             )
@@ -821,6 +924,7 @@ internal fun CreateFoodDialog(
     var carbs by remember { mutableStateOf(field(initial?.carbs)) }
     var fat by remember { mutableStateOf(field(initial?.fat)) }
     var serving by remember { mutableStateOf(field(initial?.servingGrams)) }
+    var unit by remember { mutableStateOf(initial?.unit ?: Units.GRAMS) }
     fun optional(field: TextFieldValue) = if (field.text.isBlank()) null else Util.parseMeasure(field.text)?.takeIf { it in 0.0..100.0 }
     val carbsValue = optional(carbs)
     val fatValue = optional(fat)
@@ -828,6 +932,33 @@ internal fun CreateFoodDialog(
     val kcalValue = Util.parseMeasure(kcal.text)?.takeIf { it in 0.0..900.0 }
     val proteinValue = if (protein.text.isBlank()) 0.0 else Util.parseMeasure(protein.text)?.takeIf { it in 0.0..100.0 }
     val servingValue = if (serving.text.isBlank()) null else Util.parseMeasure(serving.text)?.takeIf { it > 0 }
+    val context = LocalContext.current
+    val toast = LocalToast.current
+    val scope = rememberCoroutineScope()
+    var scanning by remember { mutableStateOf(false) }
+    val cameraUri = remember { LabelScanner.photoUri(context) }
+
+    fun read(uri: Uri) {
+        scanning = true
+        scope.launch {
+            val values = runCatching { LabelScanner.read(context, uri) }.getOrNull()
+            scanning = false
+            if (values == null || values.found == 0) {
+                toast.show(context.getString(R.string.scan_nothing), ToastKind.ERROR)
+                return@launch
+            }
+            values.kcal?.let { kcal = field(it) }
+            values.protein?.let { protein = field(it) }
+            values.carbs?.let { carbs = field(it) }
+            values.fat?.let { fat = field(it) }
+            values.servingGrams?.let { serving = field(it) }
+            unit = values.unit
+            toast.show(context.resources.getQuantityString(R.plurals.scan_found, values.found, values.found), ToastKind.SUCCESS)
+        }
+    }
+
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken -> if (taken) read(cameraUri) }
+    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(::read) }
 
     TaroDialog(
         title = stringResource(if (initial == null) R.string.food_create else R.string.food_edit_custom),
@@ -846,20 +977,41 @@ internal fun CreateFoodDialog(
                     servingLabel = servingValue?.let { "1 serving" },
                     servingGrams = servingValue,
                     createdAt = initial?.createdAt ?: System.currentTimeMillis(),
+                    unit = unit.takeIf { it != Units.GRAMS },
                 )
             )
         },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
             Text(stringResource(R.string.food_create_hint), fontSize = 13.sp, color = TaroTheme.colors.accent)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PrimaryButton(
+                    text = stringResource(if (scanning) R.string.scan_reading else R.string.scan_label),
+                    onClick = { if (!scanning) camera.launch(cameraUri) },
+                    icon = R.drawable.ic_camera,
+                    tint = TaroTheme.colors.goal,
+                    modifier = Modifier.weight(1f),
+                )
+                SecondaryButton(
+                    text = stringResource(R.string.scan_photo),
+                    onClick = { if (!scanning) gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    icon = R.drawable.ic_image,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            ToggleGroup(
+                options = listOf(Units.GRAMS to stringResource(R.string.food_per_100g, Units.GRAMS), Units.ML to stringResource(R.string.food_per_100g, Units.ML)),
+                selected = unit,
+                onSelect = { unit = it },
+            )
             TaroTextField(name, { name = it }, stringResource(R.string.food_name), Modifier.fillMaxWidth())
-            NumberField(kcal, { kcal = it }, stringResource(R.string.food_kcal_100), Modifier.fillMaxWidth(), decimal = true, suffix = "kcal")
-            NumberField(protein, { protein = it }, stringResource(R.string.food_protein_100), Modifier.fillMaxWidth(), decimal = true, suffix = "g")
+            NumberField(kcal, { kcal = it }, stringResource(R.string.food_kcal_100, unit), Modifier.fillMaxWidth(), decimal = true, suffix = "kcal")
+            NumberField(protein, { protein = it }, stringResource(R.string.food_protein_100, unit), Modifier.fillMaxWidth(), decimal = true, suffix = "g")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 NumberField(carbs, { carbs = it }, stringResource(R.string.food_carbs_100), Modifier.weight(1f), decimal = true, suffix = "g")
                 NumberField(fat, { fat = it }, stringResource(R.string.food_fat_100), Modifier.weight(1f), decimal = true, suffix = "g")
             }
-            NumberField(serving, { serving = it }, stringResource(R.string.food_serving_optional), Modifier.fillMaxWidth(), decimal = true, suffix = "g")
+            NumberField(serving, { serving = it }, stringResource(R.string.food_serving_optional), Modifier.fillMaxWidth(), decimal = true, suffix = unit)
             if (initial != null) {
                 Text(stringResource(R.string.food_edit_custom_hint), fontSize = 12.sp, color = TaroTheme.colors.accent)
             }
@@ -912,10 +1064,11 @@ fun EditFoodDialog(log: FoodLog, onDismiss: () -> Unit) {
 @Composable
 fun FoodDayChip(date: String, incompleteDays: Set<String>, modifier: Modifier = Modifier) {
     val incomplete = date in incompleteDays
-    TintChip(
+    ActionChip(
         text = stringResource(if (incomplete) R.string.food_day_incomplete else R.string.food_day_complete),
         color = if (incomplete) MaterialTheme.colorScheme.error else TaroTheme.colors.goal,
         onClick = { AppPreferences.setFoodDayIncomplete(date, !incomplete) },
+        icon = if (incomplete) R.drawable.ic_close else R.drawable.ic_check,
         modifier = modifier,
         info = infoOf(R.string.info_incomplete_title, R.string.info_incomplete),
     )

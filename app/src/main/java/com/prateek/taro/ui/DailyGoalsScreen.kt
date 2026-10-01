@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.util.Util
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
@@ -90,9 +91,10 @@ private fun DailyGoalsContent(onBack: () -> Unit) {
         val settings = draft
         val encouragingTurnedOn = settings.encouraging && !saved.encouraging
         focusManager.clearFocus()
+        val today = Util.logicalToday()
         scope.launch {
             AppPreferences.dataStore.edit {
-                it[PreferenceKeys.DAILY_GOAL_TARGET] = settings.target
+                AppPreferences.setGoal(it, settings.target, today)
                 it[PreferenceKeys.DAILY_GOAL_NOTIFICATION] = settings.notification
                 it[PreferenceKeys.DAILY_GOAL_NOTIFICATION_PROGRESSBAR] = settings.progressbar
                 it[PreferenceKeys.ENCOURAGING_NOTIFICATIONS] = settings.encouraging

@@ -1,5 +1,9 @@
 package com.prateek.taro.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import com.prateek.taro.ui.components.infoOf
+import com.prateek.taro.ui.components.InfoBox
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.prateek.taro.util.AppPreferences
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +39,7 @@ import java.util.Date
 import kotlin.math.roundToInt
 
 private const val HOUR_MS = 3_600_000L
+private val PLACEHOLDER_HEIGHT = 260.dp
 
 @Composable
 private fun rememberHourLabel(): (Long) -> String {
@@ -63,8 +68,12 @@ fun StepsByHourPanel(date: LocalDate, refreshKey: Any?, modifier: Modifier = Mod
     val dataVersion = rememberDataVersion()
     val now = System.currentTimeMillis()
     val factors by AppPreferences.energyFactorsFlow().collectAsStateWithLifecycle(AppPreferences.energyFactors)
-    val timeline = remember(date, refreshKey, dataVersion, factors) { DailyEnergy.timeline(context, date, factors, now) }
+    val timeline = rememberInBackground(date, refreshKey, dataVersion, factors) { DailyEnergy.timeline(context, date, factors, now) }?.value
     var selected by remember(date) { mutableStateOf<Int?>(null) }
+    if (timeline == null) {
+        Panel(modifier = modifier.height(PLACEHOLDER_HEIGHT)) {}
+        return
+    }
     val hourLabel = rememberHourLabel()
     val steps = timeline.hours.map { it.steps.toDouble() }
 
@@ -75,14 +84,21 @@ fun StepsByHourPanel(date: LocalDate, refreshKey: Any?, modifier: Modifier = Mod
         } ?: timeline.hours.maxByOrNull { it.steps }?.takeIf { it.steps > 0 }?.let {
             stringResource(R.string.timeline_steps_peak, hourLabel(it.start), Util.formatSteps(it.steps))
         } ?: stringResource(R.string.timeline_steps_empty)
-        Text(
-            text = stringResource(R.string.timeline_steps_title).uppercase(),
-            fontSize = 12.sp,
-            letterSpacing = 2.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = TaroTheme.colors.accent,
-            modifier = Modifier.padding(start = 8.dp, top = 4.dp),
-        )
+        InfoBox(
+            info = infoOf(R.string.timeline_steps_title, R.string.info_steps_hour),
+            modifier = Modifier
+                .padding(start = 8.dp, top = 4.dp)
+                .clip(RoundedCornerShape(8.dp)),
+            color = TaroTheme.colors.goal,
+        ) {
+            Text(
+                text = stringResource(R.string.timeline_steps_title).uppercase(),
+                fontSize = 12.sp,
+                letterSpacing = 2.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TaroTheme.colors.accent,
+            )
+        }
         Readout(readout)
         HourlyChart(
             series = listOf(HourSeries(steps, TaroTheme.colors.goal)),
@@ -113,8 +129,12 @@ fun EnergyByHourPanel(date: LocalDate, dayNeed: Double?, refreshKey: Any?, modif
     var view by rememberSaveable { mutableStateOf(EnergyView.HOURLY) }
     val now = System.currentTimeMillis()
     val factors by AppPreferences.energyFactorsFlow().collectAsStateWithLifecycle(AppPreferences.energyFactors)
-    val timeline = remember(date, refreshKey, dataVersion, factors) { DailyEnergy.timeline(context, date, factors, now) }
+    val timeline = rememberInBackground(date, refreshKey, dataVersion, factors) { DailyEnergy.timeline(context, date, factors, now) }?.value
     var selected by remember(date, view) { mutableStateOf<Int?>(null) }
+    if (timeline == null) {
+        Panel(modifier = modifier.height(PLACEHOLDER_HEIGHT)) {}
+        return
+    }
     val hourLabel = rememberHourLabel()
     val colors = TaroTheme.colors
     val burn = timeline.hours.map { it.burn }

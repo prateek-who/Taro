@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.food.Units
 import com.prateek.taro.data.CustomFood
 import com.prateek.taro.ui.components.TaroDialog
 import androidx.compose.ui.focus.focusRequester
@@ -105,6 +106,7 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
             carbs = ingredient.carbs?.times(100 / ingredient.grams),
             fat = ingredient.fat?.times(100 / ingredient.grams),
             portions = emptyList(),
+            unit = ingredient.unit ?: Units.GRAMS,
         ).takeIf { ingredient.grams > 0 }
 
     TaroScaffold(
@@ -136,7 +138,7 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
                         Column(modifier = Modifier.weight(1f)) {
                             FoodRow(
                                 title = ingredient.name,
-                                subtitle = grams(ingredient.grams),
+                                subtitle = Units.format(ingredient.grams, ingredient.unit),
                                 kcal = ingredient.kcal,
                                 protein = ingredient.protein,
                                 onClick = { resolve(ingredient)?.let { editing = IngredientEdit.Change(index, it) } },
@@ -247,7 +249,7 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
         }
     }
 
-    fun ingredientFrom(log: FoodLog) = Ingredient(log.foodKey, log.name, log.grams ?: 0.0, log.kcal, log.protein, log.carbs, log.fat)
+    fun ingredientFrom(log: FoodLog) = Ingredient(log.foodKey, log.name, log.grams ?: 0.0, log.kcal, log.protein, log.carbs, log.fat, log.unit)
 
     pastEntries?.let { (recipe, count) -> PastEntriesDialog(recipe, count, onDone = onDone) }
 
@@ -291,7 +293,7 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
 @Composable
 private fun IngredientPickerDialog(foods: List<FoodItem>, onPick: (FoodItem) -> Unit, onCreate: (String) -> Unit, onDismiss: () -> Unit) {
     var query by remember { mutableStateOf(TextFieldValue()) }
-    val results = remember(query.text, foods) { FoodCatalog.search(foods, query.text, limit = 30) }
+    val results = rememberFoodSearch(foods, query.text, limit = 30)
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
 
@@ -326,6 +328,7 @@ private fun IngredientPickerDialog(foods: List<FoodItem>, onPick: (FoodItem) -> 
                         kcal = item.kcal,
                         protein = item.protein,
                         perHundred = true,
+                        unit = item.unit,
                         onClick = { onPick(item) },
                     )
                 }

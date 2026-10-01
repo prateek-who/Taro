@@ -20,5 +20,25 @@ class FoodCatalogTest {
         assertEquals(1_188.0 / 5, recipe.kcal, 0.01)
         assertEquals(125.0, recipe.servingGrams!!, 0.0)
         assertEquals(listOf(125.0, 500.0), FoodCatalog.custom(recipe).portions.map { it.grams })
+
+        val day = java.time.LocalDate.of(2026, 10, 1)
+        val orders = MealOrders(emptyList()).with(day, listOf("b", "a"), today = day.plusDays(3), fallback = listOf("a", "b"))
+        assertEquals(listOf("b", "a"), orders.on(day))
+        assertEquals(listOf("a", "b"), orders.on(day.plusDays(1)))
+
+        fun row(y: Float, vararg cells: Pair<String, Float>) = cells.map { (text, x) -> OcrToken(text, x - 20, y, x + 20, y + 14) }
+        val label = LabelParser.parse(
+            row(0f, "Nutritional" to 60f, "Information" to 140f) +
+                row(30f, "Per" to 190f, "100g" to 215f, "Per serve" to 300f, "%RDA" to 380f) +
+                row(60f, "Energy" to 40f, "(kcal)" to 90f, "350" to 210f, "105" to 300f, "5%" to 380f) +
+                row(90f, "Protein" to 40f, "(g)" to 90f, "12.5" to 210f, "3.8" to 300f) +
+                row(120f, "Carbohydrate" to 50f, "6O,2" to 212f, "18.1" to 300f) +
+                row(150f, "of which Sugars" to 60f, "10" to 210f, "3" to 300f) +
+                row(180f, "Total Fat" to 45f, "6.8" to 210f, "2" to 300f) +
+                row(210f, "Saturated Fat" to 50f, "2.1" to 210f) +
+                row(260f, "Serving size 30 g" to 80f),
+        )
+        assertEquals(LabelValues(350.0, 12.5, 60.2, 6.8, 30.0), label)
+        assertEquals(350.0, LabelParser.parse(row(0f, "Energy" to 40f, "1464" to 120f, "kJ" to 150f, "350" to 190f, "kcal" to 220f)).kcal!!, 0.0)
     }
 }

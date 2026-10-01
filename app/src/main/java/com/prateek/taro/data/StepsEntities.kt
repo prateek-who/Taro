@@ -91,6 +91,7 @@ data class FoodLog(
     val fat: Double?,
     @ColumnInfo(name = "food_key") val foodKey: String?,
     @ColumnInfo(name = "logged_at") val loggedAt: Long,
+    val unit: String? = null,
 )
 
 @Entity(tableName = "custom_foods")
@@ -107,4 +108,5 @@ data class CustomFood(
     val ingredients: String? = null,
     @ColumnInfo(name = "cooked_grams") val cookedGrams: Double? = null,
     val servings: Int? = null,
+    val unit: String? = null,
 )

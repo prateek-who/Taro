@@ -1,5 +1,10 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.remember
@@ -26,7 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.prateek.taro.ui.theme.TaroTheme
 
 @Composable
-fun SectionLabel(text: String, modifier: Modifier = Modifier, info: Info? = null, action: Pair<String, () -> Unit>? = null) {
+fun SectionLabel(text: String, modifier: Modifier = Modifier, info: Info? = null, action: (@Composable () -> Unit)? = null) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -44,16 +49,7 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier, info: Info? = null
         }
         if (action != null) {
             Spacer(Modifier.weight(1f))
-            Text(
-                text = action.first,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable(onClick = action.second)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            )
+            action()
         }
     }
 }
@@ -96,6 +92,37 @@ fun TintChip(text: String, color: Color, modifier: Modifier = Modifier, onClick:
             .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
         Text(text = text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = color)
+        InfoPopup(state, info, color)
+    }
+}
+
+@Composable
+fun ActionChip(
+    text: String,
+    color: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: Int? = null,
+    trailingIcon: Int? = null,
+    info: Info? = null,
+) {
+    val state = rememberInfoState()
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .clip(CircleShape)
+            .background(color.copy(alpha = 0.12f))
+            .border(1.dp, color.copy(alpha = 0.4f), CircleShape)
+            .infoClickable(state, info, onClick)
+            .padding(start = if (icon != null) 10.dp else 14.dp, end = if (trailingIcon != null) 8.dp else 14.dp, top = 7.dp, bottom = 7.dp),
+    ) {
+        if (icon != null) {
+            Icon(painterResource(icon), contentDescription = null, tint = color, modifier = Modifier.padding(end = 6.dp).size(16.dp))
+        }
+        Text(text = text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = color)
+        if (trailingIcon != null) {
+            Icon(painterResource(trailingIcon), contentDescription = null, tint = color, modifier = Modifier.padding(start = 2.dp).size(18.dp))
+        }
         InfoPopup(state, info, color)
     }
 }

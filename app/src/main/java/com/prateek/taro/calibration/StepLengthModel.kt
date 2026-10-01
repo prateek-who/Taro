@@ -22,6 +22,10 @@ object StepLengthModel {
     private fun walkingSamples(samples: List<CalibrationSample>) =
         samples.filter { !EnergyModel.isRunning(it.cadence.toInt()) && it.stepLengthM in WALKING_RANGE }
 
+    private val PLAUSIBLE_SHARE = 0.85..1.25
+
+    fun plausible(walkingStepM: Double, estimateM: Double): Boolean = walkingStepM / estimateM in PLAUSIBLE_SHARE
+
     fun coversPaceRange(samples: List<CalibrationSample>): Boolean {
         val walking = walkingSamples(samples)
         val spread = (walking.maxOfOrNull { it.cadence } ?: 0.0) - (walking.minOfOrNull { it.cadence } ?: 0.0)

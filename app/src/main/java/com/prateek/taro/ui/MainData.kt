@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.util.GoalHistory
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.core.content.edit
@@ -36,6 +37,7 @@ data class Summary(
     val distance: String,
     val calories: String,
     val averageSteps: Int?,
+    val goalTotal: Int = 0,
 )
 
 data class ChartData(
@@ -95,7 +97,7 @@ private fun distance(context: Context, meters: Double) =
     context.getString(R.string.distance_today, Util.metersToDistance(meters), Util.distanceUnit())
 
 private fun kcal(context: Context, kcal: Double) =
-    context.getString(R.string.kcal_short, Util.formatSteps(kcal.roundToInt()))
+    context.getString(R.string.kcal_short, Util.formatSteps((kcal * AppPreferences.energyFactors.activity).roundToInt()))
 
 private fun rangeDates(range: StepRange, db: Database): Pair<String, String> {
     val calendar = Util.todayCalendar()
@@ -136,6 +138,7 @@ fun summary(context: Context, selection: Selection, todaySteps: Int): Summary {
             distance = distance(context, today.distanceM),
             calories = kcal(context, today.activeKcal),
             averageSteps = null,
+            goalTotal = AppPreferences.goalHistory.on(Util.logicalToday()),
         )
     }
 
@@ -162,6 +165,7 @@ fun summary(context: Context, selection: Selection, todaySteps: Int): Summary {
         distance = distance(context, totals.distanceM),
         calories = kcal(context, totals.activeKcal),
         averageSteps = db.avgSteps(dates.first, dates.second),
+        goalTotal = runCatching { AppPreferences.goalHistory.total(LocalDate.parse(dates.first), LocalDate.parse(dates.second)) }.getOrDefault(0),
     )
 }
 
@@ -210,6 +214,7 @@ fun daySummary(context: Context, date: LocalDate): Summary {
         distance = distance(context, day.distanceM),
         calories = kcal(context, day.activeKcal),
         averageSteps = null,
+        goalTotal = AppPreferences.goalHistory.on(date),
     )
 }
 
@@ -228,8 +233,10 @@ fun stepsByDay(context: Context): Map<LocalDate, Int> {
         .toMap()
 }
 
-fun heatFractions(steps: Map<LocalDate, Int>, goal: Int): Map<LocalDate, Float> {
-    val scale = if (goal > 0) goal.toFloat() else (steps.values.maxOrNull() ?: 0).toFloat()
-    if (scale <= 0f) return emptyMap()
-    return steps.mapValues { (_, value) -> (value / scale).coerceAtMost(1f) }
+fun heatFractions(steps: Map<LocalDate, Int>, goals: GoalHistory): Map<LocalDate, Float> {
+    val most = (steps.values.maxOrNull() ?: 0).toFloat()
+    return steps.mapValues { (date, value) ->
+        val scale = goals.on(date).takeIf { it > 0 }?.toFloat() ?: most
+        if (scale <= 0f) 0f else (value / scale).coerceAtMost(1f)
+    }
 }

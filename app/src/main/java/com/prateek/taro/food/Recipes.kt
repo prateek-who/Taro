@@ -10,6 +10,7 @@ data class Ingredient(
     val protein: Double,
     val carbs: Double?,
     val fat: Double?,
+    val unit: String? = null,
 ) {
     companion object {
         fun of(item: FoodItem, grams: Double) = Ingredient(
@@ -20,6 +21,7 @@ data class Ingredient(
             protein = item.proteinFor(grams),
             carbs = item.carbsFor(grams),
             fat = item.fatFor(grams),
+            unit = item.unit.takeIf { it != Units.GRAMS },
         )
     }
 }
@@ -33,7 +35,7 @@ object Recipes {
     private fun clean(text: String) = text.filterNot { it == FIELD || it == RECORD }.trim()
 
     fun encode(items: List<Ingredient>): String = items.joinToString(RECORD.toString()) {
-        listOf(it.key.orEmpty(), clean(it.name), it.grams, it.kcal, it.protein, it.carbs ?: "", it.fat ?: "").joinToString(FIELD.toString())
+        listOf(it.key.orEmpty(), clean(it.name), it.grams, it.kcal, it.protein, it.carbs ?: "", it.fat ?: "", it.unit.orEmpty()).joinToString(FIELD.toString())
     }
 
     fun decode(text: String?): List<Ingredient> = text.orEmpty().split(RECORD).mapNotNull { line ->
@@ -47,6 +49,7 @@ object Recipes {
             protein = cols[4].toDoubleOrNull() ?: 0.0,
             carbs = cols[5].toDoubleOrNull(),
             fat = cols[6].toDoubleOrNull(),
+            unit = cols.getOrNull(7)?.ifBlank { null },
         )
     }
 
