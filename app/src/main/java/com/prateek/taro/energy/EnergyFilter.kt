@@ -48,7 +48,7 @@ data class EnergyFactors(
     }
 }
 
-data class BodyState(val date: LocalDate, val tissue: Double, val water: Double, val tissueSd: Double)
+data class BodyState(val date: LocalDate, val tissue: Double, val water: Double, val tissueSd: Double, val surprise: Double? = null)
 
 data class BodyModel(
     val factors: EnergyFactors,
@@ -129,9 +129,10 @@ object EnergyFilter {
         val states = mutableListOf<BodyState>()
 
         history.forEachIndexed { index, day ->
+            val surprise = if (index > 0 && day.weight != null) day.weight - (x[T] + x[W]) else null
             if (index > 0 && day.weight != null) update(x, p, day.weight)
             if (day.weight != null) weighIns++
-            states += BodyState(day.date, x[T], x[W], sqrt(p[T * N + T]))
+            states += BodyState(day.date, x[T], x[W], sqrt(p[T * N + T]), surprise)
             if (index == history.lastIndex) return@forEachIndexed
 
             val sleepShare = 1 - Metabolism.SLEEP_REDUCTION * day.sleepMinutes.coerceIn(0, 1440) / 1440.0

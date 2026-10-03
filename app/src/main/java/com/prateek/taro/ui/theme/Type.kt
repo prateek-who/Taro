@@ -14,6 +14,11 @@ val Chivo = FontFamily(
     Font(R.font.chivo_regular, FontWeight.SemiBold),
 )
 
+val ChivoHeavy = FontFamily(
+    Font(R.font.chivo_bold, FontWeight.Bold),
+    Font(R.font.chivo_black, FontWeight.Black),
+)
+
 private val base = Typography()
 
 private fun TextStyle.chivo() = copy(fontFamily = Chivo)

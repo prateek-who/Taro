@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.backup.CsvExport
 import com.prateek.taro.backup.BackupIO
 import com.prateek.taro.backup.FullBackup
 import android.app.Activity
@@ -142,6 +143,19 @@ private fun BackupContent(onBack: () -> Unit) {
         }
     }
 
+    val foodCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) scope.launch {
+            val success = withContext(Dispatchers.IO) { writeText(context, uri) { CsvExport.food(it) } }
+            if (success) showMessage(R.string.csv_saved, ToastKind.SUCCESS) else showMessage(R.string.cannot_open_file)
+        }
+    }
+    val weightCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) scope.launch {
+            val success = withContext(Dispatchers.IO) { writeText(context, uri) { CsvExport.weight(it) } }
+            if (success) showMessage(R.string.csv_saved, ToastKind.SUCCESS) else showMessage(R.string.cannot_open_file)
+        }
+    }
+
     TaroScaffold(
         title = stringResource(R.string.header_data_backup),
         onBack = onBack,
@@ -202,6 +216,23 @@ private fun BackupContent(onBack: () -> Unit) {
                     icon = R.drawable.ic_export,
                     title = stringResource(R.string.manual_backup),
                     onClick = { exportLauncher.launch(manualExportIntent()) },
+                )
+            }
+
+            SectionHeader(stringResource(R.string.csv_export), topPadding = 8.dp)
+            SettingsCard {
+                PreferenceRow(
+                    icon = R.drawable.ic_calorie_goal,
+                    title = stringResource(R.string.csv_food),
+                    summary = stringResource(R.string.csv_food_summary),
+                    onClick = { foodCsvLauncher.launch("taro_food_${Util.todayDateString()}.csv") },
+                )
+                PreferenceDivider()
+                PreferenceRow(
+                    icon = R.drawable.ic_weight,
+                    title = stringResource(R.string.csv_weight),
+                    summary = stringResource(R.string.csv_weight_summary),
+                    onClick = { weightCsvLauncher.launch("taro_weight_${Util.todayDateString()}.csv") },
                 )
             }
 
@@ -293,6 +324,14 @@ private fun manualExportIntent(): Intent {
         putExtra(Intent.EXTRA_TITLE, BackupIO.fileName())
         AppPreferences.backupLocationUri?.let { putExtra(DocumentsContract.EXTRA_INITIAL_URI, it.toUri()) }
     }
+}
+
+private fun writeText(context: Context, uri: Uri, content: (Context) -> String): Boolean = try {
+    val text = content(context)
+    context.contentResolver.openOutputStream(uri)?.use { stream -> stream.bufferedWriter().use { it.write(text) } } != null
+} catch (e: Exception) {
+    Log.e(TAG, "CSV export failed", e)
+    false
 }
 
 private suspend fun exportToUri(context: Context, uri: Uri): Boolean {

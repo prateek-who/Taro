@@ -21,11 +21,15 @@ object DailyEnergy {
     private const val CHART_DAYS = 7
     private const val HISTORY_DAYS = 365L
     private const val HOUR = 3_600_000L
+    private const val SUSPECT_DAYS = 10L
+    private const val SUSPECT_MIN_DAYS = 7
+    private const val SUSPECT_SHARE = 0.7
+    private const val SUSPECT_KG = 0.4
 
     fun pastDayBurn(date: String, restingPerDay: Double, tracked: Boolean, active: Double, logged: Double): DayBurn =
         if (tracked || logged > 0) DayBurn(date, restingPerDay, active, logged) else DayBurn(date, 0.0, 0.0, 0.0)
 
-    private fun sleepMinutes(database: Database, date: String): Long = database.sleepOn(date)?.durationMinutes ?: 0L
+    private fun sleepMinutes(database: Database, date: String): Long = database.sleepMinutesOn(date)
 
     fun restingPerDay(): Double? {
         val age = AppPreferences.age ?: return null
@@ -121,7 +125,7 @@ object DailyEnergy {
         val minutes = database.getMinutes(from, to).groupBy { it.date }
         val food = database.foodBetween(from, to).groupBy { it.date }
         val logged = database.activitiesBetween(from, to).groupBy({ it.date }) { it.kcal }
-        val sleep = database.sleepsSince(from).associate { it.wakeDate to it.durationMinutes }
+        val sleep = database.sleepsSince(from).groupBy { it.wakeDate }.mapValues { (_, sessions) -> sessions.sumOf { it.durationMinutes } }
         val weightByDate = weights.associate { it.date to it.kg }
         val incomplete = AppPreferences.incompleteFoodDays
 
@@ -154,8 +158,20 @@ object DailyEnergy {
             }.toList(),
             restingAt = { kg -> Metabolism.restingKcalPerDay(kg, height, age, sex) },
         )
-        return BodyInsights(model, hourly)
+        val loggedKcal = food.filterKeys { it !in incomplete }.mapValues { (_, logs) -> logs.sumOf { it.kcal } }.filterValues { it > 0 }
+        val usual = loggedKcal.values.sorted().let { if (it.isEmpty()) 0.0 else it[it.size / 2] }
+        val surprises = model?.states?.associate { it.date to it.surprise }.orEmpty()
+        val underLogged = loggedKcal.mapNotNull { (key, kcal) ->
+            val date = LocalDate.parse(key)
+            val surprise = surprises[date.plusDays(1)] ?: return@mapNotNull null
+            val suspicious = date.isBefore(today) && !date.isBefore(today.minusDays(SUSPECT_DAYS)) &&
+                loggedKcal.size >= SUSPECT_MIN_DAYS && kcal < usual * SUSPECT_SHARE && surprise > SUSPECT_KG
+            if (suspicious) UnderLoggedDay(date, kcal, usual) else null
+        }.sortedByDescending { it.date }
+        return BodyInsights(model, hourly, underLogged)
     }
 }
 
-data class BodyInsights(val model: BodyModel?, val hourly: List<HourlyActive>)
+data class UnderLoggedDay(val date: LocalDate, val logged: Double, val usual: Double)
+
+data class BodyInsights(val model: BodyModel?, val hourly: List<HourlyActive>, val underLogged: List<UnderLoggedDay> = emptyList())

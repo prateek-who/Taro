@@ -229,8 +229,11 @@ interface StepsDao {
     @Update
     fun updateSleep(session: SleepSession)
 
-    @Query("SELECT * FROM sleep_sessions WHERE wake_date = :wakeDate")
+    @Query("SELECT * FROM sleep_sessions WHERE wake_date = :wakeDate AND nap = 0 LIMIT 1")
     fun sleepOn(wakeDate: String): SleepSession?
+
+    @Query("SELECT COALESCE(SUM(end_at - start_at), 0) / 60000 FROM sleep_sessions WHERE wake_date = :wakeDate")
+    fun sleepMinutesOn(wakeDate: String): Long
 
     @Query("SELECT * FROM sleep_sessions WHERE wake_date >= :from ORDER BY wake_date ASC")
     fun sleepsSince(from: String): List<SleepSession>
@@ -240,6 +243,10 @@ interface StepsDao {
 
     @Transaction
     fun saveSleep(session: SleepSession) {
+        if (session.nap) {
+            if (session.id == 0L) insertSleep(session) else updateSleep(session)
+            return
+        }
         val existing = sleepOn(session.wakeDate)
         if (existing == null) insertSleep(session.copy(id = 0)) else updateSleep(session.copy(id = existing.id))
     }

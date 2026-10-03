@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.dayLabel
 import com.prateek.taro.ui.components.ToggleGroup
 import com.prateek.taro.food.FoodUnit
 import com.prateek.taro.food.Units
@@ -107,6 +108,11 @@ val PROTEIN_BLUE = Color(0xFF4FC3F7)
 
 private const val SEPARATE_TIME_MS = 15 * 60_000L
 private const val SEARCH_DELAY_MS = 120L
+private const val HISTORY_LOGS = 400
+private const val USUAL_COUNT = 6
+private const val RECENT_COUNT = 8
+private const val PAST_MEAL_DAYS = 14L
+private const val PAST_MEAL_COUNT = 4
 
 data class FoodTotals(val kcal: Double, val protein: Double)
 
@@ -512,11 +518,38 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
     var catalog by remember { mutableStateOf<List<FoodItem>>(emptyList()) }
     LaunchedEffect(Unit) { catalog = withContext(Dispatchers.IO) { FoodCatalog.load(context) } }
     val custom = remember(dataVersion) { Database.getInstance(context).customFoods().map(FoodCatalog::custom) }
-    val recent = remember(dataVersion) {
-        Database.getInstance(context).recentFood(60).distinctBy { it.name.lowercase() to it.grams }.take(12)
+    val history = rememberRefreshed(dataVersion) { Database.getInstance(context).recentFood(HISTORY_LOGS) }
+    val usual = remember(history) {
+        history.groupBy { it.name.lowercase() to it.grams }.values
+            .filter { it.size >= 2 }
+            .sortedByDescending { it.size }
+            .take(USUAL_COUNT)
+            .map { it.first() }
+    }
+    val recent = remember(history, usual) {
+        val shown = usual.map { it.name.lowercase() to it.grams }.toSet()
+        history.distinctBy { it.name.lowercase() to it.grams }.filterNot { (it.name.lowercase() to it.grams) in shown }.take(RECENT_COUNT)
+    }
+    val boost = remember(history) { history.mapNotNull { it.foodKey }.groupingBy { it }.eachCount() }
+    val pastMeals = rememberRefreshed(dataVersion, date, meal) {
+        Database.getInstance(context).foodBetween(date.minusDays(PAST_MEAL_DAYS).toString(), date.minusDays(1).toString())
+            .filter { it.meal == meal }
+            .groupBy { it.date }
+            .toSortedMap(compareByDescending { it })
+            .values.take(PAST_MEAL_COUNT)
     }
     val searchable = remember(catalog, custom) { custom + catalog }
-    val results = rememberFoodSearch(searchable, query.text)
+    val results = rememberFoodSearch(searchable, query.text, boost = boost)
+
+    fun copy(logs: List<FoodLog>) {
+        val first = logs.minOf { it.loggedAt }
+        val shift = Util.momentOf(date, minute) - first
+        Database.getInstance(context).logFoods(
+            logs.map { it.copy(id = 0, date = date.toString(), meal = meal, loggedAt = it.loggedAt + shift) }
+        )
+        toast.show(context.resources.getQuantityString(R.plurals.food_copied, logs.size, logs.size), ToastKind.SUCCESS)
+        onDone()
+    }
     LaunchedEffect(date, meal, meals) {
         if (!timeTouched) {
             minute = if (date == Util.logicalToday()) {
@@ -581,6 +614,35 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
             )
 
             if (query.text.isBlank()) {
+                if (pastMeals.isNotEmpty()) {
+                    SectionLabel(stringResource(R.string.food_copy_meal), info = infoOf(R.string.food_copy_meal, R.string.info_copy_meal))
+                    Panel {
+                        pastMeals.forEach { logs ->
+                            val totals = logs.totals()
+                            FoodRow(
+                                title = dayLabel(LocalDate.parse(logs.first().date), Util.logicalToday()),
+                                subtitle = logs.joinToString(", ") { it.name },
+                                kcal = totals.kcal,
+                                protein = totals.protein,
+                                onClick = { copy(logs) },
+                            )
+                        }
+                    }
+                }
+                if (usual.isNotEmpty()) {
+                    SectionLabel(stringResource(R.string.food_usual), info = infoOf(R.string.food_usual, R.string.info_usual_foods))
+                    Panel {
+                        usual.forEach { log ->
+                            FoodRow(
+                                title = log.name,
+                                subtitle = listOfNotNull(log.amount, log.grams?.let { Units.format(it, log.unit) }).distinct().joinToString(" · "),
+                                kcal = log.kcal,
+                                protein = log.protein,
+                                onClick = { save(log.copy(id = 0)) },
+                            )
+                        }
+                    }
+                }
                 if (recent.isNotEmpty()) {
                     SectionLabel(stringResource(R.string.food_recent))
                     Panel {
@@ -694,14 +756,14 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
 }
 
 @Composable
-fun rememberFoodSearch(items: List<FoodItem>, query: String, limit: Int = 40): List<FoodItem> {
-    val results by produceState(emptyList<FoodItem>(), items, query) {
+fun rememberFoodSearch(items: List<FoodItem>, query: String, limit: Int = 40, boost: Map<String, Int> = emptyMap()): List<FoodItem> {
+    val results by produceState(emptyList<FoodItem>(), items, query, boost) {
         if (query.isBlank()) {
             value = emptyList()
             return@produceState
         }
         delay(SEARCH_DELAY_MS)
-        value = withContext(Dispatchers.Default) { FoodCatalog.search(items, query, limit) }
+        value = withContext(Dispatchers.Default) { FoodCatalog.search(items, query, limit, boost) }
     }
     return results
 }

@@ -1,5 +1,9 @@
 package com.prateek.taro.ui
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import com.prateek.taro.widget.FoodWidget
+import com.prateek.taro.ui.components.TileRow
 import com.prateek.taro.ui.components.ActionChip
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
@@ -299,8 +303,7 @@ private fun EnergyContent(tracking: TrackingState) {
                         }
                     }
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                TileRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 10.dp),
@@ -321,8 +324,18 @@ private fun EnergyContent(tracking: TrackingState) {
                 }
 
 
+                DetectedRideCards(quickLog, modifier = Modifier.padding(top = 10.dp))
+
                 val dayNeed = if (isToday) todayNeed else shown.total
                 val target = calorieGoal?.let { Metabolism.calorieTarget(dayNeed, it.goal, it.adjustment) } ?: dayNeed
+                if (isToday) {
+                    LaunchedEffect((target / 10).roundToInt()) {
+                        withContext(Dispatchers.IO) {
+                            AppPreferences.saveEatTarget(today, target)
+                            FoodWidget.refresh(context)
+                        }
+                    }
+                }
                 val eaten = foodToday.totals()
                 val left = target - eaten.kcal
                 val proteinTarget = weight.toDouble() * proteinPerKg
@@ -439,6 +452,7 @@ private fun EnergyContent(tracking: TrackingState) {
                 EnergyByHourPanel(date = selectedDate, dayNeed = if (isToday) todayNeed else null, refreshKey = if (isToday) "${tracking.refreshKey}-${tracking.steps}" else tracking.refreshKey)
 
                 SectionLabel(stringResource(R.string.body_title), info = infoOf(R.string.info_body_title, R.string.info_body))
+                UnderLoggedCard(insights?.underLogged.orEmpty(), modifier = Modifier.padding(bottom = 10.dp))
                 BodyCard(insights?.model, loaded = insights != null)
 
                 SectionLabel(stringResource(R.string.weight_title), info = infoOf(R.string.info_weight_title, R.string.info_weight))

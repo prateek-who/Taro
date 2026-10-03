@@ -51,6 +51,7 @@ fun AppOverflowMenu(center: @Composable () -> Unit = {}, actions: List<MenuEntry
     val rootNavigator = navigator.parent ?: navigator
     val colors = TaroTheme.colors
     val entries = listOf(
+        MenuEntry(R.string.report_title, R.string.menu_reports_hint, R.drawable.ic_schedule, colors.goal) { rootNavigator.push(ReportScreen()) },
         MenuEntry(R.string.achievements_title, R.string.menu_achievements_hint, R.drawable.ic_small_trophy, colors.special) { rootNavigator.push(AchievementsScreen) },
         MenuEntry(R.string.daily_goals, R.string.menu_goals_hint, R.drawable.ic_small_target, colors.goal) { rootNavigator.push(DailyGoalsScreen) },
         MenuEntry(R.string.header_data_backup, R.string.menu_backup_hint, R.drawable.ic_small_backup, colors.flame) { rootNavigator.push(BackupScreen) },
