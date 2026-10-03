@@ -62,6 +62,9 @@ data class ReportInputs(
     val topFoods: List<String>,
     val badges: List<Int>,
     val proteinTarget: Double,
+    val hourSteps: List<Int> = emptyList(),
+    val longestWalkMin: Int = 0,
+    val briskMinutes: Int = 0,
 )
 
 enum class WeightVerdict { MATCHES, LOST_MORE, LOST_LESS }

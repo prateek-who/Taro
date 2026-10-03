@@ -104,7 +104,9 @@ private fun ReportContent(initial: Period?, onBack: () -> Unit) {
     val context = LocalContext.current
     val dataVersion = rememberDataVersion()
     var kind by rememberSaveable { mutableStateOf(initial?.kind ?: ReportKind.WEEK) }
-    var start by rememberSaveable { mutableStateOf((initial ?: ReportData.latestComplete(ReportKind.WEEK)).start.toString()) }
+    var start by rememberSaveable {
+        mutableStateOf((initial ?: Period.containing(ReportKind.WEEK, Util.logicalToday(), ReportData.firstDayOfWeek())).start.toString())
+    }
     val period = Period(kind, java.time.LocalDate.parse(start))
     val today = Util.logicalToday()
     val navigator = LocalNavigator.currentOrThrow
@@ -117,7 +119,7 @@ private fun ReportContent(initial: Period?, onBack: () -> Unit) {
                 selected = kind,
                 onSelect = {
                     kind = it
-                    start = ReportData.latestComplete(it).start.toString()
+                    start = Period.containing(it, Util.logicalToday(), ReportData.firstDayOfWeek()).start.toString()
                 },
                 modifier = Modifier.padding(top = 8.dp),
             )

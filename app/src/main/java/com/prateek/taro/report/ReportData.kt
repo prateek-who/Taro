@@ -33,6 +33,7 @@ import kotlin.math.abs
 
 object ReportData {
     private const val TOP_FOODS = 3
+    private const val BRISK_CADENCE = 100
 
     fun firstDayOfWeek(): DayOfWeek = DayOfWeek.of(((AppPreferences.firstDayOfWeek + 5) % 7) + 1)
 
@@ -92,6 +93,14 @@ object ReportData {
         val sessions = database.sleepsSince(period.start.toString()).filter { !LocalDate.parse(it.wakeDate).isAfter(end) }
         val nights = sessions.filterNot { it.nap }.map { Night(LocalDate.parse(it.wakeDate), it.startAt, it.endAt) }
 
+        val minutes = database.getMinutes(period.start.toString(), end.toString())
+        val hours = IntArray(24)
+        val calendar = Calendar.getInstance()
+        minutes.forEach {
+            calendar.timeInMillis = it.minuteStart
+            hours[calendar.get(Calendar.HOUR_OF_DAY)] += it.steps
+        }
+
         val earned = runCatching { AchievementData.evaluate(context) }.getOrDefault(emptyList())
             .filter { result -> result.progress.earnedOn?.let { !it.isBefore(period.start) && !it.isAfter(end) } == true }
             .map { it.def.title }
@@ -110,6 +119,11 @@ object ReportData {
                     .sortedByDescending { it.value }.take(TOP_FOODS).map { it.key },
                 badges = earned,
                 proteinTarget = AppPreferences.weight * AppPreferences.proteinPerKg,
+                hourSteps = hours.toList(),
+                briskMinutes = minutes.count { it.steps >= BRISK_CADENCE },
+                longestWalkMin = minutes.groupBy { it.date }.values.maxOfOrNull { day ->
+                    AchievementData.longestWalk(day.map { it.minuteStart to it.steps })
+                } ?: 0,
             )
         )
     }

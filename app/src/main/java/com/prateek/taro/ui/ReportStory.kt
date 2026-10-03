@@ -1,5 +1,15 @@
 package com.prateek.taro.ui
 
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieAnimation
+import kotlin.math.roundToLong
+import java.text.NumberFormat
+import com.prateek.taro.ui.theme.rememberAnimationsEnabled
+import com.prateek.taro.report.DayInput
+import kotlin.random.Random
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
@@ -90,16 +100,21 @@ class ReportStoryScreen(private val periodKey: String) : Screen {
     }
 }
 
-private const val SLIDE_MS = 6_000
-private const val PITCH_M = 105.0
-private const val MARATHON_M = 42_195.0
-private const val ROTI_KCAL = 119.0
-private const val SAMOSA_KCAL = 203.0
+private const val SLIDE_MS = 8_000
+private const val MAX_ICONS = 10
+private val HERO_SIZE = 140.dp
+private const val WORLD_STEPS = 5_000
+private const val WHO_WEEKLY_MIN = 150
 private val DARK_INK = Color(0xFF101210)
 private val SKY = Color(0xFF4FC3F7)
 private val PINK = Color(0xFFFF6FAE)
 
-private class Slide(val color: Color, val content: @Composable ColumnScope.(Color) -> Unit)
+private class Slide(
+    val color: Color,
+    val art: String,
+    val scene: Scene = Scene.BLOBS,
+    val content: @Composable ColumnScope.(Color) -> Unit,
+)
 
 @Composable
 private fun ReportStory(period: Period, onClose: () -> Unit, onDetails: () -> Unit) {
@@ -206,17 +221,53 @@ private fun ReportStory(period: Period, onClose: () -> Unit, onDetails: () -> Un
                     label = "story slide",
                     modifier = Modifier.fillMaxSize(),
                 ) { page ->
-                    Column(
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = 48.dp),
-                    ) {
-                        slides[page].content(this, ink)
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        val slide = slides[page]
+                        StoryScene(slide.scene, ink, seed = page + period.key.hashCode(), modifier = Modifier.fillMaxSize())
+                        Column(
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = 48.dp),
+                        ) {
+                            HeroArt(slides[page].art)
+                            slides[page].content(this, ink)
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+private fun codepoints(emoji: String) = emoji.codePoints().toArray().filter { it != 0xFE0F }.joinToString("_") { Integer.toHexString(it) }
+
+@Composable
+private fun HeroArt(emoji: String) {
+    val context = LocalContext.current
+    val animated = remember { context.assets.list("noto").orEmpty().toSet() }
+    val file = "${codepoints(emoji)}.json"
+    val enabled = rememberAnimationsEnabled()
+    val pop = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { pop.animateTo(1f, tween(500, easing = FastOutSlowInEasing)) }
+    val modifier = Modifier
+        .padding(bottom = 12.dp)
+        .size(HERO_SIZE)
+        .graphicsLayer {
+            scaleX = 0.6f + 0.4f * pop.value
+            scaleY = 0.6f + 0.4f * pop.value
+            alpha = pop.value
+        }
+    if (file in animated) {
+        val composition by rememberLottieComposition(LottieCompositionSpec.Asset("noto/$file"))
+        LottieAnimation(
+            composition = composition,
+            iterations = LottieConstants.IterateForever,
+            isPlaying = enabled,
+            modifier = modifier,
+        )
+    } else {
+        Box(contentAlignment = Alignment.Center, modifier = modifier) { Text(emoji, fontSize = 88.sp) }
     }
 }
 
@@ -282,92 +333,353 @@ private fun MiniBars(values: List<Int>, best: Int, ink: Color) {
     }
 }
 
+private fun grouped(value: Number): String = NumberFormat.getIntegerInstance(Locale.getDefault()).format(value.toDouble().roundToLong())
+
+private class Thing(@StringRes val text: Int, val size: Double, val emoji: String)
+
+private val STEP_THINGS = listOf(
+    Thing(R.string.cmp_eiffel, 1_665.0, "🗼"),
+    Thing(R.string.cmp_burj, 2_909.0, "🏙️"),
+    Thing(R.string.cmp_qutub, 379.0, "🕌"),
+    Thing(R.string.cmp_liberty, 354.0, "🗽"),
+)
+private val DISTANCE_THINGS = listOf(
+    Thing(R.string.cmp_pitch, 105.0, "⚽"),
+    Thing(R.string.cmp_track, 400.0, "🏟️"),
+    Thing(R.string.cmp_cricket, 20.12, "🏏"),
+    Thing(R.string.cmp_marine, 3_600.0, "🌊"),
+    Thing(R.string.cmp_sealink, 5_600.0, "🌉"),
+    Thing(R.string.cmp_everest, 8_849.0, "🏔️"),
+    Thing(R.string.cmp_marathon, 42_195.0, "🏃"),
+)
+private val SNACK_THINGS = listOf(
+    Thing(R.string.cmp_samosa, 203.0, "🥟"),
+    Thing(R.string.cmp_vadapav, 290.0, "🍔"),
+    Thing(R.string.cmp_jamun, 152.0, "🍡"),
+    Thing(R.string.cmp_banana, 105.0, "🍌"),
+    Thing(R.string.cmp_chai, 68.0, "☕"),
+    Thing(R.string.cmp_pizza, 285.0, "🍕"),
+    Thing(R.string.cmp_icecream, 137.0, "🍦"),
+    Thing(R.string.cmp_chocolate, 230.0, "🍫"),
+)
+private val MEAL_THINGS = listOf(
+    Thing(R.string.cmp_roti, 119.0, "🫓"),
+    Thing(R.string.cmp_biryani, 612.0, "🍛"),
+    Thing(R.string.cmp_dosa, 134.0, "🥞"),
+    Thing(R.string.cmp_rice, 195.0, "🍚"),
+    Thing(R.string.cmp_mango, 120.0, "🥭"),
+)
+private val SLEEP_THINGS = listOf(
+    Thing(R.string.cmp_movie, 2.5, "🎬"),
+    Thing(R.string.cmp_t20, 3.5, "🏏"),
+    Thing(R.string.cmp_flight, 2.2, "✈️"),
+    Thing(R.string.cmp_episode, 0.75, "📺"),
+)
+private val WALK_THINGS = listOf(
+    Thing(R.string.cmp_song, 3.5, "🎵"),
+    Thing(R.string.cmp_ted, 18.0, "🎤"),
+    Thing(R.string.cmp_sitcom, 22.0, "📺"),
+    Thing(R.string.cmp_chai_brew, 5.0, "☕"),
+)
+private val WEIGHT_THINGS = listOf(
+    Thing(R.string.cmp_ball, 0.16, "🏏"),
+    Thing(R.string.cmp_phone, 0.2, "📱"),
+    Thing(R.string.cmp_mango_kg, 0.3, "🥭"),
+    Thing(R.string.cmp_butter, 0.5, "🧈"),
+    Thing(R.string.cmp_banana_kg, 0.12, "🍌"),
+)
+private val SLEEP_FACTS = listOf(R.string.fact_koala, R.string.fact_giraffe, R.string.fact_sloth, R.string.fact_dolphin)
+
+private fun pick(random: Random, pool: List<Thing>, value: Double): Pair<Thing, Double>? =
+    pool.map { it to value / it.size }.filter { it.second >= 1.0 && it.second < 100_000 }.randomOrNull(random)
+
+private fun amount(value: Double) = if (value < 10) "%.1f".format(Locale.getDefault(), value) else grouped(value)
+
+@Composable
+private fun Compare(match: Pair<Thing, Double>?, ink: Color, delay: Int) {
+    match ?: return
+    Note(stringResource(match.first.text, amount(match.second)), ink, delay)
+    EmojiRow(match.first.emoji, match.second, ink, delay + 300)
+}
+
+@Composable
+private fun EmojiRow(emoji: String, count: Double, ink: Color, delay: Int) {
+    val shown = count.toInt().coerceIn(1, MAX_ICONS)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 14.dp)) {
+        repeat(shown) { index ->
+            Appear(delay + index * 70) { Text(emoji, fontSize = 26.sp, modifier = Modifier.padding(end = 2.dp)) }
+        }
+        if (count.toInt() > MAX_ICONS) {
+            Appear(delay + MAX_ICONS * 70) {
+                Text("×${grouped(count)}", color = ink, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun Chip(text: String, ink: Color, delay: Int) = Appear(delay) {
+    Text(
+        text = text,
+        color = ink,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 14.sp,
+        modifier = Modifier
+            .padding(top = 14.dp)
+            .clip(CircleShape)
+            .background(ink.copy(alpha = 0.15f))
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DayDots(days: List<DayInput>, ink: Color) {
+    Appear(600) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 20.dp),
+        ) {
+            days.forEach { day ->
+                val hit = day.goal > 0 && day.steps >= day.goal
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(if (days.size > 7) 26.dp else 36.dp)
+                        .clip(CircleShape)
+                        .background(if (hit) ink else ink.copy(alpha = 0.15f)),
+                ) {
+                    if (days.size <= 7) {
+                        Text(
+                            text = day.date.dayOfWeek.getDisplayName(DayStyle.NARROW, Locale.getDefault()),
+                            color = if (hit) Color.White.takeIf { ink == DARK_INK } ?: DARK_INK else ink,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HourChart(hours: List<Int>, peak: Int, ink: Color) {
+    val grow = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { grow.animateTo(1f, tween(900, delayMillis = 500, easing = FastOutSlowInEasing)) }
+    val max = (hours.maxOrNull() ?: 0).coerceAtLeast(1)
+    Column(modifier = Modifier.padding(top = 20.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(110.dp),
+        ) {
+            hours.forEachIndexed { hour, value ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight((value.toFloat() / max * grow.value).coerceAtLeast(0.02f))
+                        .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                        .background(ink.copy(alpha = if (hour == peak) 1f else 0.3f)),
+                )
+            }
+        }
+        Row(modifier = Modifier.padding(top = 4.dp)) {
+            listOf("12a", "6a", "12p", "6p").forEach {
+                Text(it, color = ink.copy(alpha = 0.7f), fontSize = 11.sp, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun RatioBar(fraction: Float, ink: Color, label: String) {
+    val grow = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { grow.animateTo(fraction.coerceIn(0f, 1f), tween(1_000, delayMillis = 600, easing = FastOutSlowInEasing)) }
+    Column(modifier = Modifier.padding(top = 20.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(14.dp)
+                .clip(CircleShape)
+                .background(ink.copy(alpha = 0.18f)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(grow.value)
+                    .height(14.dp)
+                    .clip(CircleShape)
+                    .background(ink),
+            )
+        }
+        Text(label, color = ink.copy(alpha = 0.8f), fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+private fun stepsVerdict(average: Int): List<Int> = when {
+    average < 3_000 -> listOf(R.string.verdict_steps_1a, R.string.verdict_steps_1b, R.string.verdict_steps_1c)
+    average < 5_000 -> listOf(R.string.verdict_steps_2a, R.string.verdict_steps_2b)
+    average < 8_000 -> listOf(R.string.verdict_steps_3a, R.string.verdict_steps_3b, R.string.verdict_steps_3c)
+    average < 10_000 -> listOf(R.string.verdict_steps_4a, R.string.verdict_steps_4b)
+    else -> listOf(R.string.verdict_steps_5a, R.string.verdict_steps_5b, R.string.verdict_steps_5c)
+}
+
+private fun sleepVerdict(minutes: Long): List<Int> = when {
+    minutes < 6 * 60 -> listOf(R.string.verdict_sleep_1a, R.string.verdict_sleep_1b, R.string.verdict_sleep_1c)
+    minutes < 7 * 60 -> listOf(R.string.verdict_sleep_2a, R.string.verdict_sleep_2b)
+    minutes <= 9 * 60 -> listOf(R.string.verdict_sleep_3a, R.string.verdict_sleep_3b, R.string.verdict_sleep_3c)
+    else -> listOf(R.string.verdict_sleep_4a, R.string.verdict_sleep_4b)
+}
+
+private fun balanceVerdict(perDay: Double): List<Int> = when {
+    perDay < -700 -> listOf(R.string.verdict_cut_hard_a, R.string.verdict_cut_hard_b)
+    perDay < -300 -> listOf(R.string.verdict_cut_steady_a, R.string.verdict_cut_steady_b)
+    perDay < 0 -> listOf(R.string.verdict_cut_gentle_a, R.string.verdict_cut_gentle_b)
+    else -> listOf(R.string.verdict_surplus_a, R.string.verdict_surplus_b)
+}
+
+private fun goalVerdict(hit: Int, possible: Int): List<Int> = when {
+    hit == possible -> listOf(R.string.story_goal_all, R.string.verdict_goal_all_b, R.string.verdict_goal_all_c)
+    hit * 2 >= possible -> listOf(R.string.story_goal_most, R.string.verdict_goal_most_b)
+    hit > 0 -> listOf(R.string.story_goal_some, R.string.verdict_goal_some_b)
+    else -> listOf(R.string.verdict_goal_none_a, R.string.verdict_goal_none_b)
+}
+
+private fun personality(hour: Int): Pair<Int, String> = when (hour) {
+    in 4..8 -> R.string.persona_early to "🐦"
+    in 9..11 -> R.string.persona_morning to "🌞"
+    in 12..14 -> R.string.persona_lunch to "🍔"
+    in 15..17 -> R.string.persona_afternoon to "😎"
+    in 18..20 -> R.string.persona_evening to "🌟"
+    else -> R.string.persona_night to "🦉"
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun storySlides(report: PeriodReport, onDetails: () -> Unit): List<Slide> {
     val colors = TaroTheme.colors
     val inputs = report.inputs
     val week = inputs.period.kind == ReportKind.WEEK
+    val random = Random(inputs.period.key.hashCode())
     val periodName = stringResource(if (week) R.string.story_week else R.string.story_month)
+    val lastPeriod = stringResource(if (week) R.string.report_last_week else R.string.report_last_month)
+    val dayFormat = java.time.format.DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
     val label = if (week) {
-        stringResource(R.string.report_week_range, inputs.period.start.format(java.time.format.DateTimeFormatter.ofPattern("d MMM")), inputs.period.end.format(java.time.format.DateTimeFormatter.ofPattern("d MMM")))
+        stringResource(R.string.report_week_range, inputs.period.start.format(dayFormat), inputs.period.end.format(dayFormat))
     } else {
         "${inputs.period.start.month.getDisplayName(DayStyle.FULL, Locale.getDefault())} ${inputs.period.start.year}"
     }
     val km = Util.metersToDistance(report.distanceM).toDouble()
     val unit = Util.distanceUnit()
     val burnedAll = inputs.days.filter { it.complete }.sumOf { it.burned }
+    val stepThing = pick(random, STEP_THINGS, report.steps.toDouble())
+    val distanceThing = pick(random, DISTANCE_THINGS, report.distanceM)
+    val snackThing = pick(random, SNACK_THINGS, report.activeKcal)
+    val mealThing = pick(random, MEAL_THINGS, burnedAll)
+    val sleepFact = SLEEP_FACTS.random(random)
 
     val slides = mutableListOf<Slide>()
-    slides += Slide(colors.goal) { ink ->
+    slides += Slide(colors.goal, listOf("🎉", "🥳", "🤩").random(random), scene = Scene.CONFETTI) { ink ->
         Lead(stringResource(R.string.story_intro, periodName), ink)
         Big(label, ink, delay = 250)
-        Note(stringResource(R.string.story_tap_hint), ink, delay = 900)
+        Note(stringResource(listOf(R.string.story_intro_a, R.string.story_intro_b, R.string.story_intro_c).random(random)), ink, delay = 700)
+        Note(stringResource(R.string.story_tap_hint), ink, delay = 1_100)
     }
     if (report.steps > 0) {
-        slides += Slide(colors.flame) { ink ->
+        slides += Slide(colors.flame, "👣") { ink ->
             Lead(stringResource(R.string.story_steps_lead), ink)
             CountUp(report.steps.toDouble(), ink, ::number)
-            Note(stringResource(R.string.story_steps_note, Util.formatSteps(report.averageSteps)), ink, delay = 1_400)
+            Note(stringResource(R.string.story_steps_note, grouped(report.averageSteps)), ink, delay = 1_400)
+            Note(stringResource(R.string.bench_steps, grouped(WORLD_STEPS)), ink.copy(alpha = 0.8f), delay = 1_600)
+            Note(stringResource(stepsVerdict(report.averageSteps).random(random)), ink, delay = 1_900)
+            report.stepsChange?.let { change ->
+                Chip(
+                    stringResource(if (change >= 0) R.string.report_change_up else R.string.report_change_down, abs(change), lastPeriod),
+                    ink,
+                    delay = 1_700,
+                )
+            }
+            Compare(stepThing, ink, delay = 2_400)
         }
-        slides += Slide(SKY) { ink ->
+        slides += Slide(SKY, distanceThing?.first?.emoji ?: "👟") { ink ->
             Lead(stringResource(R.string.story_distance_lead), ink)
             CountUp(km, ink, { "%.1f %s".format(Locale.getDefault(), it, unit) })
-            Note(
-                if (report.distanceM >= MARATHON_M) {
-                    stringResource(R.string.story_marathons, "%.1f".format(Locale.getDefault(), report.distanceM / MARATHON_M))
-                } else {
-                    stringResource(R.string.story_pitches, number(report.distanceM / PITCH_M))
-                },
-                ink,
-                delay = 1_400,
-            )
+            Compare(distanceThing, ink, delay = 1_400)
+            Note(stringResource(R.string.story_distance_daily, "%.1f".format(Locale.getDefault(), km / inputs.days.size), unit), ink, delay = 2_400)
+            Note(stringResource(R.string.bench_distance), ink.copy(alpha = 0.8f), delay = 2_700)
         }
     }
-    report.bestDay?.takeIf { week && inputs.days.size > 1 }?.let { best ->
-        slides += Slide(colors.special) { ink ->
+    report.bestDay?.takeIf { inputs.days.size > 1 }?.let { best ->
+        slides += Slide(colors.special, "🏆", scene = Scene.CONFETTI) { ink ->
             Lead(stringResource(R.string.story_best_lead), ink)
-            Big(best.date.dayOfWeek.getDisplayName(DayStyle.FULL, Locale.getDefault()), ink)
-            Note(stringResource(R.string.story_best_note, Util.formatSteps(best.steps)), ink, delay = 700)
-            MiniBars(inputs.days.map { it.steps }, inputs.days.indexOf(best), ink)
+            Big(if (week) best.date.dayOfWeek.getDisplayName(DayStyle.FULL, Locale.getDefault()) else best.date.format(dayFormat), ink)
+            Note(stringResource(R.string.story_best_note, grouped(best.steps)), ink, delay = 700)
+            if (report.averageSteps > 0) {
+                Chip(stringResource(R.string.story_best_vs, ((best.steps - report.averageSteps) * 100 / report.averageSteps)), ink, delay = 1_000)
+            }
+            if (week) MiniBars(inputs.days.map { it.steps }, inputs.days.indexOf(best), ink)
         }
     }
     if (report.goalDaysPossible > 0) {
-        slides += Slide(colors.goal) { ink ->
+        slides += Slide(colors.goal, if (report.goalDays == report.goalDaysPossible) "🔥" else "🎯") { ink ->
             Lead(stringResource(R.string.story_goal_lead), ink)
             Big(stringResource(R.string.story_goal_value, report.goalDays, report.goalDaysPossible), ink)
+            Note(stringResource(goalVerdict(report.goalDays, report.goalDaysPossible).random(random)), ink, delay = 700)
+            DayDots(inputs.days, ink)
+        }
+    }
+    val hours = inputs.hourSteps
+    if (hours.sum() > 0) {
+        val peak = hours.indices.maxBy { hours[it] }
+        val (persona, emoji) = personality(peak)
+        slides += Slide(PINK, emoji) { ink ->
+            Lead(stringResource(R.string.story_hour_lead), ink)
+            Big(stringResource(persona), ink)
+            Note(stringResource(R.string.story_hour_note, java.time.LocalTime.of(peak, 0).format(java.time.format.DateTimeFormatter.ofPattern("h a", Locale.getDefault()))), ink, delay = 700)
+            HourChart(hours, peak, ink)
+        }
+    }
+    if (inputs.longestWalkMin >= 5) {
+        slides += Slide(SKY, "⏰") { ink ->
+            Lead(stringResource(R.string.story_walk_lead), ink)
+            CountUp(inputs.longestWalkMin.toDouble(), ink, { "${it.toInt()} min" })
+            Compare(pick(random, WALK_THINGS, inputs.longestWalkMin.toDouble()), ink, delay = 1_400)
+            val target = WHO_WEEKLY_MIN * inputs.days.size / 7
+            Chip(stringResource(R.string.bench_brisk, inputs.briskMinutes, target), ink, delay = 2_200)
             Note(
-                stringResource(
-                    when {
-                        report.goalDays == report.goalDaysPossible -> R.string.story_goal_all
-                        report.goalDays * 2 >= report.goalDaysPossible -> R.string.story_goal_most
-                        else -> R.string.story_goal_some
-                    }
-                ),
+                if (inputs.briskMinutes >= target) stringResource(R.string.verdict_brisk_done)
+                else stringResource(R.string.verdict_brisk_short, ((target - inputs.briskMinutes + 14) / 15).coerceAtLeast(1)),
                 ink,
-                delay = 700,
+                delay = 2_500,
             )
         }
     }
     if (report.activeKcal >= 1) {
-        slides += Slide(colors.flame) { ink ->
+        slides += Slide(colors.flame, snackThing?.first?.emoji ?: "🔥") { ink ->
             Lead(stringResource(R.string.story_active_lead), ink)
-            CountUp(report.activeKcal, ink, { "${number(it)} kcal" })
-            Note(stringResource(R.string.story_samosas, number(report.activeKcal / SAMOSA_KCAL)), ink, delay = 1_400)
+            CountUp(report.activeKcal, ink, { "${grouped(it)} kcal" })
+            Compare(snackThing, ink, delay = 1_400)
         }
     }
     if (burnedAll > 0) {
-        slides += Slide(PINK) { ink ->
+        slides += Slide(PINK, mealThing?.first?.emoji ?: "🍽️") { ink ->
             Lead(stringResource(R.string.story_burned_lead), ink)
-            CountUp(burnedAll, ink, { "${number(it)} kcal" })
-            Note(stringResource(R.string.story_rotis, number(burnedAll / ROTI_KCAL)), ink, delay = 1_400)
+            CountUp(burnedAll, ink, { "${grouped(it)} kcal" })
+            Compare(mealThing, ink, delay = 1_400)
+            Note(stringResource(R.string.story_burned_daily, grouped(burnedAll / inputs.days.count { it.complete }.coerceAtLeast(1))), ink, delay = 2_400)
         }
     }
     report.expectedKg?.let { expected ->
-        slides += Slide(colors.special) { ink ->
+        val weightThing = pick(random, WEIGHT_THINGS, abs(expected))
+        slides += Slide(colors.special, "⚖️") { ink ->
             Lead(stringResource(R.string.story_balance_lead), ink)
-            CountUp(abs(report.balance), ink, { "${number(it)} kcal" })
+            CountUp(abs(report.balance), ink, { "${grouped(it)} kcal" })
             Note(stringResource(if (report.balance <= 0) R.string.story_under else R.string.story_over, "%.2f".format(Locale.getDefault(), abs(expected))), ink, delay = 1_400)
+            Compare(weightThing, ink, delay = 1_900)
+            Note(stringResource(balanceVerdict(report.balance / report.loggedDays.coerceAtLeast(1)).random(random)), ink, delay = 2_300)
             report.actualKg?.let { actual ->
                 val verdict = when (report.verdict) {
                     WeightVerdict.MATCHES -> R.string.story_scale_agrees
@@ -375,32 +687,38 @@ private fun storySlides(report: PeriodReport, onDetails: () -> Unit): List<Slide
                     WeightVerdict.LOST_LESS -> R.string.story_scale_less
                     null -> R.string.story_scale_moved
                 }
-                Note(stringResource(verdict, Util.formatWeightChange(actual)), ink, delay = 2_200)
+                Chip(stringResource(verdict, Util.formatWeightChange(actual)), ink, delay = 2_800)
             }
         }
     }
     inputs.topFoods.firstOrNull()?.let { top ->
-        slides += Slide(colors.goal) { ink ->
+        val loggedDays = inputs.days.count { it.eaten != null }
+        slides += Slide(colors.goal, listOf("😋", "🥗", "🤤").random(random)) { ink ->
             Lead(stringResource(R.string.story_food_lead), ink)
             Big(top, ink)
             inputs.topFoods.drop(1).takeIf { it.isNotEmpty() }?.let { rest ->
                 Note(stringResource(R.string.story_food_rest, rest.joinToString(stringResource(R.string.story_and))), ink, delay = 900)
             }
+            Chip(stringResource(R.string.story_food_days, loggedDays, inputs.days.size), ink, delay = 1_300)
+            if (inputs.proteinTarget > 0) Chip(stringResource(R.string.story_protein_days, report.proteinDays), ink, delay = 1_600)
         }
     }
     if (inputs.nightMinutes.isNotEmpty()) {
         val average = inputs.nightMinutes.average().toLong()
-        slides += Slide(colors.sleep) { ink ->
+        val totalHours = (inputs.nightMinutes.sum() + inputs.napMinutes.sum()) / 60.0
+        slides += Slide(colors.sleep, listOf("🌛", "😴", "🥱").random(random)) { ink ->
             Lead(stringResource(R.string.story_sleep_lead), ink)
             Big(stringResource(R.string.sleep_duration, (average / 60).toInt(), (average % 60).toInt()), ink)
             Note(stringResource(R.string.story_sleep_note), ink, delay = 700)
-            if (inputs.napMinutes.isNotEmpty()) {
-                Note(stringResource(R.string.story_naps, inputs.napMinutes.size), ink, delay = 1_200)
-            }
+            RatioBar(average / 480f, ink, stringResource(R.string.bench_sleep))
+            Note(stringResource(sleepVerdict(average).random(random)), ink, delay = 1_300)
+            Compare(pick(random, SLEEP_THINGS, totalHours), ink, delay = 1_800)
+            if (inputs.napMinutes.isNotEmpty()) Chip(stringResource(R.string.story_naps, inputs.napMinutes.size), ink, delay = 2_300)
+            Note(stringResource(sleepFact), ink.copy(alpha = 0.8f), delay = 2_700)
         }
     }
     if (inputs.badges.isNotEmpty()) {
-        slides += Slide(colors.special) { ink ->
+        slides += Slide(colors.special, "🌟", scene = Scene.CONFETTI) { ink ->
             Lead(stringResource(R.string.story_badges_lead), ink)
             Big(stringResource(R.string.story_badges_count, inputs.badges.size), ink)
             Appear(900) {
@@ -411,7 +729,7 @@ private fun storySlides(report: PeriodReport, onDetails: () -> Unit): List<Slide
                 ) {
                     inputs.badges.take(8).forEach {
                         Text(
-                            text = stringResource(it),
+                            text = "🏅 " + stringResource(it),
                             color = ink,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier
@@ -424,17 +742,17 @@ private fun storySlides(report: PeriodReport, onDetails: () -> Unit): List<Slide
             }
         }
     }
-    slides += Slide(colors.goal) { ink ->
+    slides += Slide(colors.goal, "💯", scene = Scene.CONFETTI) { ink ->
         Lead(stringResource(R.string.story_summary, periodName), ink)
         Appear(300) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 20.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Min)) {
-                    SummaryTile(stringResource(R.string.report_steps_word), Util.formatSteps(report.steps), ink, Modifier.weight(1f))
-                    SummaryTile(unit, "%.1f".format(Locale.getDefault(), km), ink, Modifier.weight(1f))
+                    SummaryTile("👣 " + stringResource(R.string.report_steps_word), grouped(report.steps), ink, Modifier.weight(1f))
+                    SummaryTile("🗺️ $unit", "%.1f".format(Locale.getDefault(), km), ink, Modifier.weight(1f))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Min)) {
-                    SummaryTile(stringResource(R.string.story_active_short), number(report.activeKcal), ink, Modifier.weight(1f))
-                    SummaryTile(stringResource(R.string.report_goal_days), "${report.goalDays}/${report.goalDaysPossible}", ink, Modifier.weight(1f))
+                    SummaryTile("🔥 " + stringResource(R.string.story_active_short), grouped(report.activeKcal), ink, Modifier.weight(1f))
+                    SummaryTile("🎯 " + stringResource(R.string.report_goal_days), "${report.goalDays}/${report.goalDaysPossible}", ink, Modifier.weight(1f))
                 }
             }
         }
