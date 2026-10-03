@@ -1,5 +1,10 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Icon
@@ -36,7 +41,7 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier, info: Info? = null
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 8.dp, top = if (action != null) 16.dp else 24.dp, bottom = if (action != null) 2.dp else 10.dp),
+            .padding(start = 8.dp, end = if (action != null) 4.dp else 0.dp, top = if (action != null) 16.dp else 24.dp, bottom = if (action != null) 8.dp else 10.dp),
     ) {
         InfoBox(info, Modifier.clip(RoundedCornerShape(8.dp)), color = MaterialTheme.colorScheme.onSurface) {
             Text(
@@ -65,7 +70,9 @@ fun StatTile(
 ) {
     val state = rememberInfoState()
     Column(
+        verticalArrangement = Arrangement.SpaceBetween,
         modifier = modifier
+            .fillMaxHeight()
             .clip(RoundedCornerShape(20.dp))
             .background(TaroTheme.colors.accentOpaque)
             .infoClickable(state, info, onClick)
@@ -125,4 +132,13 @@ fun ActionChip(
         }
         InfoPopup(state, info, color)
     }
+}
+
+@Composable
+fun TileRow(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = modifier.height(IntrinsicSize.Min),
+        content = content,
+    )
 }

@@ -73,7 +73,7 @@ object AchievementData {
             workouts = snapshot.activities.mapNotNull { activity -> date(activity.date)?.let { it to activity.kcal } },
             weights = WeightJournal.points(context),
             losingWeight = AppPreferences.calorieGoal?.goal != DietGoal.BULK,
-            nights = snapshot.sleeps.map(SleepSession::toNightOrNull).filterNotNull(),
+            nights = snapshot.sleeps.filterNot { it.nap }.map(SleepSession::toNightOrNull).filterNotNull(),
             calibratedOn = calibrated,
             accuracyCheckedOn = accuracy,
             backedUpOn = date(AppPreferences.stringValue(LAST_BACKUP_DATE)),

@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.report.ReportScheduler
 import com.prateek.taro.ui.theme.TaroTheme
 import androidx.compose.ui.graphics.Color
 import android.content.Context
@@ -138,6 +139,11 @@ private fun SettingsContent(
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
 
     val height by AppPreferences.heightFlow().collectAsStateWithLifecycle(AppPreferences.height)
+    val reportNotifications by AppPreferences.reportNotificationsFlow().collectAsStateWithLifecycle(AppPreferences.reportNotifications)
+    fun onReportsChange(enabled: Boolean) {
+        AppPreferences.reportNotifications = enabled
+        ReportScheduler.schedule(context, replace = true)
+    }
     val calibration by AppPreferences.stepCalibrationFlow().collectAsStateWithLifecycle(AppPreferences.stepCalibration)
     val manualStepLength = AppPreferences.manualStepLength
     val age by AppPreferences.ageFlow().collectAsStateWithLifecycle(AppPreferences.age)
@@ -281,6 +287,19 @@ private fun SettingsContent(
                         checked = hasPlayServices && vehicleFilter,
                         onCheckedChange = ::onVehicleFilterChange,
                         enabled = hasPlayServices,
+                        modifier = Modifier.padding(start = 16.dp),
+                    )
+                }
+                PreferenceDivider()
+                PreferenceRow(
+                    icon = R.drawable.ic_schedule,
+                    title = stringResource(R.string.pref_reports_title),
+                    summary = stringResource(R.string.pref_reports_summary),
+                    onClick = { onReportsChange(!reportNotifications) },
+                ) {
+                    TaroSwitch(
+                        checked = reportNotifications,
+                        onCheckedChange = ::onReportsChange,
                         modifier = Modifier.padding(start = 16.dp),
                     )
                 }

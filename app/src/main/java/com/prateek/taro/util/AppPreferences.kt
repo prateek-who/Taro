@@ -58,6 +58,8 @@ object AppPreferences {
         val MEALS                                = stringPreferencesKey("meals")
         val ENERGY_FACTORS                       = stringPreferencesKey("energy_factors")
         val CLAIMED_BADGES                       = stringSetPreferencesKey("claimed_badges")
+        val REPORT_NOTIFICATIONS                 = booleanPreferencesKey("report_notifications")
+        val REPORTS_SEEN                         = stringSetPreferencesKey("reports_seen")
         val STEPS_HINT_SHOWN                     = booleanPreferencesKey("steps_hint_shown")
         val INFO_HINT_SHOWN                      = booleanPreferencesKey("info_hint_shown")
         val INCOMPLETE_FOOD_DAYS                 = stringSetPreferencesKey("incomplete_food_days")
@@ -341,6 +343,20 @@ object AppPreferences {
                 it[PreferenceKeys.ENERGY_FACTORS] = value.encode()
             }
         }
+
+    fun reportNotificationsFlow(): Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.REPORT_NOTIFICATIONS] ?: true }
+
+    var reportNotifications: Boolean
+        get() = runBlocking { reportNotificationsFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.REPORT_NOTIFICATIONS] = value } }
+
+    fun reportsSeenFlow(): Flow<Set<String>> = dataStore.data.map { it[PreferenceKeys.REPORTS_SEEN].orEmpty() }
+
+    val reportsSeen: Set<String> get() = runBlocking { reportsSeenFlow().first() }
+
+    fun markReportSeen(key: String) = runBlocking {
+        dataStore.edit { prefs -> prefs[PreferenceKeys.REPORTS_SEEN] = (prefs[PreferenceKeys.REPORTS_SEEN].orEmpty() + key).sorted().takeLast(60).toSet() }
+    }
 
     var stepsHintShown: Boolean
         get() = runBlocking { dataStore.data.first()[PreferenceKeys.STEPS_HINT_SHOWN] ?: false }

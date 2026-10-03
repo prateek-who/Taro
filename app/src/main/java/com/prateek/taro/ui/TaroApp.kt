@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.report.ReportScheduler
 import com.prateek.taro.calibration.CalibrationRepository
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -186,11 +187,18 @@ fun TaroApp() {
     }
     activity?.intent?.removeExtra(WeightReminderScheduler.EXTRA_LOG_WEIGHT)
 
-    LaunchedEffect(Unit) { WeightReminderScheduler.schedule(context, replace = false) }
+    var pendingReport by rememberSaveable { mutableStateOf(activity?.intent?.getStringExtra(ReportScheduler.EXTRA_REPORT)) }
+    activity?.intent?.removeExtra(ReportScheduler.EXTRA_REPORT)
+
+    LaunchedEffect(Unit) {
+        WeightReminderScheduler.schedule(context, replace = false)
+        ReportScheduler.schedule(context)
+    }
 
     DisposableEffect(activity) {
         val listener = Consumer<Intent> { intent ->
             if (intent.getBooleanExtra(WeightReminderScheduler.EXTRA_LOG_WEIGHT, false)) weightPrompt = true
+            intent.getStringExtra(ReportScheduler.EXTRA_REPORT)?.let { pendingReport = it }
         }
         (activity as? ComponentActivity)?.addOnNewIntentListener(listener)
         onDispose { (activity as? ComponentActivity)?.removeOnNewIntentListener(listener) }
@@ -198,7 +206,16 @@ fun TaroApp() {
 
     CompositionLocalProvider(LocalTracking provides tracking, LocalMainActions provides actions, LocalToast provides toast) {
         Box(modifier = Modifier.fillMaxSize()) {
-            Navigator(RootScreen) { SlideTransition(it) }
+            Navigator(RootScreen) { navigator ->
+                LaunchedEffect(pendingReport) {
+                    pendingReport?.let {
+                        AppPreferences.markReportSeen(it)
+                        navigator.push(ReportStoryScreen(it))
+                        pendingReport = null
+                    }
+                }
+                SlideTransition(navigator)
+            }
             if (badgeConfetti) ConfettiBurst(onFinished = { badgeConfetti = false })
             if (weightPrompt) {
                 LogWeightDialog(

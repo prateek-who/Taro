@@ -59,6 +59,8 @@ class StepsDatabaseMigrationTest {
         dao.insertScreenEvent(ScreenEvent(5_000L, true))
         dao.pruneScreenEvents(1_000L)
         val sleeps = dao.sleepsSince("2026-01-01")
+        dao.saveSleep(SleepSession(startAt = 30_000_000L, endAt = 31_800_000L, wakeDate = "2026-09-29", source = "manual", confirmed = true, nap = true))
+        val sleepMinutes = dao.sleepMinutesOn("2026-09-29")
         val events = dao.screenEvents(0L, 10_000L)
         dao.insertFoodLog(FoodLog(date = "2026-09-30", meal = "lunch", name = "Roti", grams = 80.0, amount = "2 rotis", kcal = 238.0, protein = 7.8, carbs = null, fat = null, foodKey = "in:roti", loggedAt = 1L))
         val food = dao.foodLogsOn("2026-09-30")
@@ -67,6 +69,7 @@ class StepsDatabaseMigrationTest {
         db.close()
 
         assertEquals(1, sleeps.size)
+        assertEquals((27_000_000L - 2_000L + 1_800_000L) / 60_000, sleepMinutes)
         assertEquals("manual", sleeps.single().source)
         assertEquals(true, sleeps.single().confirmed)
         assertEquals(listOf(ScreenEvent(5_000L, true)), events)

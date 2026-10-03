@@ -66,6 +66,8 @@ internal class Database private constructor(private val dao: StepsDao) {
 
     internal fun sleepOn(wakeDate: String): SleepSession? = dao.sleepOn(wakeDate)
 
+    internal fun sleepMinutesOn(wakeDate: String): Long = dao.sleepMinutesOn(wakeDate)
+
     internal fun sleepsSince(from: String): List<SleepSession> = dao.sleepsSince(from)
 
     internal fun deleteSleep(id: Long) = changed { dao.deleteSleep(id) }

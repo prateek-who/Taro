@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.TileRow
 import com.prateek.taro.ui.components.ActionChip
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
@@ -299,8 +300,7 @@ private fun EnergyContent(tracking: TrackingState) {
                         }
                     }
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                TileRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 10.dp),

@@ -25,7 +25,7 @@ object DailyEnergy {
     fun pastDayBurn(date: String, restingPerDay: Double, tracked: Boolean, active: Double, logged: Double): DayBurn =
         if (tracked || logged > 0) DayBurn(date, restingPerDay, active, logged) else DayBurn(date, 0.0, 0.0, 0.0)
 
-    private fun sleepMinutes(database: Database, date: String): Long = database.sleepOn(date)?.durationMinutes ?: 0L
+    private fun sleepMinutes(database: Database, date: String): Long = database.sleepMinutesOn(date)
 
     fun restingPerDay(): Double? {
         val age = AppPreferences.age ?: return null
@@ -121,7 +121,7 @@ object DailyEnergy {
         val minutes = database.getMinutes(from, to).groupBy { it.date }
         val food = database.foodBetween(from, to).groupBy { it.date }
         val logged = database.activitiesBetween(from, to).groupBy({ it.date }) { it.kcal }
-        val sleep = database.sleepsSince(from).associate { it.wakeDate to it.durationMinutes }
+        val sleep = database.sleepsSince(from).groupBy { it.wakeDate }.mapValues { (_, sessions) -> sessions.sumOf { it.durationMinutes } }
         val weightByDate = weights.associate { it.date to it.kg }
         val incomplete = AppPreferences.incompleteFoodDays
 
