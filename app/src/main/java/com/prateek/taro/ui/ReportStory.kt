@@ -70,7 +70,7 @@ import com.prateek.taro.report.PeriodReport
 import com.prateek.taro.report.ReportData
 import com.prateek.taro.report.ReportKind
 import com.prateek.taro.report.WeightVerdict
-import com.prateek.taro.ui.theme.Chivo
+import com.prateek.taro.ui.theme.ChivoHeavy
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.util.Util
 import java.time.format.TextStyle as DayStyle
@@ -238,13 +238,13 @@ private fun CountUp(target: Double, ink: Color, format: (Double) -> String, dela
     LaunchedEffect(Unit) { value.animateTo(1f, tween(1_400, delayMillis = delay, easing = FastOutSlowInEasing)) }
     Text(
         text = format(target * value.value),
-        style = TextStyle(fontFamily = Chivo, fontSize = 72.sp, lineHeight = 76.sp, fontWeight = FontWeight.Black, color = ink),
+        style = TextStyle(fontFamily = ChivoHeavy, fontSize = 72.sp, lineHeight = 76.sp, fontWeight = FontWeight.Black, color = ink),
     )
 }
 
 @Composable
 private fun Lead(text: String, ink: Color, delay: Int = 0) = Appear(delay) {
-    Text(text, color = ink, fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold)
+    Text(text, color = ink, fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, fontFamily = ChivoHeavy)
 }
 
 @Composable
@@ -254,7 +254,7 @@ private fun Note(text: String, ink: Color, delay: Int) = Appear(delay) {
 
 @Composable
 private fun Big(text: String, ink: Color, delay: Int = 300) = Appear(delay) {
-    Text(text, style = TextStyle(fontFamily = Chivo, fontSize = 64.sp, lineHeight = 68.sp, fontWeight = FontWeight.Black, color = ink))
+    Text(text, style = TextStyle(fontFamily = ChivoHeavy, fontSize = 64.sp, lineHeight = 68.sp, fontWeight = FontWeight.Black, color = ink))
 }
 
 @Composable
@@ -468,6 +468,6 @@ private fun SummaryTile(label: String, value: String, ink: Color, modifier: Modi
             .padding(16.dp),
     ) {
         Text(label.uppercase(), color = ink.copy(alpha = 0.8f), fontSize = 11.sp, letterSpacing = 1.5.sp)
-        Text(value, color = ink, fontSize = 28.sp, fontWeight = FontWeight.Black, fontFamily = Chivo, modifier = Modifier.padding(top = 4.dp))
+        Text(value, color = ink, fontSize = 28.sp, fontWeight = FontWeight.Black, fontFamily = ChivoHeavy, modifier = Modifier.padding(top = 4.dp))
     }
 }

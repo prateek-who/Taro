@@ -1,5 +1,9 @@
 package com.prateek.taro.service
 
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
+import com.prateek.taro.widget.FoodWidget
 import com.prateek.taro.util.Util
 
 import android.app.AlarmManager
@@ -21,6 +25,12 @@ class MidnightResetReceiver : BroadcastReceiver() {
         context.startService(serviceIntent)
 
         scheduleNextMidnightAlarm(context)
+
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { FoodWidget.refresh(context) }
+            pending.finish()
+        }
     }
 
     companion object {

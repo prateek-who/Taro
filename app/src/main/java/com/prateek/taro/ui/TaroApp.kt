@@ -1,5 +1,8 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.widget.FoodWidget
+import com.prateek.taro.food.Meals
+import com.prateek.taro.util.FoodReminderScheduler
 import com.prateek.taro.report.ReportScheduler
 import com.prateek.taro.calibration.CalibrationRepository
 import kotlinx.coroutines.withContext
@@ -135,6 +138,7 @@ fun TaroApp() {
     val dataVersion = rememberDataVersion()
     var badgeConfetti by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { runCatching { CalibrationRepository.refit(context) } } }
+    LaunchedEffect(dataVersion) { withContext(Dispatchers.IO) { runCatching { FoodWidget.refresh(context) } } }
     LaunchedEffect(refreshKey, dataVersion) {
         val unlocked = withContext(Dispatchers.IO) { runCatching { AchievementData.newlyEarned(context) }.getOrDefault(emptyList()) }
         val first = unlocked.firstOrNull() ?: return@LaunchedEffect
@@ -187,18 +191,22 @@ fun TaroApp() {
     }
     activity?.intent?.removeExtra(WeightReminderScheduler.EXTRA_LOG_WEIGHT)
 
+    var pendingFood by rememberSaveable { mutableStateOf(activity?.intent?.getBooleanExtra(FoodReminderScheduler.EXTRA_LOG_FOOD, false) == true) }
+    activity?.intent?.removeExtra(FoodReminderScheduler.EXTRA_LOG_FOOD)
     var pendingReport by rememberSaveable { mutableStateOf(activity?.intent?.getStringExtra(ReportScheduler.EXTRA_REPORT)) }
     activity?.intent?.removeExtra(ReportScheduler.EXTRA_REPORT)
 
     LaunchedEffect(Unit) {
         WeightReminderScheduler.schedule(context, replace = false)
         ReportScheduler.schedule(context)
+        FoodReminderScheduler.schedule(context)
     }
 
     DisposableEffect(activity) {
         val listener = Consumer<Intent> { intent ->
             if (intent.getBooleanExtra(WeightReminderScheduler.EXTRA_LOG_WEIGHT, false)) weightPrompt = true
             intent.getStringExtra(ReportScheduler.EXTRA_REPORT)?.let { pendingReport = it }
+            if (intent.getBooleanExtra(FoodReminderScheduler.EXTRA_LOG_FOOD, false)) pendingFood = true
         }
         (activity as? ComponentActivity)?.addOnNewIntentListener(listener)
         onDispose { (activity as? ComponentActivity)?.removeOnNewIntentListener(listener) }
@@ -212,6 +220,12 @@ fun TaroApp() {
                         AppPreferences.markReportSeen(it)
                         navigator.push(ReportStoryScreen(it))
                         pendingReport = null
+                    }
+                }
+                LaunchedEffect(pendingFood) {
+                    if (pendingFood) {
+                        pendingFood = false
+                        navigator.push(AddFoodScreen(Util.logicalToday(), Meals.forTime(AppPreferences.meals(context))))
                     }
                 }
                 SlideTransition(navigator)

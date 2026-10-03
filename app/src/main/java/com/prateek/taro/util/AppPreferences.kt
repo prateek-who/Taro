@@ -1,5 +1,7 @@
 package com.prateek.taro.util
 
+import com.prateek.taro.energy.DetectedSession
+import com.prateek.taro.energy.DetectedActivities
 import com.prateek.taro.food.MealOrders
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -58,6 +60,12 @@ object AppPreferences {
         val MEALS                                = stringPreferencesKey("meals")
         val ENERGY_FACTORS                       = stringPreferencesKey("energy_factors")
         val CLAIMED_BADGES                       = stringSetPreferencesKey("claimed_badges")
+        val UNDERLOG_CHECKED                     = stringSetPreferencesKey("underlog_checked")
+        val EAT_TARGET                           = stringPreferencesKey("eat_target")
+        val WORKOUT_DETECTION                    = booleanPreferencesKey("workout_detection")
+        val DETECTED_ACTIVITIES                  = stringPreferencesKey("detected_activities")
+        val FOOD_REMINDER_ENABLED                = booleanPreferencesKey("food_reminder_enabled")
+        val FOOD_REMINDER_MINUTES                = intPreferencesKey("food_reminder_minutes")
         val REPORT_NOTIFICATIONS                 = booleanPreferencesKey("report_notifications")
         val REPORTS_SEEN                         = stringSetPreferencesKey("reports_seen")
         val STEPS_HINT_SHOWN                     = booleanPreferencesKey("steps_hint_shown")
@@ -326,7 +334,7 @@ object AppPreferences {
 
     private const val MAX_INCOMPLETE_DAYS = 400
 
-    private val volatileKeys = setOf("STEPS", "DATE", "sensor_baseline", "sensor_boot_count", "sensor_boot_time", "last_celebration_date", "energy_factors")
+    private val volatileKeys = setOf("STEPS", "DATE", "sensor_baseline", "sensor_boot_count", "sensor_boot_time", "last_celebration_date", "energy_factors", "eat_target")
 
     fun settingsVersionFlow(): Flow<Int> = dataStore.data
         .map { prefs -> prefs.asMap().filterKeys { it.name !in volatileKeys }.hashCode() }
@@ -343,6 +351,50 @@ object AppPreferences {
                 it[PreferenceKeys.ENERGY_FACTORS] = value.encode()
             }
         }
+
+    fun underLogCheckedFlow(): Flow<Set<String>> = dataStore.data.map { it[PreferenceKeys.UNDERLOG_CHECKED].orEmpty() }
+
+    fun markUnderLogChecked(date: String) = runBlocking {
+        dataStore.edit { prefs -> prefs[PreferenceKeys.UNDERLOG_CHECKED] = (prefs[PreferenceKeys.UNDERLOG_CHECKED].orEmpty() + date).sorted().takeLast(60).toSet() }
+    }
+
+    fun eatTarget(date: String): Double? = runBlocking {
+        dataStore.data.first()[PreferenceKeys.EAT_TARGET]?.takeIf { it.substringBefore('|') == date }?.substringAfter('|')?.toDoubleOrNull()
+    }
+
+    fun saveEatTarget(date: String, target: Double) = runBlocking {
+        dataStore.edit { it[PreferenceKeys.EAT_TARGET] = "$date|${target.toInt()}" }
+    }
+
+    fun workoutDetectionFlow(): Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.WORKOUT_DETECTION] ?: true }
+
+    var workoutDetection: Boolean
+        get() = runBlocking { workoutDetectionFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.WORKOUT_DETECTION] = value } }
+
+    fun detectedActivitiesFlow(): Flow<List<DetectedSession>> = dataStore.data.map { DetectedActivities.decode(it[PreferenceKeys.DETECTED_ACTIVITIES]) }
+
+    fun addDetected(session: DetectedSession) = runBlocking {
+        dataStore.edit { it[PreferenceKeys.DETECTED_ACTIVITIES] = DetectedActivities.encode(DetectedActivities.decode(it[PreferenceKeys.DETECTED_ACTIVITIES]) + session) }
+    }
+
+    fun dismissDetected(start: Long) = runBlocking {
+        dataStore.edit { prefs ->
+            prefs[PreferenceKeys.DETECTED_ACTIVITIES] = DetectedActivities.encode(DetectedActivities.decode(prefs[PreferenceKeys.DETECTED_ACTIVITIES]).filterNot { it.start == start })
+        }
+    }
+
+    fun foodReminderEnabledFlow(): Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.FOOD_REMINDER_ENABLED] ?: false }
+
+    var foodReminderEnabled: Boolean
+        get() = runBlocking { foodReminderEnabledFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.FOOD_REMINDER_ENABLED] = value } }
+
+    fun foodReminderMinutesFlow(): Flow<Int> = dataStore.data.map { it[PreferenceKeys.FOOD_REMINDER_MINUTES] ?: (21 * 60) }
+
+    var foodReminderMinutes: Int
+        get() = runBlocking { foodReminderMinutesFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.FOOD_REMINDER_MINUTES] = value } }
 
     fun reportNotificationsFlow(): Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.REPORT_NOTIFICATIONS] ?: true }
 

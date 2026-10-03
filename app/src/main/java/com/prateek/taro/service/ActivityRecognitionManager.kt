@@ -1,5 +1,7 @@
 package com.prateek.taro.service
 
+import com.prateek.taro.energy.DetectedSession
+import com.prateek.taro.energy.DetectedActivities
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -38,13 +40,33 @@ internal class ActivityRecognitionManager(private val context: Context) {
             return
         }
 
-        if (!AppPreferences.vehicleFilterEnabled) return
+        if (!AppPreferences.vehicleFilterEnabled && !AppPreferences.workoutDetection) return
 
         registerReceiver()
         requestUpdates()
     }
 
+    private var rideStart = 0L
+    private var rideLast = 0L
+
+    private fun trackRide(onBike: Boolean, now: Long) {
+        if (rideStart != 0L && now - rideLast > DetectedActivities.GAP_MS) closeRide()
+        if (onBike) {
+            if (rideStart == 0L) rideStart = now
+            rideLast = now
+        }
+    }
+
+    private fun closeRide() {
+        if (rideStart != 0L && rideLast - rideStart >= DetectedActivities.MIN_MINUTES * 60_000L && AppPreferences.workoutDetection) {
+            AppPreferences.addDetected(DetectedSession(rideStart, rideLast))
+        }
+        rideStart = 0L
+        rideLast = 0L
+    }
+
     fun stop() {
+        closeRide()
         pendingIntent?.let {
             try {
                 ActivityRecognition.getClient(context).removeActivityUpdates(it)
@@ -92,6 +114,7 @@ internal class ActivityRecognitionManager(private val context: Context) {
         val confidence = top.confidence
 
         if (confidence < CONFIDENCE_THRESHOLD) return
+        trackRide(top.type == DetectedActivity.ON_BICYCLE, System.currentTimeMillis())
 
         val detectedVehicle = when (top.type) {
             DetectedActivity.IN_VEHICLE, DetectedActivity.ON_BICYCLE -> true

@@ -1,5 +1,7 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.util.DayClock
+import com.prateek.taro.util.FoodReminderScheduler
 import com.prateek.taro.report.ReportScheduler
 import com.prateek.taro.ui.theme.TaroTheme
 import androidx.compose.ui.graphics.Color
@@ -75,7 +77,7 @@ object SettingsScreen : Screen {
     }
 }
 
-private enum class SettingsDialog { DAY_START, HEIGHT, AGE, SEX, CALORIE_GOAL, LEG_LENGTH, STEP_LENGTH, WEIGHT, LANGUAGE, THEME, UNIT_SYSTEM, DATE_FORMAT, FIRST_DAY, ABOUT }
+private enum class SettingsDialog { DAY_START, HEIGHT, AGE, SEX, CALORIE_GOAL, LEG_LENGTH, STEP_LENGTH, WEIGHT, LANGUAGE, THEME, UNIT_SYSTEM, DATE_FORMAT, FIRST_DAY, ABOUT, FOOD_REMINDER }
 
 private class Choices(val entries: List<String>, val values: List<String>) {
     fun label(value: String) = entries.getOrNull(values.indexOf(value)) ?: value
@@ -139,6 +141,17 @@ private fun SettingsContent(
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
 
     val height by AppPreferences.heightFlow().collectAsStateWithLifecycle(AppPreferences.height)
+    val foodReminder by AppPreferences.foodReminderEnabledFlow().collectAsStateWithLifecycle(AppPreferences.foodReminderEnabled)
+    val foodReminderMinutes by AppPreferences.foodReminderMinutesFlow().collectAsStateWithLifecycle(AppPreferences.foodReminderMinutes)
+    fun onFoodReminderChange(enabled: Boolean) {
+        AppPreferences.foodReminderEnabled = enabled
+        FoodReminderScheduler.schedule(context, replace = true)
+    }
+    val workoutDetection by AppPreferences.workoutDetectionFlow().collectAsStateWithLifecycle(AppPreferences.workoutDetection)
+    fun onWorkoutDetectionChange(enabled: Boolean) {
+        AppPreferences.workoutDetection = enabled
+        restartMotionService(context)
+    }
     val reportNotifications by AppPreferences.reportNotificationsFlow().collectAsStateWithLifecycle(AppPreferences.reportNotifications)
     fun onReportsChange(enabled: Boolean) {
         AppPreferences.reportNotifications = enabled
@@ -305,6 +318,38 @@ private fun SettingsContent(
                 }
                 PreferenceDivider()
                 PreferenceRow(
+                    icon = R.drawable.ic_calories,
+                    title = stringResource(R.string.pref_rides_title),
+                    summary = stringResource(if (hasPlayServices) R.string.pref_rides_summary else R.string.vehicle_filter_unavailable),
+                    enabled = hasPlayServices,
+                    onClick = { onWorkoutDetectionChange(!workoutDetection) },
+                ) {
+                    TaroSwitch(
+                        checked = hasPlayServices && workoutDetection,
+                        onCheckedChange = ::onWorkoutDetectionChange,
+                        enabled = hasPlayServices,
+                        modifier = Modifier.padding(start = 16.dp),
+                    )
+                }
+                PreferenceDivider()
+                PreferenceRow(
+                    icon = R.drawable.ic_calorie_goal,
+                    title = stringResource(R.string.pref_food_reminder_title),
+                    summary = if (foodReminder) {
+                        stringResource(R.string.pref_food_reminder_on, android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(DayClock.momentOf("2000-01-01", foodReminderMinutes, 0))))
+                    } else {
+                        stringResource(R.string.pref_food_reminder_off)
+                    },
+                    onClick = { if (foodReminder) dialog = SettingsDialog.FOOD_REMINDER else onFoodReminderChange(true) },
+                ) {
+                    TaroSwitch(
+                        checked = foodReminder,
+                        onCheckedChange = ::onFoodReminderChange,
+                        modifier = Modifier.padding(start = 16.dp),
+                    )
+                }
+                PreferenceDivider()
+                PreferenceRow(
                     icon = R.drawable.ic_unit,
                     title = stringResource(R.string.unit_system),
                     summary = units.label(unitValue),
@@ -420,6 +465,19 @@ private fun SettingsContent(
             onInvalid = {
                 dialog = null
                 invalid()
+            },
+            onDismiss = dismiss,
+        )
+
+        SettingsDialog.FOOD_REMINDER -> TimePickerDialog(
+            title = stringResource(R.string.pref_food_reminder_title),
+            initialHour = foodReminderMinutes / 60,
+            initialMinute = foodReminderMinutes % 60,
+            is24Hour = android.text.format.DateFormat.is24HourFormat(context),
+            onConfirm = { hour, minute ->
+                dialog = null
+                AppPreferences.foodReminderMinutes = hour * 60 + minute
+                FoodReminderScheduler.schedule(context, replace = true)
             },
             onDismiss = dismiss,
         )

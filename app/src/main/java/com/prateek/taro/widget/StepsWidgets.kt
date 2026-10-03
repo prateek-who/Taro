@@ -1,5 +1,8 @@
 package com.prateek.taro.widget
 
+import kotlin.math.roundToInt
+import androidx.glance.appwidget.updateAll
+import com.prateek.taro.util.Database
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -163,6 +166,56 @@ private fun StepsAndDistance(steps: Int, palette: Palette, stepsSize: Float, dis
         Text(
             text = context.getString(R.string.distance_today, Util.stepsToDistance(steps), Util.distanceUnit()),
             style = TextStyle(color = palette.secondary, fontSize = distanceSize.sp, textAlign = TextAlign.Center),
+        )
+    }
+}
+
+class FoodWidget : GlanceAppWidget() {
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
+        val today = Util.todayDateString()
+        val logs = Database.getInstance(context).foodOn(today)
+        val target = AppPreferences.eatTarget(today)
+        val eaten = logs.sumOf { it.kcal }
+        val protein = logs.sumOf { it.protein }
+        provideContent { FoodContent(readWidgetSettings(context, appWidgetId), eaten, protein, target) }
+    }
+
+    companion object {
+        suspend fun refresh(context: Context) = FoodWidget().updateAll(context)
+    }
+}
+
+@Composable
+private fun FoodContent(settings: WidgetSettings, eaten: Double, protein: Double, target: Double?) {
+    val context = LocalContext.current
+    val palette = palette(context, settings)
+    val scale = settings.scale
+    val left = target?.let { it - eaten }
+    Column(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .background(palette.background)
+            .cornerRadius(R.dimen.widgetRoundness)
+            .clickable(actionStartActivity<MainActivity>()),
+    ) {
+        Text(
+            text = context.getString(R.string.calorie_goal_eat_today).uppercase(),
+            style = TextStyle(color = palette.secondary, fontSize = (11f * scale).sp, textAlign = TextAlign.Center),
+        )
+        Text(
+            text = when {
+                left == null -> context.getString(R.string.widget_food_eaten, Util.formatSteps(eaten.roundToInt()))
+                left >= 0 -> context.getString(R.string.widget_food_left, Util.formatSteps(left.roundToInt()))
+                else -> context.getString(R.string.widget_food_over, Util.formatSteps((-left).roundToInt()))
+            },
+            style = TextStyle(color = palette.primary, fontSize = (22f * scale).sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+        )
+        Text(
+            text = context.getString(R.string.widget_food_detail, Util.formatSteps(eaten.roundToInt()), Util.formatSteps(protein.roundToInt())),
+            style = TextStyle(color = palette.secondary, fontSize = (12f * scale).sp, textAlign = TextAlign.Center),
         )
     }
 }

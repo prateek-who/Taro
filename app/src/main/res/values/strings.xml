@@ -475,6 +475,10 @@
     <string name="food_search">Search foods</string>
     <string name="food_quick_add">Quick add</string>
     <string name="food_create">Create food</string>
+    <string name="food_copy_meal">Copy a meal</string>
+    <string name="info_copy_meal">This meal from recent days. Tap one to log all of it again at the time you picked, keeping the gaps between items.</string>
+    <string name="food_usual">Your usual</string>
+    <string name="info_usual_foods">Foods you log most, with the amount you usually have. Tap to log the same again. Foods you log often also rise to the top of search.</string>
     <string name="scan_label">Scan label</string>
     <string name="scan_photo">From photo</string>
     <string name="scan_reading">Reading label</string>
@@ -785,6 +789,35 @@
     <string name="report_notification_week">Your week in review</string>
     <string name="report_notification_month">Your month in review</string>
     <string name="report_notification_steps">%1$s steps</string>
+    <string name="underlog_title">Was %1$s fully logged?</string>
+    <string name="underlog_text">You logged %1$s kcal, well under your usual %2$s, and the next morning\'s weight came in higher than expected. If something was missed, marking the day keeps it out of your learned burn.</string>
+    <string name="underlog_mark">Not fully logged</string>
+    <string name="underlog_keep">It was right</string>
+    <string name="csv_export">Spreadsheets</string>
+    <string name="csv_food">Export food log</string>
+    <string name="csv_food_summary">Every food entry as a CSV file: date, time, meal, amount, kcal and macros</string>
+    <string name="csv_weight">Export weight log</string>
+    <string name="csv_weight_summary">Every weigh-in with its trend as a CSV file</string>
+    <string name="csv_saved">CSV saved</string>
+    <string name="widget_food_label">Eat today</string>
+    <string name="widget_food_description">Calories left to eat today, with what you have eaten</string>
+    <string name="widget_food_left">%1$s kcal left</string>
+    <string name="widget_food_over">%1$s kcal over</string>
+    <string name="widget_food_eaten">%1$s kcal eaten</string>
+    <string name="widget_food_detail">%1$s kcal eaten · %2$s g protein</string>
+    <string name="pref_rides_title">Notice bike rides</string>
+    <string name="pref_rides_summary">Suggests logging a ride when the phone senses cycling for 10 minutes or more</string>
+    <string name="ride_title">Bike ride spotted</string>
+    <string name="ride_text">About %1$d min of cycling on %2$s, %3$s to %4$s. Cycling adds no steps, so log it to count the calories.</string>
+    <string name="ride_log">Log ride</string>
+    <string name="ride_dismiss">Not a ride</string>
+    <string name="pref_food_reminder_title">Food logging reminder</string>
+    <string name="pref_food_reminder_on">At %1$s if today looks barely logged. Tap to change the time</string>
+    <string name="pref_food_reminder_off">A nudge in the evening when you forgot to log</string>
+    <string name="food_reminder_channel">Food logging reminder</string>
+    <string name="food_reminder_title">Anything to log?</string>
+    <string name="food_reminder_nothing">Nothing logged today yet. A few taps keeps your numbers honest.</string>
+    <string name="food_reminder_little">Only %1$s kcal logged today. Missing a meal?</string>
     <string name="pref_reports_title">Weekly and monthly reports</string>
     <string name="pref_reports_summary">A notification each week and on the 1st of the month</string>
     <string name="info_report_energy">What you burned against what you ate, on the days you logged fully. Every 7,700 kcal of difference is about 1 kg of body weight.</string>
@@ -1150,5 +1183,9 @@
     <plurals name="scan_found">
         <item quantity="one">Read %1$d value from the label, check it before saving</item>
         <item quantity="other">Read %1$d values from the label, check them before saving</item>
+    </plurals>
+    <plurals name="food_copied">
+        <item quantity="one">Copied %1$d food</item>
+        <item quantity="other">Copied %1$d foods</item>
     </plurals>
 </resources>

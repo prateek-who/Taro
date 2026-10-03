@@ -81,6 +81,8 @@ internal class Database private constructor(private val dao: StepsDao) {
 
     internal fun updateFood(log: FoodLog) = changed { dao.updateFoodLog(log) }
 
+    internal fun logFoods(logs: List<FoodLog>) = changed { dao.insertFoodLogs(logs) }
+
     internal fun usedMealKeys(): Set<String> = dao.usedMeals().toSet()
 
     internal fun updateFoods(logs: List<FoodLog>) = changed { dao.updateFoodLogs(logs) }
