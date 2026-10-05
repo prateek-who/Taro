@@ -1,1 +1,1 @@
-Your lightweight step counting buddy
+Steps, food, energy, weight and sleep. Private and fully offline.

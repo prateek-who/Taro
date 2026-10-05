@@ -24,8 +24,8 @@ android {
         applicationId "com.prateek.taro"
         minSdkVersion 26
         targetSdkVersion 35
-        versionCode 26
-        versionName "1.0.4"
+        versionCode 27
+        versionName "1.0.5"
         proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         ndk {
             abiFilters 'arm64-v8a'
@@ -117,6 +117,7 @@ dependencies {
     implementation 'com.google.android.gms:play-services-base:18.10.0'
     implementation 'com.google.android.gms:play-services-location:21.3.0'
     implementation 'com.google.mlkit:text-recognition:16.0.1'
+    implementation 'com.airbnb.android:lottie-compose:6.7.1'
 
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.14.1'

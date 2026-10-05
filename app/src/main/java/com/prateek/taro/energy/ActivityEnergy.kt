@@ -22,6 +22,7 @@ object ActivityEnergy {
             runningStepM = calibration?.runningStepCm?.div(100.0) ?: (walking * RUNNING_TO_WALKING_STEP),
             walkingSlope = if (manual == null) calibration?.walkingSlope?.toDouble() ?: 0.0 else 0.0,
             referenceCadence = calibration?.referenceCadence?.toDouble() ?: 100.0,
+            heightM = AppPreferences.height / 100.0,
         )
     }
 

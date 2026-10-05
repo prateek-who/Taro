@@ -16,7 +16,16 @@ object SleepRepository {
     private const val EARLIEST_ESTIMATE_HOUR = 5
 
     fun sessions(context: Context, days: Long): List<SleepSession> =
-        Database.getInstance(context).sleepsSince(SleepDates.today().minusDays(days).toString())
+        Database.getInstance(context).sleepsSince(SleepDates.today().minusDays(days).toString()).filterNot { it.nap }
+
+    fun naps(context: Context, wakeDate: LocalDate): List<SleepSession> =
+        Database.getInstance(context).sleepsSince(wakeDate.toString()).filter { it.nap && it.wakeDate == wakeDate.toString() }.sortedBy { it.startAt }
+
+    fun saveNap(context: Context, start: Long, end: Long, id: Long = 0) {
+        Database.getInstance(context).saveSleep(
+            SleepSession(id = id, startAt = start, endAt = end, wakeDate = SleepDates.wakeDateOf(end).toString(), source = SOURCE_MANUAL, confirmed = true, nap = true)
+        )
+    }
 
     fun saveDetected(context: Context, start: Long, end: Long, source: String): Boolean {
         if (!SleepEstimator.isPlausibleNight(start, end)) return false

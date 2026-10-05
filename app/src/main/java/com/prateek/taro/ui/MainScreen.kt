@@ -380,7 +380,9 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
                         }
                     }
 
-                    Spacer(Modifier.height(16.dp))
+                    ReportCard(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp))
+
+                    Spacer(Modifier.height(8.dp))
 
                     Panel(
                         modifier = Modifier
@@ -430,7 +432,7 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
                     )
 
-                    Panel(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 52.dp)) {
+                    Panel(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
                         MonthCalendar(
                             heat = heat,
                             selected = selectedDate,
@@ -447,7 +449,7 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
                         )
                     }
 
-                    Spacer(Modifier.navigationBarsPadding().height(24.dp))
+                    Spacer(Modifier.height(16.dp))
                 }
 
                 androidx.compose.animation.AnimatedVisibility(

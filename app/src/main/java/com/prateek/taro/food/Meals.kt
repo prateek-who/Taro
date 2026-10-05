@@ -5,25 +5,33 @@ import com.prateek.taro.R
 import java.time.LocalDate
 import java.time.LocalTime
 
-data class MealSlot(val key: String, val name: String, val daily: Boolean = true)
+data class MealSlot(val key: String, val name: String, val daily: Boolean = true, val days: Set<String> = emptySet()) {
+    fun plannedOn(date: LocalDate) = daily || date.toString() in days
+}
 
 object Meals {
     private const val FIELD = '|'
     private const val RECORD = '\n'
     private const val OCCASIONAL = "0"
+    private const val DAY = ','
     const val MAX_NAME = 24
 
     fun defaults(context: Context) = listOf(MealSlot("food", context.getString(R.string.meal_default)))
 
     fun cleanName(name: String) = name.filterNot { it == FIELD || it == RECORD }.trim().take(MAX_NAME)
 
-    fun encode(meals: List<MealSlot>): String = meals.joinToString(RECORD.toString()) { "${it.key}$FIELD${cleanName(it.name)}" + if (it.daily) "" else "$FIELD$OCCASIONAL" }
+    fun encode(meals: List<MealSlot>): String = meals.joinToString(RECORD.toString()) { meal ->
+        val days = if (meal.days.isEmpty()) "" else "$FIELD${meal.days.sorted().joinToString(DAY.toString())}"
+        "${meal.key}$FIELD${cleanName(meal.name)}" + if (meal.daily) "" else "$FIELD$OCCASIONAL$days"
+    }
 
     fun decode(text: String?): List<MealSlot>? = text?.split(RECORD)?.mapNotNull { line ->
         val parts = line.split(FIELD)
         val key = parts[0]
         val name = parts.getOrNull(1).orEmpty()
-        if (key.isBlank() || name.isBlank()) null else MealSlot(key, name, daily = parts.getOrNull(2) != OCCASIONAL)
+        val daily = parts.getOrNull(2) != OCCASIONAL
+        val days = parts.getOrNull(3).orEmpty().split(DAY).filter { it.isNotBlank() }.toSet()
+        if (key.isBlank() || name.isBlank()) null else MealSlot(key, name, daily, if (daily) emptySet() else days)
     }?.takeIf { it.isNotEmpty() }
 
     fun newKey() = "meal_${System.currentTimeMillis()}"

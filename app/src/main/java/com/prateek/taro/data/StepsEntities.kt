@@ -40,6 +40,7 @@ data class CalibrationPoint(
     @ColumnInfo(name = "distance_m") val distanceM: Double,
     val steps: Int,
     val source: String,
+    val pace: String? = null,
 )
 
 @Entity(tableName = "logged_activities", indices = [Index("date")])
@@ -59,7 +60,7 @@ data class WeightLog(
     @ColumnInfo(name = "logged_at") val loggedAt: Long,
 )
 
-@Entity(tableName = "sleep_sessions", indices = [Index(value = ["wake_date"], unique = true)])
+@Entity(tableName = "sleep_sessions", indices = [Index("wake_date")])
 data class SleepSession(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(name = "start_at") val startAt: Long,
@@ -67,6 +68,7 @@ data class SleepSession(
     @ColumnInfo(name = "wake_date") val wakeDate: String,
     val source: String,
     val confirmed: Boolean,
+    @ColumnInfo(defaultValue = "0") val nap: Boolean = false,
 ) {
     val durationMinutes: Long get() = (endAt - startAt) / 60_000L
 }

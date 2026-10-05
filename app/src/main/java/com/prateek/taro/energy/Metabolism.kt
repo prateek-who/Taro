@@ -26,6 +26,11 @@ object Metabolism {
     const val KCAL_PER_KG = 7_700.0
 
     const val DIGESTION_SHARE = 0.10
+    val DIGESTION_RANGE = 0.05..0.15
+    private const val PROTEIN_COST = 0.25
+    private const val CARB_COST = 0.075
+    private const val FAT_COST = 0.02
+    private const val UNKNOWN_COST = 0.06
     const val SLEEP_REDUCTION = 0.05
 
     fun restingKcalPerDay(weightKg: Double, heightCm: Double, age: Int, sex: Sex): Double {
@@ -42,9 +47,20 @@ object Metabolism {
     fun sleepSaving(restingPerDay: Double, sleepMinutes: Long): Double =
         restingPerDay / 1440.0 * sleepMinutes.coerceIn(0, 1440) * SLEEP_REDUCTION
 
-    fun withDigestion(burn: Double) = burn / (1 - DIGESTION_SHARE)
+    fun withDigestion(burn: Double, share: Double = DIGESTION_SHARE) = burn / (1 - share)
 
-    fun dailyNeed(restingPerDay: Double, averageActive: Double) = withDigestion(restingPerDay + averageActive)
+    fun digestion(kcal: Double, protein: Double, carbs: Double?, fat: Double?): Double {
+        if (carbs == null && fat == null && protein <= 0) return kcal * DIGESTION_SHARE
+        val proteinKcal = minOf(protein * 4, kcal)
+        val carbKcal = (carbs ?: 0.0) * 4
+        val fatKcal = (fat ?: 0.0) * 9
+        val rest = (kcal - proteinKcal - carbKcal - fatKcal).coerceAtLeast(0.0)
+        return (PROTEIN_COST * proteinKcal + CARB_COST * carbKcal + FAT_COST * fatKcal + UNKNOWN_COST * rest)
+            .coerceIn(FAT_COST * kcal, PROTEIN_COST * kcal)
+    }
+
+    fun dailyNeed(restingPerDay: Double, averageActive: Double, share: Double = DIGESTION_SHARE) =
+        withDigestion(restingPerDay + averageActive, share)
 
     fun calorieTarget(dailyNeed: Double, goal: DietGoal, adjustment: Int): Double = when (goal) {
         DietGoal.CUT -> dailyNeed - adjustment

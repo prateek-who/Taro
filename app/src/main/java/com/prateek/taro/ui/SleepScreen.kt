@@ -1,5 +1,9 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.TileRow
+import androidx.compose.ui.text.style.TextOverflow
+import com.prateek.taro.ui.components.ToggleGroup
+import com.prateek.taro.ui.components.TimeRow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Offset
@@ -65,9 +69,7 @@ import com.prateek.taro.ui.components.PrimaryButton
 import com.prateek.taro.ui.components.SecondaryButton
 import com.prateek.taro.ui.components.StepsBarChart
 import com.prateek.taro.ui.components.DateRow
-import com.prateek.taro.ui.components.PickerRow
 import com.prateek.taro.ui.components.TaroDialog
-import com.prateek.taro.ui.components.TimePickerDialog
 import com.prateek.taro.ui.components.ToastKind
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.util.AppPreferences
@@ -123,7 +125,7 @@ private fun minuteOfDay(millis: Long): Int = Calendar.getInstance().apply { time
 }
 
 private sealed interface SleepDialog {
-    data class Edit(val wakeDate: LocalDate, val session: SleepSession?) : SleepDialog
+    data class Entry(val date: LocalDate, val session: SleepSession?, val nap: Boolean) : SleepDialog
 }
 
 @Composable
@@ -147,6 +149,7 @@ private fun SleepContent(tracking: TrackingState) {
     val dataVersion = rememberDataVersion()
     val sessions = rememberRefreshed(version, tracking.refreshKey, dataVersion) { SleepRepository.sessions(context, HISTORY_DAYS) }
     val lastNight = sessions.firstOrNull { it.wakeDate == selected.toString() }
+    val naps = rememberRefreshed(version, selected, dataVersion) { SleepRepository.naps(context, selected) }
     val nightLabel = dayLabel(selected, today, stringResource(R.string.sleep_last_night))
     val week = sessions.filter { !LocalDate.parse(it.wakeDate).isBefore(today.minusDays(6)) }.map { it.toNight() }
     val timeFormat = remember { android.text.format.DateFormat.getTimeFormat(context) }
@@ -162,7 +165,9 @@ private fun SleepContent(tracking: TrackingState) {
         AppOverflowMenu(
             center = { DaySwitcher(date = selected, today = today, onChange = ::select, todayLabel = stringResource(R.string.sleep_last_night)) },
             actions = listOf(
-                MenuEntry(R.string.sleep_add, R.string.quick_sleep_hint, R.drawable.ic_sleep, TaroTheme.colors.sleep) { dialog = SleepDialog.Edit(selected, lastNight) },
+                MenuEntry(R.string.sleep_add, R.string.quick_sleep_hint, R.drawable.ic_sleep, TaroTheme.colors.sleep) {
+                    dialog = SleepDialog.Entry(selected, null, nap = lastNight != null)
+                },
             ) + quickLogActions(quickLog, Util.logicalToday()),
         )
         Column(
@@ -244,7 +249,7 @@ private fun SleepContent(tracking: TrackingState) {
             when {
                 lastNight == null -> PrimaryButton(
                     text = stringResource(R.string.sleep_add),
-                    onClick = { dialog = SleepDialog.Edit(selected, null) },
+                    onClick = { dialog = SleepDialog.Entry(selected, null, nap = false) },
                     icon = R.drawable.ic_sleep,
                     modifier = Modifier.padding(top = 12.dp),
                 )
@@ -270,17 +275,63 @@ private fun SleepContent(tracking: TrackingState) {
                         )
                         SecondaryButton(
                             text = stringResource(R.string.sleep_edit),
-                            onClick = { dialog = SleepDialog.Edit(selected, lastNight) },
+                            onClick = { dialog = SleepDialog.Entry(selected, lastNight, nap = false) },
                             modifier = Modifier.weight(1f),
                         )
                     }
                 }
             }
 
+            SectionLabel(
+                text = stringResource(R.string.sleep_log_title),
+                info = infoOf(R.string.sleep_log_title, R.string.info_naps),
+                action = {
+                    ActionChip(
+                        text = stringResource(R.string.sleep_log_add),
+                        color = sleepColor,
+                        onClick = { dialog = SleepDialog.Entry(selected, null, nap = lastNight != null) },
+                        icon = R.drawable.ic_add,
+                    )
+                },
+            )
+            Panel {
+                val entries = listOfNotNull(lastNight) + naps
+                if (entries.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.sleep_log_empty),
+                        fontSize = 13.sp,
+                        color = TaroTheme.colors.accent,
+                        modifier = Modifier.padding(8.dp),
+                    )
+                }
+                entries.forEach { entry ->
+                    SleepRow(
+                        title = stringResource(if (entry.nap) R.string.nap_label else R.string.sleep_night_label),
+                        subtitle = stringResource(R.string.sleep_range, time(entry.startAt), time(entry.endAt)) +
+                            if (entry.confirmed) "" else " · ${stringResource(R.string.sleep_unconfirmed)}",
+                        duration = durationLabel(entry.durationMinutes),
+                        color = sleepColor,
+                        onClick = { dialog = SleepDialog.Entry(selected, entry, entry.nap) },
+                        onDelete = {
+                            SleepRepository.delete(context, entry)
+                            version++
+                            toast.show(context.getString(if (entry.nap) R.string.nap_deleted else R.string.sleep_deleted), ToastKind.INFO)
+                        },
+                    )
+                }
+                if (entries.size > 1) {
+                    Text(
+                        text = stringResource(R.string.nap_total, durationLabel(entries.sumOf { it.durationMinutes })),
+                        fontSize = 12.sp,
+                        color = TaroTheme.colors.accent,
+                        modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 4.dp),
+                    )
+                }
+            }
+
             SleepStatusMessage(week, modifier = Modifier.padding(top = 16.dp))
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            TileRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp),
@@ -336,50 +387,24 @@ private fun SleepContent(tracking: TrackingState) {
                 SectionLabel(stringResource(R.string.sleep_nights), info = infoOf(R.string.info_sleep_nights_title, R.string.info_sleep_nights))
                 Panel {
                     recent.asReversed().forEach { session ->
-                        val wake = LocalDate.parse(session.wakeDate)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 2.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .clickable { dialog = SleepDialog.Edit(wake, session) }
-                                .padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = dateFormat.format(Date(Util.dateStringToCalendarMillis(session.wakeDate))),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                val source = stringResource(
-                                    when (session.source) {
-                                        SleepRepository.SOURCE_GOOGLE -> R.string.sleep_source_google
-                                        SleepRepository.SOURCE_PHONE -> R.string.sleep_source_phone
-                                        else -> R.string.sleep_source_manual
-                                    }
-                                )
-                                val suffix = if (session.confirmed) "" else ", ${stringResource(R.string.sleep_unconfirmed)}"
-                                Text(
-                                    text = "${stringResource(R.string.sleep_range, time(session.startAt), time(session.endAt))} · $source$suffix",
-                                    fontSize = 13.sp,
-                                    color = TaroTheme.colors.accent,
-                                )
+                        val source = stringResource(
+                            when {
+                                !session.confirmed -> R.string.sleep_unconfirmed
+                                session.source == SleepRepository.SOURCE_MANUAL -> R.string.sleep_source_manual
+                                else -> R.string.sleep_source_confirmed
                             }
-                            Text(durationLabel(session.durationMinutes), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = sleepColor)
-                            IconButton(onClick = {
-                                SleepRepository.delete(context, session)
-                                version++
-                                toast.show(context.getString(R.string.sleep_deleted), ToastKind.INFO)
-                            }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_delete),
-                                    contentDescription = stringResource(R.string.sleep_delete, session.wakeDate),
-                                    tint = TaroTheme.colors.accent,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                        }
+                        )
+                        SleepRow(
+                            title = dateFormat.format(Date(Util.dateStringToCalendarMillis(session.wakeDate))),
+                            subtitle = "${stringResource(R.string.sleep_range, time(session.startAt), time(session.endAt))} · $source",
+                            duration = durationLabel(session.durationMinutes),
+                            color = sleepColor,
+                            onClick = {
+                                select(LocalDate.parse(session.wakeDate))
+                                scope.launch { scroll.animateScrollTo(0) }
+                            },
+                            onDelete = null,
+                        )
                     }
                 }
             }
@@ -400,18 +425,23 @@ private fun SleepContent(tracking: TrackingState) {
         }
     }
 
-    (dialog as? SleepDialog.Edit)?.let { edit ->
-        SleepEditDialog(
-            initialWakeDate = edit.wakeDate,
+    (dialog as? SleepDialog.Entry)?.let { edit ->
+        SleepEntryDialog(
+            initialDate = edit.date,
             session = edit.session,
-            onSave = { start, end ->
-                edit.session?.let { old ->
-                    if (SleepDates.wakeDateOf(end).toString() != old.wakeDate) SleepRepository.delete(context, old)
+            initialNap = edit.nap,
+            onSave = { start, end, nap ->
+                if (nap) {
+                    SleepRepository.saveNap(context, start, end, edit.session?.id ?: 0)
+                } else {
+                    edit.session?.let { old ->
+                        if (SleepDates.wakeDateOf(end).toString() != old.wakeDate) SleepRepository.delete(context, old)
+                    }
+                    SleepRepository.saveManual(context, start, end)
                 }
-                SleepRepository.saveManual(context, start, end)
                 dialog = null
                 version++
-                toast.show(context.getString(R.string.sleep_saved), ToastKind.SUCCESS)
+                toast.show(context.getString(if (nap) R.string.nap_saved else R.string.sleep_saved), ToastKind.SUCCESS)
             },
             onDismiss = { dialog = null },
         )
@@ -428,6 +458,103 @@ private const val HISTORY_DAYS = 120L
 private const val LIST_DAYS = 14L
 private const val BAR_START_HOUR = 18
 private const val BAR_HOURS = 20
+private const val MAX_NAP_MINUTES = 5 * 60
+
+@Composable
+private fun SleepRow(title: String, subtitle: String, duration: String, color: Color, onClick: () -> Unit, onDelete: (() -> Unit)?) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(start = 8.dp, end = if (onDelete == null) 8.dp else 0.dp, top = 6.dp, bottom = 6.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, fontSize = 13.sp, color = TaroTheme.colors.accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(duration, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = color, modifier = Modifier.padding(start = 12.dp))
+        if (onDelete != null) {
+            IconButton(onClick = onDelete) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_delete),
+                    contentDescription = stringResource(R.string.sleep_delete, title),
+                    tint = TaroTheme.colors.accent,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SleepEntryDialog(
+    initialDate: LocalDate,
+    session: SleepSession?,
+    initialNap: Boolean,
+    onSave: (start: Long, end: Long, nap: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val now = remember { minuteOfDay(System.currentTimeMillis()) }
+    var nap by remember { mutableStateOf(initialNap) }
+    var date by remember { mutableStateOf(initialDate) }
+    var startMinutes by remember {
+        mutableIntStateOf(session?.let { minuteOfDay(it.startAt) } ?: if (initialNap) (now - 30).coerceAtLeast(0) else 23 * 60)
+    }
+    var endMinutes by remember { mutableIntStateOf(session?.let { minuteOfDay(it.endAt) } ?: if (initialNap) now else 7 * 60) }
+
+    val start: Long
+    val end: Long
+    if (nap) {
+        start = millisAt(date, startMinutes)
+        end = millisAt(date, endMinutes)
+    } else {
+        val span = SleepDates.manualSpan(date, startMinutes, endMinutes)
+        start = span.start
+        end = span.end
+    }
+    val minutes = (end - start) / 60_000L
+    val valid = if (nap) minutes in 5..MAX_NAP_MINUTES else minutes in 60..16 * 60
+
+    TaroDialog(
+        title = stringResource(if (session == null) R.string.sleep_add_title else R.string.sleep_edit_dialog_title),
+        onDismiss = onDismiss,
+        confirmText = stringResource(R.string.action_save),
+        confirmEnabled = valid,
+        onConfirm = { onSave(start, end, nap) },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (session == null) {
+                ToggleGroup(
+                    options = listOf(false to stringResource(R.string.sleep_night_label), true to stringResource(R.string.nap_label)),
+                    selected = nap,
+                    onSelect = { nap = it },
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
+            DateRow(
+                label = stringResource(if (nap) R.string.date_label else R.string.sleep_woke_on),
+                date = date,
+                today = SleepDates.today(),
+                onChange = { date = it },
+            )
+            TimeRow(label = stringResource(R.string.nap_from), minuteOfDay = startMinutes, onChange = { startMinutes = it })
+            TimeRow(label = stringResource(R.string.nap_to), minuteOfDay = endMinutes, onChange = { endMinutes = it })
+            Text(
+                text = if (valid) durationLabel(minutes.coerceAtLeast(0)) else stringResource(if (nap) R.string.nap_invalid else R.string.sleep_invalid),
+                fontSize = if (valid) 20.sp else 13.sp,
+                fontWeight = if (valid) FontWeight.Bold else FontWeight.Normal,
+                color = if (valid) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+            )
+        }
+    }
+}
 
 @Composable
 private fun NightBar(startAt: Long, endAt: Long, wakeDate: LocalDate, color: Color, modifier: Modifier = Modifier) {
@@ -485,74 +612,6 @@ private fun SleepStatusMessage(week: List<Night>, modifier: Modifier = Modifier)
                     .alpha(0.8f),
             )
         }
-    }
-}
-
-private enum class SleepTimeField { BED, WAKE }
-
-@Composable
-private fun SleepEditDialog(
-    initialWakeDate: LocalDate,
-    session: SleepSession?,
-    onSave: (start: Long, end: Long) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val context = LocalContext.current
-    var wakeDate by remember { mutableStateOf(initialWakeDate) }
-    var bedMinutes by remember { mutableIntStateOf(session?.let { minuteOfDay(it.startAt) } ?: (23 * 60)) }
-    var wakeMinutes by remember { mutableIntStateOf(session?.let { minuteOfDay(it.endAt) } ?: (7 * 60)) }
-    var picking by remember { mutableStateOf<SleepTimeField?>(null) }
-    val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
-    val timeFormat = remember { android.text.format.DateFormat.getTimeFormat(context) }
-
-    val span = SleepDates.manualSpan(wakeDate, bedMinutes, wakeMinutes)
-    val end = span.end
-    val start = span.start
-    val hours = (end - start) / 3_600_000.0
-    val valid = hours in 1.0..16.0
-
-    fun label(minutes: Int) = timeFormat.format(Date(millisAt(wakeDate, minutes)))
-
-    TaroDialog(
-        title = stringResource(if (session == null) R.string.sleep_add_title else R.string.sleep_edit_dialog_title),
-        onDismiss = onDismiss,
-        confirmText = stringResource(R.string.action_save),
-        confirmEnabled = valid,
-        onConfirm = { onSave(start, end) },
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            DateRow(
-                label = stringResource(R.string.sleep_woke_on),
-                date = wakeDate,
-                today = SleepDates.today(),
-                onChange = { wakeDate = it },
-            )
-            PickerRow(R.drawable.ic_sleep, stringResource(R.string.sleep_bedtime), label(bedMinutes), onClick = { picking = SleepTimeField.BED })
-            PickerRow(R.drawable.ic_day_start, stringResource(R.string.sleep_wake), label(wakeMinutes), onClick = { picking = SleepTimeField.WAKE })
-            Text(
-                text = durationLabel(((end - start) / 60_000L).coerceAtLeast(0)),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-
-    picking?.let { field ->
-        TimePickerDialog(
-            title = stringResource(if (field == SleepTimeField.BED) R.string.sleep_bedtime else R.string.sleep_wake),
-            initialHour = (if (field == SleepTimeField.BED) bedMinutes else wakeMinutes) / 60,
-            initialMinute = (if (field == SleepTimeField.BED) bedMinutes else wakeMinutes) % 60,
-            is24Hour = is24Hour,
-            onConfirm = { hour, minute ->
-                if (field == SleepTimeField.BED) bedMinutes = hour * 60 + minute else wakeMinutes = hour * 60 + minute
-                picking = null
-            },
-            onDismiss = { picking = null },
-        )
     }
 }
 

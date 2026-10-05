@@ -1,5 +1,12 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.SecondaryButton
+import com.prateek.taro.ui.components.PrimaryButton
+import com.prateek.taro.ui.components.TileRow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
+import com.prateek.taro.energy.UnderLoggedDay
 import com.prateek.taro.ui.components.infoOf
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -77,7 +84,7 @@ fun BodyCard(model: BodyModel?, loaded: Boolean, modifier: Modifier = Modifier) 
             return@Panel
         }
         val factors = model.factors
-        val formulaTotal = Metabolism.withDigestion(model.restingAtTissue + model.recentActive + model.recentWorkouts)
+        val formulaTotal = Metabolism.withDigestion(model.restingAtTissue + model.recentActive + model.recentWorkouts, factors.digestion)
         StatRow(
             label = stringResource(R.string.body_combined),
             value = "${percent(factors.need(model.restingAtTissue, model.recentActive, model.recentWorkouts) / formulaTotal)}  " +
@@ -137,5 +144,40 @@ fun BodyCard(model: BodyModel?, loaded: Boolean, modifier: Modifier = Modifier) 
                 .fillMaxWidth()
                 .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp),
         )
+    }
+}
+
+@Composable
+fun UnderLoggedCard(days: List<UnderLoggedDay>, modifier: Modifier = Modifier) {
+    val checked by AppPreferences.underLogCheckedFlow().collectAsStateWithLifecycle(emptySet())
+    val incomplete by AppPreferences.incompleteFoodDaysFlow().collectAsStateWithLifecycle(emptySet())
+    val day = days.firstOrNull { it.date.toString() !in checked && it.date.toString() !in incomplete } ?: return
+    val format = remember { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
+    Panel(modifier = modifier) {
+        Text(
+            text = stringResource(R.string.underlog_title, format.format(Date(Util.dateStringToCalendarMillis(day.date.toString())))),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 6.dp),
+        )
+        Text(
+            text = stringResource(R.string.underlog_text, Util.formatSteps(day.logged.roundToInt()), Util.formatSteps(day.usual.roundToInt())),
+            fontSize = 13.sp,
+            color = TaroTheme.colors.accent,
+            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 4.dp),
+        )
+        TileRow(modifier = Modifier.padding(8.dp)) {
+            PrimaryButton(
+                text = stringResource(R.string.underlog_mark),
+                onClick = { AppPreferences.setFoodDayIncomplete(day.date.toString(), true) },
+                tint = TaroTheme.colors.special,
+                modifier = Modifier.weight(1f),
+            )
+            SecondaryButton(
+                text = stringResource(R.string.underlog_keep),
+                onClick = { AppPreferences.markUnderLogChecked(day.date.toString()) },
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }

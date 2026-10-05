@@ -1,5 +1,9 @@
 package com.prateek.taro.ui
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import com.prateek.taro.widget.FoodWidget
+import com.prateek.taro.ui.components.TileRow
 import com.prateek.taro.ui.components.ActionChip
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
@@ -229,7 +233,8 @@ private fun EnergyContent(tracking: TrackingState) {
                 val colors = TaroTheme.colors
                 val expectedRest = insights?.hourly?.let { ActivityProfile.expectedRemaining(it, Util.logicalToday(), Util.fractionOfToday(now)) }
                 val projected = Metabolism.withDigestion(
-                    history.restingPerDay + todayBurn.active + todayBurn.logged + factors.activity * (expectedRest ?: 0.0)
+                    history.restingPerDay + todayBurn.active + todayBurn.logged + factors.activity * (expectedRest ?: 0.0),
+                    factors.digestion,
                 )
                 val todayNeed = if (expectedRest != null) projected else maxOf(history.dailyNeed, projected)
                 val needSd = factors.needSd(
@@ -241,12 +246,13 @@ private fun EnergyContent(tracking: TrackingState) {
                 val ringTarget = if (isToday) todayNeed else history.dailyNeed
                 val restingColor = lerp(colors.flame, colors.special, 0.3f).copy(alpha = 0.55f).compositeOver(colors.background)
                 val digestionColor = lerp(colors.flame, colors.special, 0.6f)
+                val withDigestion = if (shown.base > 0) shown.total / shown.base else 1.0
 
                 HeroRing(
                     segments = listOf(
-                        RingSegment(Metabolism.withDigestion(shown.resting), restingColor),
-                        RingSegment(Metabolism.withDigestion(shown.active), colors.flame),
-                        RingSegment(Metabolism.withDigestion(shown.logged), colors.special),
+                        RingSegment(shown.resting * withDigestion, restingColor),
+                        RingSegment(shown.active * withDigestion, colors.flame),
+                        RingSegment(shown.logged * withDigestion, colors.special),
                     ),
                     target = ringTarget,
                     overflow = false,
@@ -299,8 +305,7 @@ private fun EnergyContent(tracking: TrackingState) {
                         }
                     }
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                TileRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 10.dp),
@@ -321,8 +326,18 @@ private fun EnergyContent(tracking: TrackingState) {
                 }
 
 
-                val dayNeed = if (isToday) todayNeed else shown.total
+                DetectedRideCards(quickLog, modifier = Modifier.padding(top = 10.dp))
+
+                val dayNeed = if (isToday) todayNeed else Metabolism.withDigestion(shown.base, factors.digestion)
                 val target = calorieGoal?.let { Metabolism.calorieTarget(dayNeed, it.goal, it.adjustment) } ?: dayNeed
+                if (isToday) {
+                    LaunchedEffect((target / 10).roundToInt()) {
+                        withContext(Dispatchers.IO) {
+                            AppPreferences.saveEatTarget(today, target)
+                            FoodWidget.refresh(context)
+                        }
+                    }
+                }
                 val eaten = foodToday.totals()
                 val left = target - eaten.kcal
                 val proteinTarget = weight.toDouble() * proteinPerKg
@@ -439,6 +454,7 @@ private fun EnergyContent(tracking: TrackingState) {
                 EnergyByHourPanel(date = selectedDate, dayNeed = if (isToday) todayNeed else null, refreshKey = if (isToday) "${tracking.refreshKey}-${tracking.steps}" else tracking.refreshKey)
 
                 SectionLabel(stringResource(R.string.body_title), info = infoOf(R.string.info_body_title, R.string.info_body))
+                UnderLoggedCard(insights?.underLogged.orEmpty(), modifier = Modifier.padding(bottom = 10.dp))
                 BodyCard(insights?.model, loaded = insights != null)
 
                 SectionLabel(stringResource(R.string.weight_title), info = infoOf(R.string.info_weight_title, R.string.info_weight))

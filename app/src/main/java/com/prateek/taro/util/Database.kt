@@ -66,6 +66,8 @@ internal class Database private constructor(private val dao: StepsDao) {
 
     internal fun sleepOn(wakeDate: String): SleepSession? = dao.sleepOn(wakeDate)
 
+    internal fun sleepMinutesOn(wakeDate: String): Long = dao.sleepMinutesOn(wakeDate)
+
     internal fun sleepsSince(from: String): List<SleepSession> = dao.sleepsSince(from)
 
     internal fun deleteSleep(id: Long) = changed { dao.deleteSleep(id) }
@@ -78,6 +80,8 @@ internal class Database private constructor(private val dao: StepsDao) {
     internal fun logFood(log: FoodLog): Long = changed { dao.insertFoodLog(log) }
 
     internal fun updateFood(log: FoodLog) = changed { dao.updateFoodLog(log) }
+
+    internal fun logFoods(logs: List<FoodLog>) = changed { dao.insertFoodLogs(logs) }
 
     internal fun usedMealKeys(): Set<String> = dao.usedMeals().toSet()
 

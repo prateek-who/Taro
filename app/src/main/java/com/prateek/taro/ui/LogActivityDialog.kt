@@ -60,16 +60,21 @@ fun LogActivityDialog(
     onSave: (name: String, minutes: Int?, kcal: Double, date: LocalDate, finishedAt: Long) -> Unit,
     onDismiss: () -> Unit,
     initialDate: LocalDate = Util.logicalToday(),
+    initialType: ActivityType? = null,
+    initialMinutes: Int? = null,
+    initialFinish: Long? = null,
 ) {
     val context = LocalContext.current
     val toast = LocalToast.current
     val saved by AppPreferences.customActivitiesFlow().collectAsStateWithLifecycle(AppPreferences.customActivities)
-    var pick by remember { mutableStateOf<Pick>(saved.lastOrNull()?.let { Pick.Saved(it) } ?: Pick.Builtin(ActivityType.STRENGTH)) }
+    var pick by remember {
+        mutableStateOf<Pick>(initialType?.let { Pick.Builtin(it) } ?: saved.lastOrNull()?.let { Pick.Saved(it) } ?: Pick.Builtin(ActivityType.STRENGTH))
+    }
     var newName by remember { mutableStateOf(TextFieldValue()) }
     var intensity by remember { mutableStateOf(Intensity.MODERATE) }
-    var minutes by remember { mutableStateOf(TextFieldValue()) }
+    var minutes by remember { mutableStateOf(TextFieldValue(initialMinutes?.toString().orEmpty())) }
     var date by remember { mutableStateOf(initialDate) }
-    var finished by remember { mutableIntStateOf(DayClock.minuteOfDay(System.currentTimeMillis())) }
+    var finished by remember { mutableIntStateOf(DayClock.minuteOfDay(initialFinish ?: System.currentTimeMillis())) }
     var kcalInput by remember { mutableStateOf<TextFieldValue?>(null) }
 
     val builtinName = (pick as? Pick.Builtin)?.let { stringResource(it.type.label) }

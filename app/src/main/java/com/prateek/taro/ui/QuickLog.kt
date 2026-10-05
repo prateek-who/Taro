@@ -1,5 +1,20 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.TileRow
+import com.prateek.taro.ui.components.SecondaryButton
+import com.prateek.taro.ui.components.PrimaryButton
+import com.prateek.taro.ui.components.Panel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.Modifier
+import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import com.prateek.taro.energy.ActivityType
+import com.prateek.taro.energy.DetectedSession
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -30,6 +45,7 @@ import java.util.Locale
 class QuickLogState {
     var activity by mutableStateOf(false)
     var weight by mutableStateOf(false)
+    var detected by mutableStateOf<DetectedSession?>(null)
 }
 
 @Composable
@@ -69,6 +85,25 @@ fun QuickLogDialogs(state: QuickLogState, date: LocalDate) {
         )
     }
 
+    state.detected?.let { ride ->
+        LogActivityDialog(
+            weightKg = AppPreferences.weight,
+            onSave = { name, minutes, kcal, day, finishedAt ->
+                Database.getInstance(context).addActivity(
+                    LoggedActivity(date = day.toString(), name = name, kcal = kcal, durationMinutes = minutes, loggedAt = finishedAt)
+                )
+                AppPreferences.dismissDetected(ride.start)
+                state.detected = null
+                toast.show(context.getString(R.string.activity_saved), ToastKind.SUCCESS)
+            },
+            onDismiss = { state.detected = null },
+            initialDate = LocalDate.parse(Util.millisToDateString(ride.end)),
+            initialType = ActivityType.CYCLING,
+            initialMinutes = ride.minutes,
+            initialFinish = ride.end,
+        )
+    }
+
     if (state.activity) {
         LogActivityDialog(
             weightKg = AppPreferences.weight,
@@ -90,3 +125,52 @@ fun QuickLogDialogs(state: QuickLogState, date: LocalDate) {
         )
     }
 }
+
+@Composable
+fun DetectedRideCards(state: QuickLogState, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val sessions by AppPreferences.detectedActivitiesFlow().collectAsStateWithLifecycle(emptyList())
+    val cutoff = System.currentTimeMillis() - SHOW_DAYS_MS
+    val format = remember { android.text.format.DateFormat.getTimeFormat(context) }
+    val dayFormat = remember { java.text.SimpleDateFormat("EEE d MMM", java.util.Locale.getDefault()) }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = modifier) {
+        sessions.filter { it.end >= cutoff }.sortedByDescending { it.start }.forEach { ride ->
+            Panel {
+                Text(
+                    text = stringResource(R.string.ride_title).uppercase(),
+                    fontSize = 12.sp,
+                    letterSpacing = 2.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TaroTheme.colors.special,
+                    modifier = Modifier.padding(start = 8.dp, top = 4.dp),
+                )
+                Text(
+                    text = stringResource(
+                        R.string.ride_text,
+                        ride.minutes,
+                        dayFormat.format(java.util.Date(ride.start)),
+                        format.format(java.util.Date(ride.start)),
+                        format.format(java.util.Date(ride.end)),
+                    ),
+                    fontSize = 15.sp,
+                    modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 4.dp),
+                )
+                TileRow(modifier = Modifier.padding(8.dp)) {
+                    PrimaryButton(
+                        text = stringResource(R.string.ride_log),
+                        onClick = { state.detected = ride },
+                        tint = TaroTheme.colors.special,
+                        modifier = Modifier.weight(1f),
+                    )
+                    SecondaryButton(
+                        text = stringResource(R.string.ride_dismiss),
+                        onClick = { AppPreferences.dismissDetected(ride.start) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private const val SHOW_DAYS_MS = 3 * 24 * 60 * 60 * 1000L

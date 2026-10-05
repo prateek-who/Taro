@@ -30,6 +30,8 @@ object FoodCatalog {
     const val SOURCE_INDIAN = "in"
     const val SOURCE_CUSTOM = "custom"
     const val SOURCE_USDA = "usda"
+    private const val MAX_BOOST = 10
+    private const val BOOST_PER_LOG = 4
 
     @Volatile
     private var cache: List<FoodItem>? = null
@@ -80,7 +82,7 @@ object FoodCatalog {
 
     fun words(text: String) = text.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotEmpty() }
 
-    fun search(items: List<FoodItem>, query: String, limit: Int = 40): List<FoodItem> {
+    fun search(items: List<FoodItem>, query: String, limit: Int = 40, boost: Map<String, Int> = emptyMap()): List<FoodItem> {
         val tokens = words(query)
         if (tokens.isEmpty()) return emptyList()
         return items.mapNotNull { item ->
@@ -101,6 +103,7 @@ object FoodCatalog {
                 else -> 0
             }
             score -= nameWords.size
+            score += minOf(boost[item.key] ?: 0, MAX_BOOST) * BOOST_PER_LOG
             item to score
         }.sortedByDescending { it.second }.take(limit).map { it.first }
     }

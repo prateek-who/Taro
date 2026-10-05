@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.TileRow
 import com.prateek.taro.ui.components.PrimaryButton
 import com.prateek.taro.ui.components.DateRow
 import com.prateek.taro.util.AppPreferences
@@ -324,7 +325,7 @@ private fun AchievementsContent(onBack: () -> Unit) {
 
             val records = remember(current) { records(current.inputs) }
             SectionLabel(stringResource(R.string.badges_records))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            TileRow(modifier = Modifier.fillMaxWidth()) {
                 StatTile(
                     label = stringResource(R.string.badges_best_day),
                     value = records.bestDay?.let { Util.formatSteps(it.steps) } ?: "-",
@@ -337,8 +338,7 @@ private fun AchievementsContent(onBack: () -> Unit) {
                     modifier = Modifier.weight(1f),
                 )
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            TileRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 10.dp, bottom = 24.dp),

@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.TileRow
 import androidx.compose.material3.MaterialTheme
 import com.prateek.taro.ui.components.TintChip
 import com.prateek.taro.ui.components.StatTile
@@ -208,8 +209,7 @@ private fun WeightContent(onBack: () -> Unit) {
                         modifier = Modifier.padding(start = 4.dp, top = 4.dp),
                     )
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                TileRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 10.dp),

@@ -11,7 +11,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.prateek.taro.util.Database as LegacyDatabase
 
-@Database(entities = [DailySteps::class, MinuteSteps::class, CalibrationPoint::class, LoggedActivity::class, WeightLog::class, SleepSession::class, ScreenEvent::class, FoodLog::class, CustomFood::class], version = 10, exportSchema = true)
+@Database(entities = [DailySteps::class, MinuteSteps::class, CalibrationPoint::class, LoggedActivity::class, WeightLog::class, SleepSession::class, ScreenEvent::class, FoodLog::class, CustomFood::class], version = 12, exportSchema = true)
 abstract class StepsDatabase : RoomDatabase() {
 
     abstract fun steps(): StepsDao
@@ -29,7 +29,7 @@ abstract class StepsDatabase : RoomDatabase() {
 
         internal fun build(context: Context, name: String): StepsDatabase =
             Room.databaseBuilder(context.applicationContext, StepsDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                 .allowMainThreadQueries()
                 .build()
 
@@ -169,6 +169,20 @@ abstract class StepsDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE custom_foods ADD COLUMN unit TEXT")
                 db.execSQL("ALTER TABLE food_logs ADD COLUMN unit TEXT")
+            }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP INDEX IF EXISTS index_sleep_sessions_wake_date")
+                db.execSQL("ALTER TABLE sleep_sessions ADD COLUMN nap INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_sleep_sessions_wake_date ON sleep_sessions (wake_date)")
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE calibration_points ADD COLUMN pace TEXT")
             }
         }
     }
