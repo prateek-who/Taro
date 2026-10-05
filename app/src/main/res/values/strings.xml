@@ -464,8 +464,8 @@
     <string name="meal_drag">Drag to reorder</string>
     <string name="meal_delete_named">Delete %1$s</string>
     <string name="meal_name">Meal name</string>
-    <string name="meal_delete_hint">Tap a name to rename a meal or switch it between every day and only this day. Deleting a meal with food in it turns it grey: it leaves the daily list but stays on the days you logged to it, and you can still pick it when you log food.</string>
-    <string name="meal_show_daily">Show daily</string>
+    <string name="meal_delete_hint">A grey meal is not on this day. Tap This day to use it here once, or Every day to bring it back for good. Deleting a meal with food in it only turns it grey, so the days you logged to it keep it.</string>
+    <string name="meal_show_today">This day</string>
     <string name="meal_order_hint">Dragging changes the order for this day only. On today it also sets the order for the days ahead.</string>
     <string name="food_meal_total">%1$s kcal · %2$s g protein</string>
     <string name="food_add_to">Add food to %1$s</string>

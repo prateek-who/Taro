@@ -405,20 +405,30 @@ private fun ManageMealsDialog(meals: List<MealSlot>, date: LocalDate, onSave: (L
                                     .clickable { naming = meal }
                                     .padding(vertical = 10.dp, horizontal = 4.dp),
                             )
-                            if (!meal.daily) {
+                            fun change(updated: MealSlot) {
+                                list = list.map { if (it.key == meal.key) updated else it }
+                            }
+                            if (!meal.plannedOn(date)) {
                                 ActionChip(
-                                    text = stringResource(R.string.meal_show_daily),
+                                    text = stringResource(R.string.meal_show_today),
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    onClick = { list = list.map { if (it.key == meal.key) it.copy(daily = true, days = emptySet()) else it } },
-                                    icon = R.drawable.ic_add,
+                                    onClick = { change(meal.copy(days = meal.days + day)) },
+                                    modifier = Modifier.padding(end = 6.dp),
                                 )
                             }
-                            if (if (meal.daily) list.count { it.daily } > 1 else meal.key !in used) {
+                            if (!meal.daily) {
+                                ActionChip(
+                                    text = stringResource(R.string.meal_every_day),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    onClick = { change(meal.copy(daily = true, days = emptySet())) },
+                                )
+                            }
+                            if (if (meal.daily) list.count { it.daily } > 1 else day in meal.days) {
                                 IconButton(onClick = {
-                                    list = if (meal.key in used) {
-                                        list.map { if (it.key == meal.key) it.copy(daily = false) else it }
+                                    if (meal.key in used) {
+                                        change(if (meal.daily) meal.copy(daily = false) else meal.copy(days = meal.days - day))
                                     } else {
-                                        list.filterNot { it.key == meal.key }
+                                        list = list.filterNot { it.key == meal.key }
                                     }
                                 }) {
                                     Icon(
