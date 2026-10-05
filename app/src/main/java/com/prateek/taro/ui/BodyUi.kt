@@ -84,7 +84,7 @@ fun BodyCard(model: BodyModel?, loaded: Boolean, modifier: Modifier = Modifier) 
             return@Panel
         }
         val factors = model.factors
-        val formulaTotal = Metabolism.withDigestion(model.restingAtTissue + model.recentActive + model.recentWorkouts)
+        val formulaTotal = Metabolism.withDigestion(model.restingAtTissue + model.recentActive + model.recentWorkouts, factors.digestion)
         StatRow(
             label = stringResource(R.string.body_combined),
             value = "${percent(factors.need(model.restingAtTissue, model.recentActive, model.recentWorkouts) / formulaTotal)}  " +

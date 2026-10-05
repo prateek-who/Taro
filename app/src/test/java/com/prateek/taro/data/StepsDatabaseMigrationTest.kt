@@ -66,6 +66,9 @@ class StepsDatabaseMigrationTest {
         val food = dao.foodLogsOn("2026-09-30")
         val recipeId = dao.saveCustomFood(CustomFood(name = "Dal", kcal = 110.0, protein = 6.0, carbs = null, fat = null, servingLabel = null, servingGrams = null, createdAt = 1L, ingredients = "x", cookedGrams = 900.0, servings = 4, unit = "ml"))
         val recipe = dao.customFood(recipeId)
+        dao.insertCalibration(listOf(CalibrationPoint(recordedAt = 1L, cadence = 100.0, stepLengthM = 0.7, distanceM = 70.0, steps = 100, source = "gps", pace = "slow")))
+        dao.clearCalibration("usual", "gps")
+        val calibration = dao.allCalibration()
         db.close()
 
         assertEquals(1, sleeps.size)
@@ -76,5 +79,6 @@ class StepsDatabaseMigrationTest {
         assertEquals(238.0, food.single().kcal, 0.0)
         assertEquals(4, recipe?.servings)
         assertEquals("ml", recipe?.unit)
+        assertEquals("slow", calibration.single().pace)
     }
 }

@@ -40,6 +40,7 @@ data class CalibrationPoint(
     @ColumnInfo(name = "distance_m") val distanceM: Double,
     val steps: Int,
     val source: String,
+    val pace: String? = null,
 )
 
 @Entity(tableName = "logged_activities", indices = [Index("date")])

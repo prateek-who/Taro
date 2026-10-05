@@ -202,6 +202,9 @@ interface StepsDao {
     @Query("DELETE FROM calibration_points")
     fun clearCalibration()
 
+    @Query("DELETE FROM calibration_points WHERE pace = :pace AND source = :source")
+    fun clearCalibration(pace: String, source: String)
+
     @Insert
     fun insertActivity(activity: LoggedActivity): Long
 

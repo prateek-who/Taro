@@ -12,6 +12,7 @@ object DayTimelines {
     private const val HOUR = 3_600_000L
     private const val MINUTE = 60_000L
     private const val DEFAULT_ACTIVITY_MINUTES = 30
+    private const val DIGESTION_HOURS = 4
 
     private fun overlap(a: Long, b: Long, c: Long, d: Long) = (minOf(b, d) - maxOf(a, c)).coerceAtLeast(0)
 
@@ -27,8 +28,17 @@ object DayTimelines {
         sleep: List<TimedSpan>,
         activityFactor: Double = 1.0,
         workoutFactor: Double = 1.0,
+        digestion: List<TimedAmount>? = null,
+        digestionShare: Double = Metabolism.DIGESTION_SHARE,
     ): DayTimeline {
         val count = ((end - start + HOUR - 1) / HOUR).toInt()
+        val lastOpen = ((minOf(now, end - 1) - start) / HOUR).toInt().coerceIn(0, count - 1)
+        val digested = DoubleArray(count)
+        digestion?.forEach { meal ->
+            val first = ((meal.at.coerceIn(start, end - 1) - start) / HOUR).toInt()
+            val last = maxOf(first, minOf(first + DIGESTION_HOURS - 1, lastOpen))
+            for (hour in first..last) digested[hour] += meal.amount / (last - first + 1)
+        }
         val restingPerMs = (restingPerDay ?: 0.0) / (end - start)
         val hours = (0 until count).map { index ->
             val from = start + index * HOUR
@@ -46,7 +56,11 @@ object DayTimelines {
             HourSlot(
                 start = from,
                 steps = inHour.sumOf { it.second.steps },
-                burn = if (restingPerDay == null) 0.0 else Metabolism.withDigestion(resting + active + logged),
+                burn = when {
+                    restingPerDay == null -> 0.0
+                    digestion == null -> Metabolism.withDigestion(resting + active + logged, digestionShare)
+                    else -> resting + active + logged + digested[index]
+                },
                 eaten = food.filter { it.at in from until to }.sumOf { it.amount },
                 sleepMinutes = (asleep / MINUTE).toInt(),
             )

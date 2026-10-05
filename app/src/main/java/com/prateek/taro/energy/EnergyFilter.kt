@@ -11,6 +11,7 @@ data class FilterDay(
     val active: Double?,
     val logged: Double,
     val weight: Double?,
+    val digestion: Double? = null,
 )
 
 data class EnergyFactors(
@@ -21,19 +22,20 @@ data class EnergyFactors(
     val activitySd: Double,
     val workoutSd: Double,
     val covariance: Double,
+    val digestion: Double = Metabolism.DIGESTION_SHARE,
 ) {
     fun need(restingKcal: Double, activeKcal: Double, workoutKcal: Double = 0.0): Double =
-        Metabolism.withDigestion(resting * restingKcal + activity * activeKcal + workout * workoutKcal)
+        Metabolism.withDigestion(resting * restingKcal + activity * activeKcal + workout * workoutKcal, digestion)
 
     fun needSd(restingKcal: Double, activeKcal: Double, workoutKcal: Double = 0.0): Double {
         val variance = restingKcal * restingKcal * restingSd * restingSd +
             activeKcal * activeKcal * activitySd * activitySd +
             workoutKcal * workoutKcal * workoutSd * workoutSd +
             2 * restingKcal * activeKcal * covariance
-        return Metabolism.withDigestion(sqrt(variance.coerceAtLeast(0.0)))
+        return Metabolism.withDigestion(sqrt(variance.coerceAtLeast(0.0)), digestion)
     }
 
-    fun encode(): String = listOf(resting, activity, workout, restingSd, activitySd, workoutSd, covariance).joinToString(",")
+    fun encode(): String = listOf(resting, activity, workout, restingSd, activitySd, workoutSd, covariance, digestion).joinToString(",")
 
     companion object {
         val NEUTRAL = EnergyFactors(
@@ -43,7 +45,8 @@ data class EnergyFactors(
 
         fun decode(text: String?): EnergyFactors {
             val parts = text.orEmpty().split(',').mapNotNull { it.toDoubleOrNull() }
-            return if (parts.size == 7) EnergyFactors(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6]) else NEUTRAL
+            if (parts.size < 7) return NEUTRAL
+            return EnergyFactors(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], parts.getOrNull(7) ?: Metabolism.DIGESTION_SHARE)
         }
     }
 }
@@ -65,7 +68,7 @@ data class BodyModel(
     val learning: Boolean get() = loggedDays < EnergyFilter.SETTLED_DAYS || weighIns < EnergyFilter.SETTLED_WEIGH_INS
 
     fun dailyChangeKg(): Double? = recentIntake?.let {
-        ((1 - Metabolism.DIGESTION_SHARE) * it - factors.resting * restingAtTissue - factors.activity * recentActive - factors.workout * recentWorkouts) /
+        ((1 - factors.digestion) * it - factors.resting * restingAtTissue - factors.activity * recentActive - factors.workout * recentWorkouts) /
             Metabolism.KCAL_PER_KG
     }
 
@@ -126,6 +129,7 @@ object EnergyFilter {
         var loggedDays = 0
         var weighIns = 0
         val loggedIntakes = mutableListOf<Double>()
+        val shares = mutableListOf<Double>()
         val states = mutableListOf<BodyState>()
 
         history.forEachIndexed { index, day ->
@@ -139,13 +143,16 @@ object EnergyFilter {
             val resting = restingAt(x[T]) * sleepShare
             val restingSlope = (restingAt(x[T] + 1) - restingAt(x[T])) * sleepShare
             val logged = isLogged(day.intake, resting)
-            val intake = if (logged) day.intake!! else assumedIntake(loggedIntakes, x, resting, usualActive)
+            val usualShare = if (shares.isEmpty()) Metabolism.DIGESTION_SHARE else shares.takeLast(RECENT_DAYS).average()
+            val intake = if (logged) day.intake!! else assumedIntake(loggedIntakes, x, resting, usualActive, usualShare)
+            val share = if (logged && day.digestion != null && intake > 0) day.digestion / intake else usualShare
             val intakeSd = intake * if (logged) LOGGED_INTAKE_ERROR else UNKNOWN_INTAKE_ERROR
             val active = day.active ?: usualActive
             val activeSd = active * if (day.active != null) ACTIVE_ERROR else UNKNOWN_ACTIVE_ERROR
             if (logged) {
                 loggedDays++
                 loggedIntakes += intake
+                shares += share
             }
 
             val carbInput = if (logged && day.carbs != null) {
@@ -154,7 +161,7 @@ object EnergyFilter {
                 WATER_PER_CARB * (day.carbs - average) / 1000
             } else 0.0
 
-            predict(x, p, intake, intakeSd, resting, restingSlope, active, activeSd, day.logged, carbInput)
+            predict(x, p, intake, intakeSd, 1 - share, resting, restingSlope, active, activeSd, day.logged, carbInput)
         }
 
         val recent = history.takeLast(RECENT_DAYS)
@@ -169,6 +176,8 @@ object EnergyFilter {
                 activitySd = sqrt(p[A * N + A]),
                 workoutSd = sqrt(p[O * N + O]),
                 covariance = p[R * N + A],
+                digestion = (if (shares.size < 3) Metabolism.DIGESTION_SHARE else shares.takeLast(RECENT_DAYS).average())
+                    .coerceIn(Metabolism.DIGESTION_RANGE),
             ),
             states = states,
             loggedDays = loggedDays,
@@ -181,15 +190,16 @@ object EnergyFilter {
         )
     }
 
-    private fun assumedIntake(logged: List<Double>, x: DoubleArray, resting: Double, usualActive: Double): Double =
+    private fun assumedIntake(logged: List<Double>, x: DoubleArray, resting: Double, usualActive: Double, share: Double): Double =
         if (logged.size >= 3) logged.takeLast(RECENT_DAYS).average()
-        else Metabolism.withDigestion(x[R] * resting + x[A] * usualActive)
+        else Metabolism.withDigestion(x[R] * resting + x[A] * usualActive, share)
 
     private fun predict(
         x: DoubleArray,
         p: DoubleArray,
         intake: Double,
         intakeSd: Double,
+        keep: Double,
         resting: Double,
         restingSlope: Double,
         active: Double,
@@ -198,7 +208,6 @@ object EnergyFilter {
         carbInput: Double,
     ) {
         val k = Metabolism.KCAL_PER_KG
-        val keep = 1 - Metabolism.DIGESTION_SHARE
         val f = DoubleArray(N * N)
         for (i in 0 until N) f[i * N + i] = 1.0
         f[T * N + T] = 1 - x[R] * restingSlope / k

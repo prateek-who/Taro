@@ -34,6 +34,8 @@ class EnergyTest {
         assertEquals(2_000.0, Metabolism.dailyNeed(1_500.0, 300.0), 1e-9)
         assertEquals(1_800.0, Metabolism.calorieTarget(2_300.0, DietGoal.CUT, 500), 1e-9)
         assertEquals(2_600.0, Metabolism.calorieTarget(2_300.0, DietGoal.BULK, 300), 1e-9)
+        assertEquals(169.0, Metabolism.digestion(1_650.0, 100.0, 200.0, 50.0), 1e-9)
+        assertEquals(50.0, Metabolism.digestion(500.0, 0.0, null, null), 1e-9)
 
         val week = Period(ReportKind.WEEK, LocalDate.of(2026, 9, 28))
         val days = (0 until 7).map { DayInput(week.start.plusDays(it.toLong()), 6_000, 4_000.0, 150.0, 2_300.0, 2_000.0, 100.0, true, 5_000, true) }
