@@ -47,7 +47,6 @@
     <string name="notification_description_paused">计步暂停时将提醒</string>
     <string name="notification_description_steps_day">今日步数</string>
     <string name="notification_step_counting_paused">计步已暂停</string>
-    <string name="notification_step_goal_completed">步数目标已达成！</string>
     <string name="step_counting_paused">暂停计步</string>
     <string name="step_counting_resumed">恢复计步</string>
     <string name="action_pause">暂停</string>
@@ -131,18 +130,14 @@
     <!-- Records -->
     <string name="personal_records">个人记录</string>
     <string name="most_steps_day">单日最高步数</string>
-    <string name="most_walked_month">最活跃的月份</string>
     <string name="streak_record">最长连续%1$s+步记录</string>
     <string name="top_3_days">前 3 天</string>
-    <string name="best_week">最佳周</string>
     <string name="avg_steps_per_day">日均步数</string>
     <string name="since_date">自 %1$s 起</string>
 
     <!-- Daily Goal Notifications -->
     <string name="daily_goal_notifications">每日步数提醒</string>
     <string name="daily_goal_notification_channel_desc">获取每日步数目标的进度更新</string>
-    <string name="goal_achieved_title">🎉 达成目标！</string>
-    <string name="goal_achieved_message">你已达成 %1$s 目标！</string>
 
     <!-- Step Count Details -->
     <string name="steps_count_with_distance">%1$d • %2$s</string>
@@ -158,17 +153,8 @@
     <string name="steps_updated">步数已更新</string>
 
     <!-- Encouraging notification strings -->
-    <string name="encouraging_notification_title">继续加油！</string>
-    <string name="encouraging_notification_15_percent">不错的开始！你已完成 %1$d%% 的目标。还有 %2$d 步就达标！</string>
-    <string name="encouraging_notification_75_percent">快完成啦！已完成 %1$d%%。只差 %2$d 步！</string>
 
-    <string name="encouraging_notification_15_percent_alt1">进展不错！你已完成 %1$d%%。继续走下去！</string>
-    <string name="encouraging_notification_15_percent_alt2">你走在正确的路上！%1$d%% 已完成，还有 %2$d 步！</string>
-    <string name="encouraging_notification_15_percent_alt3">做得好！目标已达成 %1$d%%。保持活力！</string>
 
-    <string name="encouraging_notification_75_percent_alt1">快到了！%1$d%% 完成。剩下 %2$d 步！</string>
-    <string name="encouraging_notification_75_percent_alt2">最后冲刺！%1$d%% 完成了。你可以的 — 只差 %2$d 步！</string>
-    <string name="encouraging_notification_75_percent_alt3">终点在望！%1$d%% 已完成。%2$d 步就胜利了！</string>
 
     <!-- Pause step counting -->
     <string name="resume_at_time">在指定时间恢复</string>

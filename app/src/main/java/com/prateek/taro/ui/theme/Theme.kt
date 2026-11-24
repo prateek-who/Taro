@@ -10,6 +10,8 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.prateek.taro.R
 
 @Immutable
@@ -22,6 +24,9 @@ data class TaroColors(
     val goal: Color,
     val flame: Color,
     val sleep: Color,
+    val mint: Color,
+    val red: Color,
+    val purple: Color,
 )
 
 val LocalTaroColors = staticCompositionLocalOf {
@@ -34,12 +39,25 @@ val LocalTaroColors = staticCompositionLocalOf {
         goal = Color.Unspecified,
         flame = Color.Unspecified,
         sleep = Color.Unspecified,
+        mint = Color.Unspecified,
+        red = Color.Unspecified,
+        purple = Color.Unspecified,
     )
 }
+
+@Immutable
+data class TaroSpacing(
+    val hair: Dp = 2.dp,
+    val tight: Dp = 6.dp,
+    val gap: Dp = 10.dp,
+    val loose: Dp = 16.dp,
+)
 
 object TaroTheme {
     val colors: TaroColors
         @Composable get() = LocalTaroColors.current
+    val text: TaroTextStyles get() = TaroText
+    val spacing: TaroSpacing = TaroSpacing()
 }
 
 @Composable
@@ -60,6 +78,9 @@ fun TaroTheme(content: @Composable () -> Unit) {
         goal = colorResource(R.color.colorGoal),
         flame = colorResource(R.color.colorFlame),
         sleep = colorResource(R.color.colorSleep),
+        mint = colorResource(R.color.colorMint),
+        red = colorResource(R.color.colorRed),
+        purple = colorResource(R.color.colorPurple),
     )
 
     val base = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()

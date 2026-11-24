@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -39,7 +41,10 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.prateek.taro.ui.theme.TaroMotion
@@ -47,6 +52,7 @@ import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.ui.theme.rememberAnimationsEnabled
 import kotlin.math.cos
 import kotlin.math.floor
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 data class RingSegment(val value: Double, val color: Color)
@@ -61,8 +67,12 @@ fun HeroRing(
     diameter: Dp = 264.dp,
     strokeWidth: Dp = 18.dp,
     overflow: Boolean = true,
+    strokeShare: Float? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val fills = !diameter.isSpecified
+    val share = strokeShare ?: DEFAULT_STROKE_SHARE
+    val bleed = if (fills) 1f / (1f - GLOW_INSET * share) else 1f
     val total = segments.sumOf { it.value }
     val lap = when {
         target <= 0 -> maxOf(total, 1.0)
@@ -94,11 +104,11 @@ fun HeroRing(
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .size(diameter)
+            .then(if (fills) Modifier.fillMaxWidth().aspectRatio(1f) else Modifier.size(diameter))
             .semantics { contentDescription = "${(progress * 100).toInt()}%" },
     ) {
-        Canvas(modifier = Modifier.size(diameter)) {
-            val stroke = strokeWidth.toPx()
+        Canvas(modifier = if (fills) Modifier.bleed(bleed) else Modifier.size(diameter)) {
+            val stroke = if (fills || strokeShare != null) share * size.minDimension else strokeWidth.toPx()
             val radius = size.minDimension / 2 - stroke * 1.4f
             drawArcAt(SolidColor(track), 0f, 360f, radius, stroke, StrokeCap.Butt)
 
@@ -172,8 +182,23 @@ fun HeroRing(
                 }
             }
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, content = content)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = if (fills) Modifier.fillMaxWidth(HOLE_TEXT_SHARE * bleed * (1f - (GLOW_INSET + 2f) * share)) else Modifier,
+            content = content,
+        )
     }
+}
+
+private fun Modifier.bleed(scale: Float) = layout { measurable, constraints ->
+    val side = when {
+        constraints.hasBoundedWidth -> constraints.maxWidth
+        constraints.hasBoundedHeight -> constraints.maxHeight
+        else -> 0
+    }
+    val grown = (side * scale).roundToInt()
+    val placeable = measurable.measure(Constraints.fixed(grown, grown))
+    layout(side, side) { placeable.place((side - grown) / 2, (side - grown) / 2) }
 }
 
 private fun DrawScope.drawGlow(color: Color, sweep: Float, radius: Float, stroke: Float) {
@@ -191,6 +216,9 @@ private fun DrawScope.drawGlow(color: Color, sweep: Float, radius: Float, stroke
 }
 
 private const val MAX_LAPS = 10
+private const val GLOW_INSET = 1.8f
+private const val DEFAULT_STROKE_SHARE = 0.08f
+private const val HOLE_TEXT_SHARE = 0.86f
 private const val GRADIENT_RAMP = 0.5f
 private const val SHADOW_RAMP = 0.12f
 private const val SOLID_BELOW_CAPS = 4f

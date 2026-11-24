@@ -2,6 +2,7 @@ package com.prateek.taro.sleep
 
 import android.content.Context
 import com.prateek.taro.data.SleepSession
+import com.prateek.taro.util.AppPreferences
 import com.prateek.taro.util.Database
 import java.time.LocalDate
 import java.util.Calendar
@@ -14,6 +15,8 @@ object SleepRepository {
     private const val WINDOW_START_HOUR = 18
     private const val WINDOW_END_HOUR = 15
     private const val EARLIEST_ESTIMATE_HOUR = 5
+    private const val MIN_NAP_MS = 15 * 60_000L
+    private const val DAYTIME_LOOKBACK_DAYS = 120L
 
     fun sessions(context: Context, days: Long): List<SleepSession> =
         Database.getInstance(context).sleepsSince(SleepDates.today().minusDays(days).toString()).filterNot { it.nap }
@@ -28,6 +31,7 @@ object SleepRepository {
     }
 
     fun saveDetected(context: Context, start: Long, end: Long, source: String): Boolean {
+        if (SleepDates.isDaytime(start)) return saveDetectedNap(context, start, end, source)
         if (!SleepEstimator.isPlausibleNight(start, end)) return false
         val database = Database.getInstance(context)
         val wakeDate = SleepDates.wakeDateOf(end).toString()
@@ -36,6 +40,23 @@ object SleepRepository {
         if (existing?.source == SOURCE_GOOGLE && source == SOURCE_PHONE) return false
         database.saveSleep(SleepSession(startAt = start, endAt = end, wakeDate = wakeDate, source = source, confirmed = false))
         return true
+    }
+
+    private fun saveDetectedNap(context: Context, start: Long, end: Long, source: String): Boolean {
+        if (end - start !in MIN_NAP_MS..SleepEstimator.MAX_SLEEP_MS) return false
+        val database = Database.getInstance(context)
+        val wakeDate = SleepDates.wakeDateOf(end).toString()
+        val overlaps = database.sleepsSince(wakeDate).any { it.wakeDate == wakeDate && it.startAt < end && it.endAt > start }
+        if (overlaps) return false
+        database.saveSleep(SleepSession(startAt = start, endAt = end, wakeDate = wakeDate, source = source, confirmed = false, nap = true))
+        return true
+    }
+
+    fun fileDaytimeAsNaps(context: Context) {
+        val database = Database.getInstance(context)
+        sessions(context, DAYTIME_LOOKBACK_DAYS)
+            .filter { !it.confirmed && it.source != SOURCE_MANUAL && SleepDates.isDaytime(it.startAt) }
+            .forEach { database.saveSleep(it.copy(nap = true)) }
     }
 
     fun saveManual(context: Context, start: Long, end: Long) {
@@ -75,7 +96,11 @@ object SleepRepository {
         val steps = database.getMinutes(today.minusDays(1).toString(), today.toString())
             .associate { it.minuteStart to it.steps }
 
-        val sleep = SleepEstimator.estimate(windowStart, windowEnd, screen, steps)
+        val usual = AppPreferences.usualSleep?.let {
+            val span = SleepDates.manualSpan(today, it.bedMinute, it.wakeMinute)
+            SleepWindow(span.start, span.end)
+        }
+        val sleep = SleepEstimator.estimate(windowStart, windowEnd, screen, steps, usual)
         if (sleep == null) {
             SleepDiagnostics.estimate("no quiet block of 3 h or more (${screen.size} screen events)")
             return

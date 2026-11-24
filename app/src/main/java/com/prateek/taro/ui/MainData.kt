@@ -1,14 +1,23 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.report.ReportData
+import java.time.temporal.WeekFields
+import com.prateek.taro.util.DayScore
+import com.prateek.taro.energy.MinuteSample
+import com.prateek.taro.util.StepPaces
+import com.prateek.taro.util.StepPace
+import com.prateek.taro.util.Walks
+import com.prateek.taro.util.Walk
 import com.prateek.taro.util.GoalHistory
 import android.content.Context
 import androidx.annotation.StringRes
-import androidx.core.content.edit
 import com.prateek.taro.R
 import com.prateek.taro.energy.ActivityEnergy
 import com.prateek.taro.util.AppPreferences
 import com.prateek.taro.util.Database
-import com.prateek.taro.util.StreakCalculator
+import com.prateek.taro.util.Forgive
+import com.prateek.taro.util.Streak
+import com.prateek.taro.util.Streaks
 import com.prateek.taro.util.Util
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -38,6 +47,9 @@ data class Summary(
     val calories: String,
     val averageSteps: Int?,
     val goalTotal: Int = 0,
+    val distanceValue: String = "",
+    val distanceUnit: String = "",
+    val caloriesValue: String = "",
 )
 
 data class ChartData(
@@ -48,45 +60,6 @@ data class ChartData(
     val dates: List<LocalDate>,
 )
 
-data class GoalLine(val text: String, val streak: Boolean)
-
-private const val RANGE_PREFS = "RangePrefs"
-private const val KEY_SELECTED_RANGE = "selected_range"
-private const val KEY_SELECTED_YEAR = "selected_year"
-private const val KEY_IS_YEAR_SELECTED = "is_year_selected"
-private const val KEY_PAST_7_DAYS = "is_chart_past_7_days"
-
-private fun Context.rangePrefs() = getSharedPreferences(RANGE_PREFS, Context.MODE_PRIVATE)
-
-fun loadSelection(context: Context): Selection {
-    val prefs = context.rangePrefs()
-    val year = prefs.getInt(KEY_SELECTED_YEAR, -1)
-    if (prefs.getBoolean(KEY_IS_YEAR_SELECTED, false) && year != -1) return Selection.Year(year)
-    val key = prefs.getString(KEY_SELECTED_RANGE, null)
-    return Selection.Range(StepRange.entries.firstOrNull { it.key == key } ?: StepRange.TODAY)
-}
-
-fun saveSelection(context: Context, selection: Selection) = context.rangePrefs().edit {
-    when (selection) {
-        is Selection.Range -> putString(KEY_SELECTED_RANGE, selection.range.key)
-        is Selection.Year -> putInt(KEY_SELECTED_YEAR, selection.year)
-    }
-    putBoolean(KEY_IS_YEAR_SELECTED, selection is Selection.Year)
-}
-
-fun loadPast7DaysMode(context: Context) = context.rangePrefs().getBoolean(KEY_PAST_7_DAYS, true)
-
-fun savePast7DaysMode(context: Context, enabled: Boolean) = context.rangePrefs().edit {
-    putBoolean(KEY_PAST_7_DAYS, enabled)
-}
-
-fun yearsWithData(context: Context): List<Int> {
-    val db = Database.getInstance(context)
-    val firstYear = db.firstEntry?.take(4)?.toIntOrNull() ?: return emptyList()
-    return (firstYear..Util.logicalToday().year).filter { year ->
-        db.getSumSteps("%04d-01-01".format(year), "%04d-12-31".format(year)) > 0
-    }
-}
 
 fun firstEntryDate(context: Context): LocalDate =
     Database.getInstance(context).firstEntry?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()
@@ -96,8 +69,11 @@ private fun dateFormat() = SimpleDateFormat(AppPreferences.dateFormatString, Loc
 private fun distance(context: Context, meters: Double) =
     context.getString(R.string.distance_today, Util.metersToDistance(meters), Util.distanceUnit())
 
-private fun kcal(context: Context, kcal: Double) =
-    context.getString(R.string.kcal_short, Util.formatSteps((kcal * AppPreferences.energyFactors.activity).roundToInt()))
+private fun distanceValue(meters: Double) = "%.2f".format(Locale.getDefault(), Util.metersToDistance(meters))
+
+private fun kcalValue(kcal: Double) = Util.formatSteps((kcal * AppPreferences.energyFactors.activity).roundToInt())
+
+private fun kcal(context: Context, kcal: Double) = context.getString(R.string.kcal_short, kcalValue(kcal))
 
 private fun rangeDates(range: StepRange, db: Database): Pair<String, String> {
     val calendar = Util.todayCalendar()
@@ -136,7 +112,10 @@ fun summary(context: Context, selection: Selection, todaySteps: Int): Summary {
             header = context.getString(R.string.header_today),
             steps = todaySteps,
             distance = distance(context, today.distanceM),
+            distanceValue = distanceValue(today.distanceM),
+            distanceUnit = Util.distanceUnit(),
             calories = kcal(context, today.activeKcal),
+            caloriesValue = kcalValue(today.activeKcal),
             averageSteps = null,
             goalTotal = AppPreferences.goalHistory.on(Util.logicalToday()),
         )
@@ -163,7 +142,10 @@ fun summary(context: Context, selection: Selection, todaySteps: Int): Summary {
         header = header,
         steps = totals.steps,
         distance = distance(context, totals.distanceM),
+        distanceValue = distanceValue(totals.distanceM),
+        distanceUnit = Util.distanceUnit(),
         calories = kcal(context, totals.activeKcal),
+        caloriesValue = kcalValue(totals.activeKcal),
         averageSteps = db.avgSteps(dates.first, dates.second),
         goalTotal = runCatching { AppPreferences.goalHistory.total(LocalDate.parse(dates.first), LocalDate.parse(dates.second)) }.getOrDefault(0),
     )
@@ -212,19 +194,31 @@ fun daySummary(context: Context, date: LocalDate): Summary {
         header = dateFormat().format(Date(Util.dateStringToCalendarMillis(date.toString()))),
         steps = day.steps,
         distance = distance(context, day.distanceM),
+        distanceValue = distanceValue(day.distanceM),
+        distanceUnit = Util.distanceUnit(),
         calories = kcal(context, day.activeKcal),
+        caloriesValue = kcalValue(day.activeKcal),
         averageSteps = null,
         goalTotal = AppPreferences.goalHistory.on(date),
     )
 }
 
-fun goalLine(context: Context, target: Int): GoalLine? {
-    StreakCalculator.calculateGoalStreak(context, Database.getInstance(context), target)?.let { (_, text) ->
-        return GoalLine(text, streak = true)
-    }
-    if (target <= 0) return null
-    return GoalLine(context.getString(R.string.goal_streak_dead_line, Util.stepsPlural(context, target)), streak = false)
+fun stepStreak(days: Map<LocalDate, Int>, todaySteps: Int, goals: GoalHistory, choices: Map<LocalDate, Forgive>, preferRest: Boolean): Streak {
+    val today = Util.logicalToday()
+    val steps = days + (today to todaySteps)
+    val first = steps.filterValues { it > 0 }.keys.minOrNull() ?: return Streak()
+    return Streaks.compute(
+        start = first,
+        end = today,
+        today = today,
+        value = { (steps[it] ?: 0).toDouble() },
+        goal = { goals.on(it).toDouble() },
+        choices = choices,
+        makeUp = true,
+        preferRest = preferRest,
+    )
 }
+
 
 fun stepsByDay(context: Context): Map<LocalDate, Int> {
     val db = Database.getInstance(context)
@@ -239,4 +233,66 @@ fun heatFractions(steps: Map<LocalDate, Int>, goals: GoalHistory): Map<LocalDate
         val scale = goals.on(date).takeIf { it > 0 }?.toFloat() ?: most
         if (scale <= 0f) 0f else (value / scale).coerceAtMost(1f)
     }
+}
+
+data class WalkRow(val walk: Walk, val distanceM: Double, val longest: Boolean)
+
+data class StepsDay(val pace: StepPace, val walks: List<WalkRow>, val cadence: Double?)
+
+private const val HOUR_MS = 3_600_000L
+private const val WALKING_CADENCE = 60
+
+fun stepsDay(context: Context, date: LocalDate, total: Int, goal: Int, nowMs: Long = System.currentTimeMillis()): StepsDay {
+    val database = Database.getInstance(context)
+    val rows = database.getMinutes(date.minusDays(StepPaces.DAYS).toString(), date.toString()).groupBy { it.date }
+    fun hours(day: LocalDate) = StepPaces.hourly(rows[day.toString()].orEmpty().map { it.minuteStart to it.steps }, Util.dayStartMillis(day))
+    val past = (1..StepPaces.DAYS).associate { date.minusDays(it) to hours(date.minusDays(it)) }
+    val start = Util.dayStartMillis(date)
+    val now = if (date == Util.logicalToday()) ((nowMs - start).toDouble() / HOUR_MS).coerceIn(0.0, StepPaces.HOURS.toDouble()) else null
+    val pace = StepPaces.build(date, hours(date), total, past, now, goal)
+
+    val today = rows[date.toString()].orEmpty()
+    val walks = Walks.merged(Walks.all(today.map { it.minuteStart to it.steps }), WALK_MERGE_MS)
+    val longest = walks.maxByOrNull { it.minutes }
+    val walkRows = walks.map { walk ->
+        val samples = today.filter { it.minuteStart >= walk.start && it.minuteStart < walk.end }
+        WalkRow(walk, ActivityEnergy.minutes(samples.map { MinuteSample(it.steps, it.ascentMeters.toDouble()) }).distanceM, walk == longest && walks.size > 1)
+    }
+    val walking = rows.values.flatten().map { it.steps }.filter { it >= WALKING_CADENCE }.sorted()
+    val cadence = walking.takeIf { it.isNotEmpty() }?.let { it[it.size / 2].toDouble() }
+    return StepsDay(pace, walkRows, cadence)
+}
+
+data class GoalSuggestions(val average: Int?, val bestWeek: Int?)
+
+fun goalSuggestions(context: Context, today: LocalDate): GoalSuggestions {
+    val days = stepsByDay(context)
+    fun tracked(range: IntRange) = range.mapNotNull { days[today.minusDays(it.toLong())]?.takeIf { steps -> steps > 0 } }
+    val average = tracked(1..SUGGEST_DAYS).takeIf { it.size >= MIN_WEEK_DAYS }?.average()
+    val bestWeek = (0 until SUGGEST_WEEKS).mapNotNull { week -> tracked(week * 7 + 1..week * 7 + 7).takeIf { it.size >= MIN_WEEK_DAYS }?.average() }.maxOrNull()
+    fun round(value: Double) = ((value / GOAL_STEP).roundToInt() * GOAL_STEP).coerceAtLeast(GOAL_STEP)
+    return GoalSuggestions(average?.let(::round), bestWeek?.let(::round))
+}
+
+const val GOAL_STEP = 500
+private const val SUGGEST_DAYS = 28
+private const val SUGGEST_WEEKS = 12
+private const val MIN_WEEK_DAYS = 5
+
+data class DayTally(val date: LocalDate, val score: DayScore, val weekBest: Int?) {
+    val bestOfWeek: Boolean get() = weekBest != null && score.score > weekBest
+}
+
+fun dayTally(context: Context, date: LocalDate): DayTally? {
+    val weekStart = date.with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1)
+    val scores = ReportData.scores(context, weekStart, date)
+    val score = scores[date] ?: return null
+    return DayTally(date, score, scores.filterKeys { it.isBefore(date) }.values.maxOfOrNull { it.score })
+}
+
+fun monthlyAverages(context: Context, year: Int, today: LocalDate, todaySteps: Int): List<Int> {
+    val entries = Database.getInstance(context).getEntries("%04d-01-01".format(year), "%04d-12-31".format(year))
+        .mapNotNull { entry -> runCatching { LocalDate.parse(entry.date) }.getOrNull()?.let { it to if (it == today) todaySteps else entry.steps } }
+        .filter { it.second > 0 }
+    return (1..12).map { month -> entries.filter { it.first.monthValue == month }.map { it.second }.takeIf { it.isNotEmpty() }?.average()?.toInt() ?: 0 }
 }

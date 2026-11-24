@@ -71,6 +71,9 @@ object AppPreferences {
         val STEPS_HINT_SHOWN                     = booleanPreferencesKey("steps_hint_shown")
         val INFO_HINT_SHOWN                      = booleanPreferencesKey("info_hint_shown")
         val INCOMPLETE_FOOD_DAYS                 = stringSetPreferencesKey("incomplete_food_days")
+        val STREAK_CHOICES                       = stringSetPreferencesKey("streak_choices")
+        val STREAK_PREFER_REST                   = booleanPreferencesKey("streak_prefer_rest")
+        val STREAK_ASK                           = booleanPreferencesKey("streak_ask")
         val SHOWCASE_BADGES                      = stringPreferencesKey("showcase_badges")
         val PROTEIN_PER_KG                       = floatPreferencesKey("protein_per_kg")
         val HEIGHT                               = stringPreferencesKey("height")
@@ -103,6 +106,13 @@ object AppPreferences {
         val WEIGHT_REMINDER_MINUTES              = intPreferencesKey("weight_reminder_minutes")
         val CALORIE_ADJUSTMENT                   = intPreferencesKey("calorie_adjustment")
         val ONBOARDING_DONE                      = booleanPreferencesKey("onboarding_done")
+        val NAME                                 = stringPreferencesKey("name")
+        val AIM                                  = stringPreferencesKey("aim")
+        val VOICE                                = stringPreferencesKey("voice")
+        val OWN_LINE                             = stringPreferencesKey("own_line")
+        val USUAL_BED                            = intPreferencesKey("usual_bed")
+        val USUAL_WAKE                           = intPreferencesKey("usual_wake")
+        val QUOTES_ENABLED                       = booleanPreferencesKey("quotes_enabled")
         val CALIBRATED_WALK_STEP_CM              = floatPreferencesKey("calibrated_walk_step_cm")
         val CALIBRATED_WALK_SLOPE                = floatPreferencesKey("calibrated_walk_slope")
         val CALIBRATED_REFERENCE_CADENCE         = floatPreferencesKey("calibrated_reference_cadence")
@@ -113,6 +123,12 @@ object AppPreferences {
         val ACCURACY_DISTANCE_ERROR              = floatPreferencesKey("accuracy_distance_error")
         val ACCURACY_DISTANCE_DATE               = stringPreferencesKey("accuracy_distance_date")
         val LAST_CELEBRATION_DATE                = stringPreferencesKey("last_celebration_date")
+        val TIER_SEEN                            = stringPreferencesKey("tier_seen")
+        val SPREE_SEEN                           = stringPreferencesKey("spree_seen")
+        val TIER_NOTIFIED                        = stringPreferencesKey("tier_notified")
+        val PACE_NUDGED                          = stringPreferencesKey("pace_nudged")
+        val TIER_MOMENTS_ALL                     = booleanPreferencesKey("tier_moments_all")
+        val SPREE_MOMENTS                        = booleanPreferencesKey("spree_moments")
         val SENSOR_BASELINE                      = intPreferencesKey("sensor_baseline")
         val SENSOR_BOOT_COUNT                    = intPreferencesKey("sensor_boot_count")
         val SENSOR_BOOT_TIME                     = longPreferencesKey("sensor_boot_time")
@@ -259,6 +275,34 @@ object AppPreferences {
             dataStore.edit { if (value == null) it.remove(PreferenceKeys.LAST_CELEBRATION_DATE) else it[PreferenceKeys.LAST_CELEBRATION_DATE] = value }
         }
 
+    var tierSeen: String?
+        get() = runBlocking { dataStore.data.first()[PreferenceKeys.TIER_SEEN] }
+        set(value) = runBlocking {
+            dataStore.edit { if (value == null) it.remove(PreferenceKeys.TIER_SEEN) else it[PreferenceKeys.TIER_SEEN] = value }
+        }
+
+    var tierNotified: String?
+        get() = runBlocking { dataStore.data.first()[PreferenceKeys.TIER_NOTIFIED] }
+        set(value) = runBlocking {
+            dataStore.edit { if (value == null) it.remove(PreferenceKeys.TIER_NOTIFIED) else it[PreferenceKeys.TIER_NOTIFIED] = value }
+        }
+
+    var paceNudged: String?
+        get() = runBlocking { dataStore.data.first()[PreferenceKeys.PACE_NUDGED] }
+        set(value) = runBlocking {
+            dataStore.edit { if (value == null) it.remove(PreferenceKeys.PACE_NUDGED) else it[PreferenceKeys.PACE_NUDGED] = value }
+        }
+
+    val tierMomentsAll: Boolean get() = runBlocking { dataStore.data.first()[PreferenceKeys.TIER_MOMENTS_ALL] ?: true }
+
+    val spreeMoments: Boolean get() = runBlocking { dataStore.data.first()[PreferenceKeys.SPREE_MOMENTS] ?: true }
+
+    var spreeSeen: String?
+        get() = runBlocking { dataStore.data.first()[PreferenceKeys.SPREE_SEEN] }
+        set(value) = runBlocking {
+            dataStore.edit { if (value == null) it.remove(PreferenceKeys.SPREE_SEEN) else it[PreferenceKeys.SPREE_SEEN] = value }
+        }
+
     // Age and sex
 
     fun ageFlow(): Flow<Int?> = dataStore.data.map { prefs ->
@@ -333,8 +377,9 @@ object AppPreferences {
         }
 
     private const val MAX_INCOMPLETE_DAYS = 400
+    private const val MAX_STREAK_CHOICES = 400
 
-    private val volatileKeys = setOf("STEPS", "DATE", "sensor_baseline", "sensor_boot_count", "sensor_boot_time", "last_celebration_date", "energy_factors", "eat_target")
+    private val volatileKeys = setOf("STEPS", "DATE", "sensor_baseline", "sensor_boot_count", "sensor_boot_time", "last_celebration_date", "tier_seen", "spree_seen", "tier_notified", "pace_nudged", "energy_factors", "eat_target")
 
     fun settingsVersionFlow(): Flow<Int> = dataStore.data
         .map { prefs -> prefs.asMap().filterKeys { it.name !in volatileKeys }.hashCode() }
@@ -449,6 +494,37 @@ object AppPreferences {
         }
     }
 
+    // Streaks
+
+    fun streakChoicesFlow(): Flow<Map<LocalDate, Forgive>> = dataStore.data.map { prefs ->
+        prefs[PreferenceKeys.STREAK_CHOICES].orEmpty().mapNotNull { entry ->
+            val date = runCatching { LocalDate.parse(entry.substringBefore(':')) }.getOrNull()
+            val choice = forgiveOf(entry.substringAfter(':'))
+            if (date != null && choice != null) date to choice else null
+        }.toMap()
+    }
+
+    val streakChoices: Map<LocalDate, Forgive> get() = runBlocking { streakChoicesFlow().first() }
+
+    fun setStreakChoice(date: LocalDate, choice: Forgive) = runBlocking {
+        dataStore.edit { prefs ->
+            val others = prefs[PreferenceKeys.STREAK_CHOICES].orEmpty().filterNot { it.startsWith("$date:") }
+            prefs[PreferenceKeys.STREAK_CHOICES] = (others + "$date:${choice.key}").sorted().takeLast(MAX_STREAK_CHOICES).toSet()
+        }
+    }
+
+    fun streakPreferRestFlow(): Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.STREAK_PREFER_REST] ?: true }
+
+    var streakPreferRest: Boolean
+        get() = runBlocking { streakPreferRestFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.STREAK_PREFER_REST] = value } }
+
+    fun streakAskFlow(): Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.STREAK_ASK] ?: true }
+
+    var streakAsk: Boolean
+        get() = runBlocking { streakAskFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.STREAK_ASK] = value } }
+
     // Protein target
 
     fun proteinPerKgFlow(): Flow<Float> = dataStore.data.map { it[PreferenceKeys.PROTEIN_PER_KG] ?: 1.6f }
@@ -483,6 +559,37 @@ object AppPreferences {
     fun saveMeals(meals: List<MealSlot>) = runBlocking { dataStore.edit { it[PreferenceKeys.MEALS] = Meals.encode(meals) } }
 
     // Onboarding
+
+    // Profile
+
+    fun nameFlow(): Flow<String> = dataStore.data.map { it[PreferenceKeys.NAME].orEmpty() }
+
+    var name: String
+        get() = runBlocking { nameFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.NAME] = value.trim() } }
+
+    fun voiceFlow(): Flow<Voice> = dataStore.data.map { Voice.fromKey(it[PreferenceKeys.VOICE]) }
+
+    var voice: Voice
+        get() = runBlocking { voiceFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.VOICE] = value.key } }
+
+    fun ownLineFlow(): Flow<String> = dataStore.data.map { it[PreferenceKeys.OWN_LINE].orEmpty() }
+
+    var ownLine: String
+        get() = runBlocking { ownLineFlow().first() }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.OWN_LINE] = value.trim() } }
+
+    fun quotesEnabledFlow(): Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.QUOTES_ENABLED] ?: true }
+
+    fun usualSleepFlow(): Flow<UsualSleep?> = dataStore.data.map { prefs ->
+        val bed = prefs[PreferenceKeys.USUAL_BED]
+        val wake = prefs[PreferenceKeys.USUAL_WAKE]
+        if (bed != null && wake != null) UsualSleep(bed, wake) else null
+    }
+
+    val usualSleep: UsualSleep?
+        get() = runBlocking { usualSleepFlow().first() }
 
     fun needsOnboarding(): Boolean = runBlocking {
         val prefs = dataStore.data.first()

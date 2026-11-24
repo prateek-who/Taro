@@ -1,5 +1,6 @@
 package com.prateek.taro.achievements
 
+import com.prateek.taro.util.Forgive
 import com.prateek.taro.util.GoalHistory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -21,7 +22,10 @@ class BadgesTest {
         )
         assertEquals(start.plusDays(2), result(inputs, "day_10k").progress.earnedOn)
         assertEquals(start.plusDays(3), result(inputs, "streak_3").progress.earnedOn)
-        assertEquals(4.0, result(inputs, "streak_7").progress.value, 0.0)
+        assertEquals(5.0, result(inputs, "streak_7").progress.value, 0.0)
+        assertEquals(6.0, result(inputs.copy(streakChoices = mapOf(start.plusDays(5) to Forgive.MAKE_UP)), "streak_7").progress.value, 0.0)
+        val twoMisses = inputs.copy(days = inputs.days.mapIndexed { i, day -> day.copy(steps = mapOf(3 to 1_000, 6 to 6_000)[i] ?: day.steps) })
+        assertEquals(3.0, result(twoMisses, "streak_7").progress.value, 0.0)
         assertNull(result(inputs, "streak_7").progress.earnedOn)
         assertEquals(start.plusDays(2), result(inputs, "double_goal").progress.earnedOn)
         assertEquals(start.plusDays(2), result(inputs, "eiffel").progress.earnedOn)

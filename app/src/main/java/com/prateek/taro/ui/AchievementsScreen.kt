@@ -1,35 +1,26 @@
 package com.prateek.taro.ui
 
-import com.prateek.taro.ui.components.TileRow
-import com.prateek.taro.ui.components.PrimaryButton
-import com.prateek.taro.ui.components.DateRow
-import com.prateek.taro.util.AppPreferences
-import com.prateek.taro.ui.components.ToastKind
-import com.prateek.taro.ui.components.SecondaryButton
-import com.prateek.taro.ui.components.LocalToast
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.prateek.taro.ui.theme.TaroMotion
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,48 +31,53 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import com.prateek.taro.R
 import com.prateek.taro.achievements.AchievementData
 import com.prateek.taro.achievements.AchievementInputs
 import com.prateek.taro.achievements.BadgeCategory
 import com.prateek.taro.achievements.BadgeResult
 import com.prateek.taro.achievements.BadgeUnit
-import com.prateek.taro.achievements.Rules
+import com.prateek.taro.achievements.Badges
+import com.prateek.taro.ui.components.BentoNote
+import com.prateek.taro.ui.components.BentoTile
+import com.prateek.taro.ui.components.BentoValue
+import com.prateek.taro.ui.components.DateRow
+import com.prateek.taro.ui.components.IconDisc
+import com.prateek.taro.ui.components.LocalToast
+import com.prateek.taro.ui.components.MeterBar
 import com.prateek.taro.ui.components.Panel
-import com.prateek.taro.ui.components.PillSelector
-import com.prateek.taro.ui.components.ScrollingColumn
+import com.prateek.taro.ui.components.PrimaryButton
+import com.prateek.taro.ui.components.RowDivider
+import com.prateek.taro.ui.components.SecondaryButton
 import com.prateek.taro.ui.components.SectionLabel
-import com.prateek.taro.ui.components.StatTile
+import com.prateek.taro.ui.components.StackBar
 import com.prateek.taro.ui.components.TaroDialog
-import com.prateek.taro.ui.components.TaroScaffold
 import com.prateek.taro.ui.components.TintChip
+import com.prateek.taro.ui.components.ToastKind
 import com.prateek.taro.ui.theme.TaroTheme
+import com.prateek.taro.util.AppPreferences
 import com.prateek.taro.util.Util
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
 import java.util.Locale
+import kotlin.math.roundToInt
 
 object AchievementsScreen : Screen {
     @Composable
     override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        AchievementsContent(onBack = { navigator.pop() })
+        AchievementsContent()
     }
 }
 
@@ -90,11 +86,27 @@ private val EXPLORER_BLUE = Color(0xFF4FC3F7)
 private val MIND_VIOLET = Color(0xFFB388FF)
 private val STRENGTH_RED = Color(0xFFFF6E6E)
 
+private const val SHOWCASE_SIZE = 3
+private const val ALMOST_COUNT = 3
+private const val GRID_COLUMNS = 3
+private const val SHELF_MEDAL_SHARE = 0.72f
+private const val GRID_MEDAL_SHARE = 0.62f
+private const val DIALOG_MEDAL_SHARE = 0.38f
+private const val ROW_MEDAL_SHARE = 1.05f
+private const val MEDAL_STROKE_SHARE = 0.06f
+private const val MEDAL_ICON_SHARE = 0.42f
+private const val MEDAL_GLOW_INNER = 0.34f
+private const val MEDAL_GLOW_OUTER = 0.1f
+private const val LOCKED_ICON_ALPHA = 0.55f
+private const val LOCKED_ARC_ALPHA = 0.75f
+private const val PERCENT = 100
+
 @Composable
 private fun categoryColor(category: BadgeCategory): Color = when (category) {
     BadgeCategory.STEPS -> TaroTheme.colors.goal
     BadgeCategory.GOALS -> TaroTheme.colors.special
-    BadgeCategory.CLIMB, BadgeCategory.ENERGY -> TaroTheme.colors.flame
+    BadgeCategory.CLIMB -> TaroTheme.colors.mint
+    BadgeCategory.ENERGY -> TaroTheme.colors.flame
     BadgeCategory.WEIGHT -> WEIGHT_PINK
     BadgeCategory.SLEEP -> TaroTheme.colors.sleep
     BadgeCategory.EXPLORER -> EXPLORER_BLUE
@@ -103,22 +115,6 @@ private fun categoryColor(category: BadgeCategory): Color = when (category) {
     BadgeCategory.SKILLS -> TaroTheme.colors.flame
     BadgeCategory.STRENGTH -> STRENGTH_RED
     BadgeCategory.LEGENDS -> TaroTheme.colors.special
-}
-
-private data class Records(val bestDay: DayRecord?, val bestWeek: Int, val bestMonth: Int, val longestStreak: Int, val total: Int)
-
-private data class DayRecord(val steps: Int, val date: LocalDate)
-
-private fun records(inputs: AchievementInputs): Records {
-    val days = inputs.days
-    val best = days.maxByOrNull { it.steps }
-    return Records(
-        bestDay = best?.let { DayRecord(it.steps, it.date) },
-        bestWeek = days.groupBy { it.date.with(TemporalAdjusters.previousOrSame(inputs.firstDayOfWeek)) }.values.maxOfOrNull { week -> week.sumOf { it.steps } } ?: 0,
-        bestMonth = days.groupBy { it.date.withDayOfMonth(1) }.values.maxOfOrNull { month -> month.sumOf { it.steps } } ?: 0,
-        longestStreak = Rules.streak(Rules.goalDays(inputs), Int.MAX_VALUE).value.toInt(),
-        total = days.sumOf { it.steps },
-    )
 }
 
 private fun compactSteps(value: Double): String = when {
@@ -149,216 +145,133 @@ private fun descriptionParam(result: BadgeResult): String {
     }
 }
 
+private fun progressText(badge: BadgeResult): String =
+    "${formatValue(badge.def.unit, badge.progress.value)} / ${formatValue(badge.def.unit, badge.def.target)}"
+
 private data class AchievementsState(val inputs: AchievementInputs, val badges: List<BadgeResult>)
 
 @Composable
-private fun AchievementsContent(onBack: () -> Unit) {
+private fun AchievementsContent() {
     val context = LocalContext.current
     val dataVersion = rememberDataVersion()
-    var state by remember { mutableStateOf<AchievementsState?>(null) }
-    var category by rememberSaveable { mutableStateOf<BadgeCategory?>(null) }
+    val state = rememberInBackground(dataVersion) {
+        val inputs = AchievementData.inputs(context)
+        AchievementsState(inputs, Badges.evaluate(inputs))
+    }?.value
+    var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     var open by remember { mutableStateOf<BadgeResult?>(null) }
     val showcaseIds by AppPreferences.showcaseBadgesFlow().collectAsStateWithLifecycle(AppPreferences.showcaseBadges)
     val toast = LocalToast.current
     val dateFormat = remember { DateTimeFormatter.ofPattern("d MMM yyyy", Locale.getDefault()) }
+    val shortFormat = remember { DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()) }
+    val spacing = TaroTheme.spacing
+    val colors = TaroTheme.colors
 
-    LaunchedEffect(dataVersion) {
-        state = withContext(Dispatchers.Default) {
-            val inputs = AchievementData.inputs(context)
-            AchievementsState(inputs, com.prateek.taro.achievements.Badges.evaluate(inputs))
-        }
-    }
-
-    TaroScaffold(title = stringResource(R.string.achievements_title), onBack = onBack) { padding ->
-        ScrollingColumn(padding, modifier = Modifier.padding(horizontal = 16.dp)) {
-            val current = state
-            if (current == null) {
-                Text(
-                    text = stringResource(R.string.badges_loading),
-                    color = TaroTheme.colors.accent,
-                    modifier = Modifier.padding(24.dp),
-                )
-                return@ScrollingColumn
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+    ) {
+        AppOverflowMenu(back = true, title = stringResource(R.string.achievements_title))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = spacing.loose, end = spacing.loose, bottom = spacing.loose),
+        ) {
+            if (state == null) {
+                BentoNote(stringResource(R.string.badges_loading))
+                return@Column
             }
-            val earned = current.badges.filter { it.earned }
-            val gold = TaroTheme.colors.special
+            val badges = state.badges.filter { !it.def.claimable || it.earned }
+            val earned = state.badges.filter { it.earned }
+            val categories = BadgeCategory.entries.mapNotNull { category ->
+                state.badges.filter { it.def.category == category }.takeIf { it.isNotEmpty() }?.let { category to it }
+            }
 
-            Panel(modifier = Modifier.padding(top = 8.dp)) {
-                Column(modifier = Modifier.padding(8.dp)) {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = "${earned.size}",
-                            style = MaterialTheme.typography.displaySmall,
-                            color = gold,
-                        )
-                        Text(
-                            text = " / ${current.badges.size}  ${stringResource(R.string.badges_unlocked)}",
-                            color = TaroTheme.colors.accent,
-                            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
-                        )
-                    }
-                    val fill by animateFloatAsState(
-                        targetValue = earned.size.toFloat() / current.badges.size.coerceAtLeast(1),
-                        animationSpec = TaroMotion.gentle(),
-                        label = "badges",
+            BentoTile(color = colors.special, label = stringResource(R.string.badge_trophy_room), tinted = true, modifier = Modifier.fillMaxWidth()) {
+                BentoValue("${earned.size}", colors.special, unit = stringResource(R.string.badge_unlocked_of, badges.size))
+                StackBar(
+                    parts = categories.map { (category, list) -> list.count { it.earned }.toDouble() to categoryColor(category) } +
+                        ((badges.size - earned.size).coerceAtLeast(0).toDouble() to colors.accentOpaque),
+                    modifier = Modifier.padding(top = spacing.gap),
+                )
+                earned.maxByOrNull { it.progress.earnedOn!! }?.let {
+                    BentoNote(
+                        stringResource(R.string.badge_latest, stringResource(it.def.title), it.progress.earnedOn!!.format(shortFormat)),
+                        Modifier.padding(top = spacing.gap),
                     )
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 12.dp)
-                            .fillMaxWidth()
-                            .height(10.dp)
-                            .clip(CircleShape)
-                            .background(TaroTheme.colors.accentOpaque),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(fill)
-                                .height(10.dp)
-                                .clip(CircleShape)
-                                .background(Brush.horizontalGradient(listOf(gold.copy(alpha = 0.55f), gold))),
-                        )
-                    }
-                    val latest = earned.maxByOrNull { it.progress.earnedOn!! }
-                    latest?.let {
-                        Text(
-                            text = stringResource(R.string.badge_latest, stringResource(it.def.title), it.progress.earnedOn!!.format(dateFormat)),
-                            fontSize = 13.sp,
-                            color = TaroTheme.colors.accent,
-                            modifier = Modifier.padding(top = 12.dp),
-                        )
-                    }
                 }
                 val showcase = if (showcaseIds.isEmpty()) {
-                    earned.sortedByDescending { it.progress.earnedOn }.take(3)
+                    earned.sortedByDescending { it.progress.earnedOn }.take(SHOWCASE_SIZE)
                 } else {
                     showcaseIds.mapNotNull { id -> earned.firstOrNull { it.def.id == id } }
                 }
                 if (showcase.isNotEmpty()) {
-                    Text(
-                        text = stringResource(R.string.badge_showcase).uppercase(),
-                        fontSize = 12.sp,
-                        letterSpacing = 2.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TaroTheme.colors.accent,
-                        modifier = Modifier.padding(start = 8.dp, top = 12.dp),
-                    )
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
-                        repeat(3) { slot ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(top = spacing.loose)) {
+                        repeat(SHOWCASE_SIZE) { slot ->
                             val badge = showcase.getOrNull(slot)
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .then(if (badge != null) Modifier.clickable { open = badge } else Modifier)
-                                    .padding(vertical = 6.dp),
-                            ) {
-                                if (badge != null) {
-                                    BadgeMedal(badge, categoryColor(badge.def.category), size = 68)
-                                    Text(
-                                        text = stringResource(badge.def.title),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        textAlign = TextAlign.Center,
-                                        maxLines = 2,
-                                        modifier = Modifier.padding(top = 8.dp),
-                                    )
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(68.dp)
-                                            .clip(CircleShape)
-                                            .background(TaroTheme.colors.accentOpaque),
-                                    )
-                                }
+                            if (badge == null) {
+                                Spacer(Modifier.weight(1f))
+                            } else {
+                                MedalCell(badge, note = null, medalShare = SHELF_MEDAL_SHARE, onClick = { open = badge }, modifier = Modifier.weight(1f))
                             }
                         }
                     }
                     if (showcaseIds.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.badge_showcase_hint),
-                            fontSize = 12.sp,
-                            color = TaroTheme.colors.accent,
-                            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp),
-                        )
+                        BentoNote(stringResource(R.string.badge_showcase_hint), Modifier.padding(top = spacing.gap))
                     }
                 }
             }
 
-            PillSelector(
-                options = listOf<Pair<BadgeCategory?, String>>(null to stringResource(R.string.badge_cat_all)) +
-                    BadgeCategory.entries.map { it to stringResource(it.label) },
-                selected = category,
-                onSelect = { category = it },
-                modifier = Modifier.padding(vertical = 16.dp),
-            )
-
-            val inCategory = current.badges.filter { badge ->
-                if (category == null) !badge.def.claimable || badge.earned else badge.def.category == category
-            }
-            val groups = if (inCategory.any { it.def.group != null }) {
-                inCategory.groupBy { it.def.group }.toList().sortedBy { it.first?.ordinal ?: -1 }
-            } else {
-                listOf(null to inCategory.sortedWith(compareByDescending<BadgeResult> { it.earned }.thenByDescending { if (it.earned) 0f else it.fraction }))
-            }
-            groups.forEach { (group, badges) ->
-                if (group != null) {
-                    SectionLabel(
-                        text = "${stringResource(group.label)}  ${badges.count { it.earned }}/${badges.size}",
-                        modifier = Modifier.padding(top = 0.dp),
-                    )
+            val almost = badges
+                .filter { !it.earned && !it.def.claimable && it.def.unit != BadgeUnit.FLAG && it.fraction > 0f }
+                .sortedByDescending { it.fraction }
+                .take(ALMOST_COUNT)
+            if (almost.isNotEmpty()) {
+                SectionLabel(stringResource(R.string.badges_almost))
+                Panel {
+                    almost.forEachIndexed { index, badge ->
+                        if (index > 0) RowDivider()
+                        AlmostRow(badge) { open = badge }
+                    }
                 }
-                badges.chunked(3).forEach { row ->
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 10.dp),
-                    ) {
-                        row.forEach { badge ->
-                            BadgeTile(badge, dateFormat, onClick = { open = badge }, modifier = Modifier.weight(1f))
+            }
+
+            SectionLabel(stringResource(R.string.badges_categories))
+            Panel {
+                categories.forEachIndexed { index, (category, list) ->
+                    if (index > 0) RowDivider()
+                    val isOpen = expanded == category.name
+                    CategoryRow(category, list, isOpen) { expanded = if (isOpen) null else category.name }
+                    if (isOpen) {
+                        val groups = if (list.any { it.def.group != null }) {
+                            list.groupBy { it.def.group }.toList().sortedBy { it.first?.ordinal ?: -1 }
+                        } else {
+                            listOf(null to list.sortedWith(compareByDescending<BadgeResult> { it.earned }.thenByDescending { if (it.earned) 0f else it.fraction }))
                         }
-                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                        groups.forEach { (group, members) ->
+                            group?.let {
+                                BentoNote(
+                                    "${stringResource(it.label)}  ${members.count { badge -> badge.earned }}/${members.size}",
+                                    Modifier.padding(start = spacing.tight, top = spacing.gap),
+                                )
+                            }
+                            members.chunked(GRID_COLUMNS).forEach { row ->
+                                Row(modifier = Modifier.fillMaxWidth().padding(vertical = spacing.tight)) {
+                                    row.forEach { badge ->
+                                        val note = badge.progress.earnedOn?.format(shortFormat)
+                                            ?: if (badge.def.unit == BadgeUnit.FLAG || badge.def.claimable) stringResource(R.string.badge_locked) else progressText(badge)
+                                        MedalCell(badge, note, GRID_MEDAL_SHARE, onClick = { open = badge }, modifier = Modifier.weight(1f))
+                                    }
+                                    repeat(GRID_COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
+                                }
+                            }
+                        }
                     }
                 }
-            }
-
-            val records = remember(current) { records(current.inputs) }
-            SectionLabel(stringResource(R.string.badges_records))
-            TileRow(modifier = Modifier.fillMaxWidth()) {
-                StatTile(
-                    label = stringResource(R.string.badges_best_day),
-                    value = records.bestDay?.let { Util.formatSteps(it.steps) } ?: "-",
-                    color = TaroTheme.colors.goal,
-                    modifier = Modifier.weight(1f),
-                )
-                StatTile(
-                    label = stringResource(R.string.best_week),
-                    value = Util.formatSteps(records.bestWeek),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            TileRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 10.dp, bottom = 24.dp),
-            ) {
-                StatTile(
-                    label = stringResource(R.string.most_walked_month),
-                    value = Util.formatSteps(records.bestMonth),
-                    modifier = Modifier.weight(1f),
-                )
-                StatTile(
-                    label = stringResource(R.string.badges_total),
-                    value = compactSteps(records.total.toDouble()),
-                    modifier = Modifier.weight(1f),
-                )
-                StatTile(
-                    label = stringResource(R.string.badge_cat_goals),
-                    value = "${records.longestStreak}d",
-                    color = gold,
-                    modifier = Modifier.weight(0.8f),
-                )
             }
         }
     }
@@ -372,7 +285,7 @@ private fun AchievementsContent(onBack: () -> Unit) {
             onToggleShowcase = {
                 when {
                     pinned -> AppPreferences.showcaseBadges = showcaseIds - badge.def.id
-                    showcaseIds.size >= 3 -> toast.show(context.getString(R.string.badge_showcase_full), ToastKind.INFO)
+                    showcaseIds.size >= SHOWCASE_SIZE -> toast.show(context.getString(R.string.badge_showcase_full), ToastKind.INFO)
                     else -> {
                         AppPreferences.showcaseBadges = showcaseIds + badge.def.id
                         toast.show(context.getString(R.string.badge_showcase_added), ToastKind.SUCCESS)
@@ -391,62 +304,129 @@ private fun AchievementsContent(onBack: () -> Unit) {
 }
 
 @Composable
-private fun BadgeTile(badge: BadgeResult, dateFormat: DateTimeFormatter, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun rowMedalSize() = with(LocalDensity.current) { (TaroTheme.text.title.lineHeight.toDp() + TaroTheme.text.note.lineHeight.toDp()) * ROW_MEDAL_SHARE }
+
+@Composable
+private fun AlmostRow(badge: BadgeResult, onClick: () -> Unit) {
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
     val color = categoryColor(badge.def.category)
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(TaroTheme.colors.accentOpaque)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(spacing.gap),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(spacing.gap))
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 14.dp),
+            .padding(horizontal = spacing.tight, vertical = spacing.gap),
     ) {
-        BadgeMedal(badge, color, size = 60)
-        Text(
-            text = stringResource(badge.def.title),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            color = if (badge.earned) MaterialTheme.colorScheme.onSurface else TaroTheme.colors.accent,
-            modifier = Modifier.padding(top = 10.dp),
-        )
-        Text(
-            text = badge.progress.earnedOn?.format(dateFormat)
-                ?: if (badge.def.unit == BadgeUnit.FLAG) stringResource(R.string.badge_locked)
-                else "${formatValue(badge.def.unit, badge.progress.value)} / ${formatValue(badge.def.unit, badge.def.target)}",
-            fontSize = 11.sp,
-            color = if (badge.earned) color else TaroTheme.colors.accent,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            modifier = Modifier.padding(top = 2.dp),
-        )
+        BadgeMedal(badge, color, Modifier.size(rowMedalSize()))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(stringResource(badge.def.title), style = type.title, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                stringResource(R.string.badge_to_go, formatValue(badge.def.unit, (badge.def.target - badge.progress.value).coerceAtLeast(0.0))),
+                style = type.note,
+                color = TaroTheme.colors.accent,
+            )
+        }
+        Text(stringResource(R.string.badge_percent, (badge.fraction * PERCENT).roundToInt()), style = type.meterValue, color = color)
     }
 }
 
 @Composable
-private fun BadgeMedal(badge: BadgeResult, color: Color, size: Int) {
+private fun CategoryRow(category: BadgeCategory, badges: List<BadgeResult>, open: Boolean, onClick: () -> Unit) {
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
+    val color = categoryColor(category)
+    val got = badges.count { it.earned }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(spacing.gap),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(spacing.gap))
+            .clickable(onClick = onClick)
+            .padding(horizontal = spacing.tight, vertical = spacing.gap),
+    ) {
+        IconDisc(badges.first().def.icon, color)
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(category.label), style = type.title, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.badge_count, got, badges.size), style = type.meterValue, color = TaroTheme.colors.accent)
+                Icon(
+                    painterResource(if (open) R.drawable.ic_expand_less else R.drawable.ic_expand_more),
+                    contentDescription = null,
+                    tint = TaroTheme.colors.accent,
+                    modifier = Modifier.padding(start = spacing.hair).size(with(LocalDensity.current) { type.meterValue.lineHeight.toDp() }),
+                )
+            }
+            MeterBar(fraction = got.toFloat() / badges.size, color = color, modifier = Modifier.padding(top = spacing.tight))
+        }
+    }
+}
+
+@Composable
+private fun MedalCell(badge: BadgeResult, note: String?, medalShare: Float, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
+    val color = categoryColor(badge.def.category)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(RoundedCornerShape(spacing.gap))
+            .clickable(onClick = onClick)
+            .padding(spacing.tight),
+    ) {
+        BadgeMedal(badge, color, Modifier.fillMaxWidth(medalShare).aspectRatio(1f))
+        Text(
+            text = stringResource(badge.def.title),
+            style = type.meterLabel,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            color = if (badge.earned) MaterialTheme.colorScheme.onSurface else TaroTheme.colors.accent,
+            modifier = Modifier.padding(top = spacing.tight),
+        )
+        note?.let {
+            Text(
+                text = it,
+                style = type.note,
+                color = if (badge.earned) color else TaroTheme.colors.accent,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BadgeMedal(badge: BadgeResult, color: Color, modifier: Modifier) {
     val track = TaroTheme.colors.accentOpaque
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(size.dp)) {
-        Canvas(modifier = Modifier.size(size.dp)) {
-            val stroke = 3.5.dp.toPx()
+    Box(contentAlignment = Alignment.Center, modifier = modifier) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = size.minDimension * MEDAL_STROKE_SHARE
             val inset = stroke / 2
-            val arcSize = Size(this.size.width - stroke, this.size.height - stroke)
+            val arcSize = Size(size.width - stroke, size.height - stroke)
             if (badge.earned) {
-                drawCircle(color.copy(alpha = 0.16f))
+                drawCircle(
+                    Brush.radialGradient(
+                        listOf(color.copy(alpha = MEDAL_GLOW_INNER), color.copy(alpha = MEDAL_GLOW_OUTER)),
+                        center = Offset(size.width * 0.35f, size.height * 0.3f),
+                        radius = size.minDimension,
+                    ),
+                )
                 drawArc(color, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
             } else {
                 drawArc(track, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
                 if (badge.fraction > 0f) {
-                    drawArc(color.copy(alpha = 0.7f), -90f, 360f * badge.fraction, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+                    drawArc(color.copy(alpha = LOCKED_ARC_ALPHA), -90f, 360f * badge.fraction, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
                 }
             }
         }
         Icon(
             painter = painterResource(badge.def.icon),
             contentDescription = null,
-            tint = if (badge.earned) color else TaroTheme.colors.accent.copy(alpha = 0.55f),
-            modifier = Modifier.size((size * 0.42f).dp),
+            tint = if (badge.earned) color else TaroTheme.colors.accent.copy(alpha = LOCKED_ICON_ALPHA),
+            modifier = Modifier.fillMaxSize(MEDAL_ICON_SHARE),
         )
     }
 }
@@ -469,18 +449,22 @@ private fun BadgeDialog(
         onConfirm = onDismiss,
         dismissText = null,
     ) {
+        val spacing = TaroTheme.spacing
+        val type = TaroTheme.text
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-            BadgeMedal(badge, color, size = 96)
+            BadgeMedal(badge, color, Modifier.fillMaxWidth(DIALOG_MEDAL_SHARE).aspectRatio(1f))
             Text(
                 text = stringResource(badge.def.description, descriptionParam(badge)),
+                style = type.note,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 16.dp),
+                modifier = Modifier.padding(top = spacing.loose),
             )
             if (badge.earned) {
                 TintChip(
                     text = stringResource(R.string.badge_earned_on, badge.progress.earnedOn!!.format(dateFormat)),
                     color = color,
-                    modifier = Modifier.padding(top = 16.dp),
+                    modifier = Modifier.padding(top = spacing.loose),
                 )
                 SecondaryButton(
                     text = stringResource(if (showcased) R.string.badge_showcase_remove else R.string.badge_showcase_add),
@@ -488,7 +472,7 @@ private fun BadgeDialog(
                     icon = R.drawable.ic_badge_star,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp),
+                        .padding(top = spacing.gap),
                 )
                 if (badge.def.claimable) {
                     SecondaryButton(
@@ -496,23 +480,23 @@ private fun BadgeDialog(
                         onClick = { onClaim(null) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp),
+                            .padding(top = spacing.tight),
                     )
                 }
             } else if (badge.def.claimable) {
                 Text(
                     text = stringResource(R.string.badge_claim_hint),
+                    style = type.note,
                     color = TaroTheme.colors.accent,
-                    fontSize = 13.sp,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 12.dp),
+                    modifier = Modifier.padding(top = spacing.gap),
                 )
                 DateRow(
                     label = stringResource(R.string.badge_claimed_on),
                     date = claimDate,
                     today = Util.logicalToday(),
                     onChange = { claimDate = it },
-                    modifier = Modifier.padding(top = 12.dp),
+                    modifier = Modifier.padding(top = spacing.gap),
                 )
                 PrimaryButton(
                     text = stringResource(R.string.badge_claim),
@@ -520,30 +504,15 @@ private fun BadgeDialog(
                     tint = color,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 10.dp),
+                        .padding(top = spacing.gap),
                 )
             } else if (badge.def.unit != BadgeUnit.FLAG) {
-                Box(
-                    modifier = Modifier
-                        .padding(top = 18.dp)
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(CircleShape)
-                        .background(TaroTheme.colors.accentOpaque),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(badge.fraction)
-                            .height(8.dp)
-                            .clip(CircleShape)
-                            .background(color),
-                    )
-                }
+                MeterBar(fraction = badge.fraction, color = color, modifier = Modifier.padding(top = spacing.loose))
                 Text(
-                    text = "${formatValue(badge.def.unit, badge.progress.value)} / ${formatValue(badge.def.unit, badge.def.target)}",
+                    text = progressText(badge),
+                    style = type.note,
                     color = TaroTheme.colors.accent,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = spacing.tight),
                 )
             }
         }

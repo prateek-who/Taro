@@ -1,5 +1,6 @@
 package com.prateek.taro.util
 
+import androidx.core.content.ContextCompat
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -71,6 +72,9 @@ object FoodReminderScheduler {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.food_reminder_title))
             .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setColor(ContextCompat.getColor(context, R.color.colorSpecial))
+            .addAction(R.drawable.ic_notification, context.getString(R.string.reminder_log_food), pending)
             .setContentIntent(pending)
             .setAutoCancel(true)
             .build()

@@ -46,4 +46,10 @@ object ActivityEnergy {
     }
 
     fun day(context: Context, date: String, liveTodaySteps: Int? = null) = range(context, date, date, liveTodaySteps)
+
+    fun minutes(samples: List<MinuteSample>): ActivityTotals {
+        val body = body()
+        val steps = samples.sumOf { it.steps }
+        return ActivityTotals(steps, EnergyModel.dayKcal(body, samples, steps), EnergyModel.dayDistanceM(body, samples, steps))
+    }
 }

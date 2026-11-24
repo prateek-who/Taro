@@ -211,6 +211,9 @@ interface StepsDao {
     @Query("DELETE FROM logged_activities WHERE id = :id")
     fun deleteActivity(id: Long)
 
+    @Update
+    fun updateActivity(activity: LoggedActivity)
+
     @Query("SELECT * FROM logged_activities WHERE date = :date ORDER BY logged_at ASC")
     fun activitiesOn(date: String): List<LoggedActivity>
 

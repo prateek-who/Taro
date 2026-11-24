@@ -61,7 +61,6 @@
     <string name="notification_description_paused">إشعار عند إيقاف عد الخطوات</string>
     <string name="notification_description_steps_day">خطوات اليوم</string>
     <string name="notification_step_counting_paused">تم إيقاف عد الخطوات</string>
-    <string name="notification_step_goal_completed">تم الوصول لهدف الخطوات!</string>
     <string name="step_counting_paused">إيقاف عد الخطوات</string>
     <string name="step_counting_resumed">استئناف عد الخطوات</string>
     <string name="action_pause">إيقاف مؤقت</string>
@@ -145,18 +144,14 @@
     <!-- Records -->
     <string name="personal_records">الأرقام القياسية الشخصية</string>
     <string name="most_steps_day">أكبر عدد خطوات في يوم واحد</string>
-    <string name="most_walked_month">أكثر شهر نشاطًا</string>
     <string name="streak_record">أطول سلسلة تتجاوز %1$s خطوة</string>
     <string name="top_3_days">أفضل 3 أيام</string>
-    <string name="best_week">أفضل أسبوع</string>
     <string name="avg_steps_per_day">المتوسط يومياً</string>
     <string name="since_date">منذ %1$s</string>
 
     <!-- Daily Goal Notifications -->
     <string name="daily_goal_notifications">تنبيهات الهدف اليومي</string>
     <string name="daily_goal_notification_channel_desc">استلم تحديثات حول تقدمك اليومي</string>
-    <string name="goal_achieved_title">🎉 تم تحقيق الهدف!</string>
-    <string name="goal_achieved_message">لقد وصلت إلى هدفك %1$s!</string>
 
     <!-- Step Count Details -->
     <string name="steps_count_with_distance">%1$d • %2$s</string>
@@ -172,17 +167,8 @@
     <string name="steps_updated">تم تحديث عدد الخطوات</string>
 
     <!-- Encouraging notification strings -->
-    <string name="encouraging_notification_title">استمر في المشي!</string>
-    <string name="encouraging_notification_15_percent">بداية ممتازة! أنجزت %1$d%% من هدفك اليومي. تبقّى %2$d خطوة فقط!</string>
-    <string name="encouraging_notification_75_percent">شارفت على إنهاء هدفك! %1$d%% منجز. تبقّى %2$d خطوة فقط!</string>
 
-    <string name="encouraging_notification_15_percent_alt1">تقدّم رائع! أنجزت %1$d%% من هدفك اليومي. واصل الحركة!</string>
-    <string name="encouraging_notification_15_percent_alt2">في الطريق الصحيح! أنجزت %1$d%%. تبقّى %2$d خطوة!</string>
-    <string name="encouraging_notification_15_percent_alt3">عمل ممتاز! أتممت %1$d%% من هدفك. حافظ على نشاطك!</string>
 
-    <string name="encouraging_notification_75_percent_alt1">قريب جداً! أنجزت %1$d%% من هدفك. فقط %2$d خطوة تفصلك!</string>
-    <string name="encouraging_notification_75_percent_alt2">الدفعة الأخيرة! أنجزت %1$d%%. تقدر تكمل — تبقّى %2$d خطوة فقط!</string>
-    <string name="encouraging_notification_75_percent_alt3">قربت توصل! %1$d%% منجز. %2$d خطوة تفصلك عن الانتصار!</string>
 
     <!-- Pause step counting -->
     <string name="resume_at_time">استئناف في وقت محدد</string>

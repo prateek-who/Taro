@@ -50,6 +50,8 @@ internal class Database private constructor(private val dao: StepsDao) {
 
     internal fun deleteActivity(id: Long) = changed { dao.deleteActivity(id) }
 
+    internal fun updateActivity(activity: LoggedActivity) = changed { dao.updateActivity(activity) }
+
     internal fun activitiesOn(date: String): List<LoggedActivity> = dao.activitiesOn(date)
 
     internal fun activitiesBetween(from: String, to: String): List<LoggedActivity> = dao.activitiesBetween(from, to)

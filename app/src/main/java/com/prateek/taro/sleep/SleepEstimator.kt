@@ -22,6 +22,7 @@ object SleepEstimator {
         windowEnd: Long,
         screen: List<ScreenState>,
         stepsPerMinute: Map<Long, Int>,
+        usual: SleepWindow? = null,
     ): SleepWindow? {
         val active = mutableListOf<SleepWindow>()
         val known = screen.lastOrNull { it.at <= windowStart }
@@ -62,7 +63,9 @@ object SleepEstimator {
 
         return merged
             .filter { (window, awake) -> isPlausibleNight(window.start, window.end) && awake <= window.durationMs * MAX_AWAKE_SHARE }
-            .maxByOrNull { it.first.durationMs }
+            .maxByOrNull { (window, _) ->
+                window.durationMs + (usual?.let { minOf(window.end, it.end) - maxOf(window.start, it.start) } ?: 0L).coerceAtLeast(0)
+            }
             ?.first
     }
 }

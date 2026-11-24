@@ -1,5 +1,28 @@
 package com.prateek.taro.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.text.style.TextAlign
+import com.prateek.taro.food.Macros
+import com.prateek.taro.ui.components.IconTile
+import com.prateek.taro.ui.components.IconTileGrid
+import com.prateek.taro.ui.components.StepperField
+import com.prateek.taro.ui.components.WhenDialog
+import com.prateek.taro.ui.components.TextTabs
+import com.prateek.taro.ui.components.StackBar
+import com.prateek.taro.ui.components.BentoTile
+import com.prateek.taro.ui.components.BentoValue
+import com.prateek.taro.ui.components.BentoNote
+import com.prateek.taro.ui.components.Fact
+import com.prateek.taro.ui.components.RowDivider
 import com.prateek.taro.ui.components.dayLabel
 import com.prateek.taro.ui.components.ToggleGroup
 import com.prateek.taro.food.FoodUnit
@@ -28,9 +51,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.key
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.prateek.taro.ui.components.selectedAll
 import com.prateek.taro.util.AppPreferences
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,10 +74,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,7 +83,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -73,6 +91,11 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.prateek.taro.R
+import com.prateek.taro.ui.components.NameDialog
+import androidx.compose.foundation.layout.Spacer
+import com.prateek.taro.ui.components.LinkText
+import androidx.compose.ui.unit.Dp
+import androidx.compose.animation.AnimatedVisibility
 import com.prateek.taro.data.CustomFood
 import com.prateek.taro.data.FoodLog
 import com.prateek.taro.food.FoodCatalog
@@ -82,20 +105,14 @@ import com.prateek.taro.food.Meals
 import com.prateek.taro.food.Recipes
 import com.prateek.taro.food.Ingredient
 import com.prateek.taro.food.Portion
-import com.prateek.taro.ui.components.DateRow
 import com.prateek.taro.ui.components.LocalToast
 import com.prateek.taro.ui.components.NumberField
 import com.prateek.taro.ui.components.Panel
-import com.prateek.taro.ui.components.PillSelector
 import com.prateek.taro.ui.components.PrimaryButton
-import com.prateek.taro.ui.components.RangeChip
-import com.prateek.taro.ui.components.ScrollingColumn
 import com.prateek.taro.ui.components.SecondaryButton
 import com.prateek.taro.ui.components.SectionLabel
 import com.prateek.taro.ui.components.TaroDialog
-import com.prateek.taro.ui.components.TaroScaffold
 import com.prateek.taro.ui.components.TaroTextField
-import com.prateek.taro.ui.components.TintChip
 import com.prateek.taro.ui.components.ToastKind
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.util.Database
@@ -107,6 +124,8 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 val PROTEIN_BLUE = Color(0xFF4FC3F7)
+val CARB_VIOLET = Color(0xFFB39DFF)
+val FAT_CORAL = Color(0xFFFF8A65)
 
 private const val SEPARATE_TIME_MS = 15 * 60_000L
 private const val SEARCH_DELAY_MS = 120L
@@ -117,34 +136,20 @@ private const val PAST_MEAL_DAYS = 14L
 private const val PAST_MEAL_COUNT = 4
 private const val SAVED_MEAL_NAME = 40
 private const val UNWEIGHED_GRAMS = 100.0
+private const val ACTION_COLUMNS = 3
+private const val TRAY_ROOM = 6
+private const val ADD_DISC_SHARE = 1.6f
+private const val ADD_DISC_ALPHA = 0.18f
+private const val BASE_STEP = 10.0
+private const val UNIT_STEP = 0.5
 
-data class FoodTotals(val kcal: Double, val protein: Double)
+data class FoodTotals(val kcal: Double, val protein: Double, val carbs: Double = 0.0, val fat: Double = 0.0)
 
-fun List<FoodLog>.totals() = FoodTotals(sumOf { it.kcal }, sumOf { it.protein })
+fun List<FoodLog>.totals() = FoodTotals(sumOf { it.kcal }, sumOf { it.protein }, sumOf { it.carbs ?: 0.0 }, sumOf { it.fat ?: 0.0 })
 
 internal fun number(value: Double) = Util.formatSteps(value.roundToInt())
 
 internal fun grams(value: Double) = "%.0f g".format(Locale.getDefault(), value)
-
-@Composable
-fun ProgressLine(fraction: Float, color: Color, modifier: Modifier = Modifier) {
-    val fill by animateFloatAsState(fraction.coerceIn(0f, 1f), label = "progress")
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(8.dp)
-            .clip(CircleShape)
-            .background(TaroTheme.colors.accentOpaque),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(fill)
-                .height(8.dp)
-                .clip(CircleShape)
-                .background(color),
-        )
-    }
-}
 
 @Composable
 fun MealsSection(
@@ -154,8 +159,10 @@ fun MealsSection(
     onAdd: (String) -> Unit,
     onEdit: (FoodLog) -> Unit,
     onDelete: (FoodLog) -> Unit,
+    extraAction: (@Composable () -> Unit)? = null,
 ) {
     var managing by remember { mutableStateOf(false) }
+    var open by remember(date) { mutableStateOf(setOf<String>()) }
     var retiming by remember { mutableStateOf<List<FoodLog>?>(null) }
     val context = LocalContext.current
     val timeFormat = remember { android.text.format.DateFormat.getTimeFormat(context) }
@@ -168,112 +175,134 @@ fun MealsSection(
     SectionLabel(
         text = stringResource(R.string.food_meals),
         info = infoOf(R.string.info_meals_title, R.string.info_meals),
-        action = {
-            ActionChip(
-                text = stringResource(R.string.meal_edit_short),
-                color = MaterialTheme.colorScheme.onSurface,
-                onClick = { managing = true },
-                icon = R.drawable.ic_edit,
-            )
-        },
     )
+    val type = TaroTheme.text
+    val spacing = TaroTheme.spacing
+    val colors = TaroTheme.colors
+    val iconSize = with(LocalDensity.current) { type.note.lineHeight.toDp() }
     Panel {
         groups.forEachIndexed { index, meal ->
             val entries = if (meal.key.isEmpty()) orphans else logs.filter { it.meal == meal.key }
             val start = entries.minOfOrNull { it.loggedAt }
+            val expanded = meal.key in open && entries.isNotEmpty()
             if (index > 0) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
-                        .height(1.dp)
-                        .background(TaroTheme.colors.background.copy(alpha = 0.6f)),
+                        .padding(horizontal = spacing.tight)
+                        .height(Dp.Hairline)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = DIVIDER_ALPHA)),
                 )
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .then(if (meal.key.isNotEmpty()) Modifier.clickable { onAdd(meal.key) } else Modifier)
-                    .padding(start = 8.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
+                    .padding(vertical = spacing.hair)
+                    .clip(RoundedCornerShape(spacing.gap + spacing.hair))
+                    .clickable(enabled = entries.isNotEmpty() || meal.key.isNotEmpty()) {
+                        if (entries.isEmpty()) onAdd(meal.key) else open = if (expanded) open - meal.key else open + meal.key
+                    }
+                    .padding(horizontal = spacing.tight, vertical = spacing.gap),
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = meal.name,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
+                    Text(
+                        text = meal.name,
+                        style = type.title,
+                        color = if (entries.isEmpty()) colors.accent else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = if (start == null) {
+                            stringResource(R.string.meal_usually, timeFormat.format(Date(Util.momentOf(date, Meals.usualMinute(meal)))))
+                        } else {
+                            (listOf(timeFormat.format(Date(start))) + entries.joinToString(", ") { it.name }).joinToString(" · ")
+                        },
+                        style = type.note,
+                        color = colors.accent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = spacing.hair),
+                    )
+                }
+                if (entries.isEmpty()) {
+                    if (meal.key.isNotEmpty()) AddCircle(stringResource(R.string.food_add_to, meal.name), iconSize)
+                } else {
+                    Text(
+                        text = number(entries.totals().kcal),
+                        style = type.title,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(start = spacing.gap),
+                    )
+                }
+            }
+            AnimatedVisibility(visible = expanded) {
+                Column(modifier = Modifier.padding(bottom = spacing.tight)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(spacing.tight),
+                        modifier = Modifier.padding(horizontal = spacing.tight, vertical = spacing.hair),
+                    ) {
                         start?.let { first ->
-                            ActionChip(
-                                text = timeFormat.format(Date(first)),
-                                color = TaroTheme.colors.accent,
+                            LinkText(
+                                text = stringResource(R.string.meal_eaten_at, timeFormat.format(Date(first))),
+                                color = colors.accent,
                                 onClick = { retiming = entries },
                                 icon = R.drawable.ic_schedule,
-                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                        if (meal.key.isNotEmpty()) {
+                            LinkText(
+                                text = stringResource(R.string.food_add_more),
+                                color = colors.special,
+                                onClick = { onAdd(meal.key) },
+                                icon = R.drawable.ic_add,
                             )
                         }
                     }
-                    Text(
-                        text = if (entries.isEmpty()) {
-                            stringResource(R.string.meal_empty)
-                        } else {
-                            entries.totals().let { stringResource(R.string.food_meal_total, number(it.kcal), number(it.protein)) }
-                        },
-                        fontSize = 12.sp,
-                        color = TaroTheme.colors.accent,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                }
-                if (meal.key.isNotEmpty()) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(TaroTheme.colors.goal.copy(alpha = 0.16f)),
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_add),
-                            contentDescription = stringResource(R.string.food_add_to, meal.name),
-                            tint = TaroTheme.colors.goal,
-                            modifier = Modifier.size(22.dp),
-                        )
+                    entries.forEach { log ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(spacing.gap + spacing.hair))
+                                .clickable { onEdit(log) }
+                                .padding(start = spacing.tight),
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(log.name, style = type.meterValue, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                val ownTime = timeFormat.format(Date(log.loggedAt)).takeIf { start != null && log.loggedAt - start >= SEPARATE_TIME_MS }
+                                Text(
+                                    text = (listOfNotNull(ownTime, log.amount, log.grams?.let { Units.format(it, log.unit) }).distinct() + stringResource(R.string.food_protein_short, number(log.protein))).joinToString(" · "),
+                                    style = type.note,
+                                    color = colors.accent,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Text(number(log.kcal), style = type.meterValue, color = MaterialTheme.colorScheme.onSurface)
+                            IconButton(onClick = { onDelete(log) }) {
+                                Icon(painterResource(R.drawable.ic_delete), contentDescription = stringResource(R.string.food_delete, log.name), tint = colors.accent, modifier = Modifier.size(iconSize))
+                            }
+                        }
                     }
                 }
             }
-            entries.forEach { log ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 2.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable { onEdit(log) }
-                        .padding(start = 8.dp),
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(log.name, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val ownTime = timeFormat.format(Date(log.loggedAt)).takeIf { start != null && log.loggedAt - start >= SEPARATE_TIME_MS }
-                        Text(
-                            text = listOfNotNull(ownTime, log.amount, log.grams?.let { Units.format(it, log.unit) }).distinct().joinToString(" · "),
-                            fontSize = 12.sp,
-                            color = TaroTheme.colors.accent,
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(stringResource(R.string.energy_kcal, number(log.kcal)), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        Text(stringResource(R.string.food_protein_short, number(log.protein)), fontSize = 12.sp, color = PROTEIN_BLUE)
-                    }
-                    IconButton(onClick = { onDelete(log) }) {
-                        Icon(painterResource(R.drawable.ic_delete), contentDescription = stringResource(R.string.food_delete, log.name), tint = TaroTheme.colors.accent, modifier = Modifier.size(20.dp))
-                    }
-                }
-            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = spacing.tight, vertical = spacing.hair),
+        ) {
+            LinkText(
+                text = stringResource(R.string.meal_edit_all),
+                color = colors.accent,
+                onClick = { managing = true },
+                icon = R.drawable.ic_edit,
+            )
+            Spacer(Modifier.weight(1f))
+            extraAction?.invoke()
         }
     }
 
@@ -309,6 +338,23 @@ fun MealsSection(
         )
     }
 }
+
+@Composable
+private fun AddCircle(description: String, iconSize: Dp) {
+    val color = TaroTheme.colors.special
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .padding(start = TaroTheme.spacing.gap)
+            .clip(CircleShape)
+            .background(color)
+            .padding(TaroTheme.spacing.tight + TaroTheme.spacing.hair),
+    ) {
+        Icon(painterResource(R.drawable.ic_add), contentDescription = description, tint = MaterialTheme.colorScheme.background, modifier = Modifier.size(iconSize))
+    }
+}
+
+private const val DIVIDER_ALPHA = 0.08f
 
 @Composable
 private fun ManageMealsDialog(meals: List<MealSlot>, date: LocalDate, onSave: (List<MealSlot>) -> Unit, onDismiss: () -> Unit) {
@@ -522,38 +568,6 @@ private fun MealDialog(
     }
 }
 
-@Composable
-private fun NameDialog(
-    title: String,
-    label: String,
-    initial: String,
-    maxLength: Int,
-    onSave: (String) -> Unit,
-    onDismiss: () -> Unit,
-    clean: (String) -> String = { it.trim() },
-    extra: @Composable () -> Unit = {},
-) {
-    var name by remember { mutableStateOf(initial.selectedAll()) }
-    val cleaned = clean(name.text)
-    TaroDialog(
-        title = title,
-        onDismiss = onDismiss,
-        confirmText = stringResource(R.string.action_save),
-        onConfirm = { onSave(cleaned) },
-        confirmEnabled = cleaned.isNotEmpty(),
-    ) {
-        Column {
-            TaroTextField(
-                value = name,
-                onValueChange = { if (it.text.length <= maxLength) name = it },
-                label = label,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            extra()
-        }
-    }
-}
-
 class AddFoodScreen(private val date: LocalDate, private val meal: String) : Screen {
     @Composable
     override fun Content() {
@@ -563,7 +577,8 @@ class AddFoodScreen(private val date: LocalDate, private val meal: String) : Scr
 }
 
 private sealed interface FoodDialog {
-    data class Amount(val item: FoodItem) : FoodDialog
+    data class Amount(val item: FoodItem, val grams: Double? = null) : FoodDialog
+    data class QuickFrom(val log: FoodLog) : FoodDialog
     data object Quick : FoodDialog
     data object Create : FoodDialog
     data class EditCustom(val food: CustomFood) : FoodDialog
@@ -582,6 +597,8 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
     var timeTouched by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf(TextFieldValue()) }
     var dialog by remember { mutableStateOf<FoodDialog?>(null) }
+    var added by remember { mutableStateOf<List<FoodLog>>(emptyList()) }
+    var pickingWhen by remember { mutableStateOf(false) }
     val dataVersion = rememberDataVersion()
     val meals by AppPreferences.mealsFlow(context).collectAsStateWithLifecycle(AppPreferences.meals(context))
     var catalog by remember { mutableStateOf<List<FoodItem>>(emptyList()) }
@@ -614,11 +631,9 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
     fun copy(logs: List<FoodLog>) {
         val first = logs.minOf { it.loggedAt }
         val shift = Util.momentOf(date, minute) - first
-        Database.getInstance(context).logFoods(
-            logs.map { it.copy(id = 0, date = date.toString(), meal = meal, loggedAt = it.loggedAt + shift) }
-        )
-        toast.show(context.resources.getQuantityString(R.plurals.food_copied, logs.size, logs.size), ToastKind.SUCCESS)
-        onDone()
+        val copies = logs.map { it.copy(id = 0, date = date.toString(), meal = meal, loggedAt = it.loggedAt + shift) }
+        Database.getInstance(context).logFoods(copies)
+        added = added + copies
     }
     LaunchedEffect(date, meal, meals) {
         if (!timeTouched) {
@@ -632,167 +647,218 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
     }
 
     fun save(log: FoodLog) {
-        Database.getInstance(context).logFood(log.copy(date = date.toString(), meal = meal, loggedAt = Util.momentOf(date, minute)))
-        toast.show(context.getString(R.string.food_logged, log.name), ToastKind.SUCCESS)
+        val entry = log.copy(id = 0, date = date.toString(), meal = meal, loggedAt = Util.momentOf(date, minute))
+        Database.getInstance(context).logFood(entry)
+        added = added + entry
         dialog = null
-        onDone()
     }
 
-    TaroScaffold(title = stringResource(R.string.food_add_title), onBack = onDone) { padding ->
-        ScrollingColumn(padding, modifier = Modifier.padding(horizontal = 16.dp)) {
-            TaroTextField(
-                value = query,
-                onValueChange = { query = it },
-                label = stringResource(R.string.food_search),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-            )
-            PillSelector(
-                options = AppPreferences.mealOrders.arrange(meals, date).filter { it.plannedOn(date) || it.key in usedMeals || it.key == meal }.map { it.key to it.name },
-                selected = meal,
-                onSelect = { meal = it },
-                modifier = Modifier.padding(top = 12.dp),
-            )
-            DateRow(
-                label = stringResource(R.string.date_label),
-                date = date,
-                today = Util.logicalToday(),
-                onChange = { date = it },
-                modifier = Modifier.padding(top = 10.dp),
-            )
-            TimeRow(
-                label = stringResource(R.string.food_time),
-                minuteOfDay = minute,
-                onChange = {
-                    minute = it
-                    timeTouched = true
-                },
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 12.dp)) {
-                SecondaryButton(stringResource(R.string.food_quick_add), onClick = { dialog = FoodDialog.Quick }, modifier = Modifier.weight(1f))
-                SecondaryButton(stringResource(R.string.food_create), onClick = { dialog = FoodDialog.Create }, modifier = Modifier.weight(1f))
-            }
-            SecondaryButton(
-                text = stringResource(R.string.recipe_create),
-                onClick = { navigator.push(RecipeScreen(null)) },
-                icon = R.drawable.ic_add,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 10.dp),
-            )
+    fun open(log: FoodLog) {
+        val item = log.foodKey?.let { key -> searchable.firstOrNull { it.key == key } }
+        dialog = if (item != null) FoodDialog.Amount(item, log.grams) else FoodDialog.QuickFrom(log)
+    }
 
-            if (query.text.isBlank()) {
-                if (pastMeals.isNotEmpty()) {
-                    SectionLabel(stringResource(R.string.food_copy_meal), info = infoOf(R.string.food_copy_meal, R.string.info_copy_meal))
-                    Panel {
-                        pastMeals.forEach { logs ->
-                            val totals = logs.totals()
-                            FoodRow(
-                                title = dayLabel(LocalDate.parse(logs.first().date), Util.logicalToday()),
-                                subtitle = logs.joinToString(", ") { it.name },
-                                kcal = totals.kcal,
-                                protein = totals.protein,
-                                onClick = { copy(logs) },
-                                onEdit = { dialog = FoodDialog.NameMeal(logs) },
-                                editLabel = stringResource(R.string.food_name_meal),
-                            )
+    val spacing = TaroTheme.spacing
+    val colors = TaroTheme.colors
+    val mealName = meals.firstOrNull { it.key == meal }?.name ?: stringResource(R.string.meal_other)
+    val timeFormat = remember { android.text.format.DateFormat.getTimeFormat(context) }
+    val addLabel = stringResource(R.string.food_add_to_meal, mealName.lowercase())
+    fun summary(log: FoodLog) = listOfNotNull(log.amount, log.grams?.let { Units.format(it, log.unit) }).distinct().joinToString(" · ")
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+    ) {
+        AppOverflowMenu(
+            back = true,
+            title = mealName,
+            center = {
+                LinkText(
+                    stringResource(R.string.food_when_value, dayLabel(date, Util.logicalToday()).lowercase(), timeFormat.format(Date(Util.momentOf(date, minute)))),
+                    colors.accent,
+                    onClick = { pickingWhen = true },
+                    trailingIcon = R.drawable.ic_edit,
+                )
+            },
+        )
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = spacing.loose, end = spacing.loose, bottom = if (added.isEmpty()) spacing.loose else spacing.loose * TRAY_ROOM),
+            ) {
+                SearchField(query, { query = it }, stringResource(R.string.food_search))
+                IconTileGrid(
+                    listOf(
+                        Triple(R.drawable.ic_badge_bolt, stringResource(R.string.food_quick_add), colors.special) to { dialog = FoodDialog.Quick },
+                        Triple(R.drawable.ic_camera, stringResource(R.string.food_create), colors.goal) to { dialog = FoodDialog.Create },
+                        Triple(R.drawable.ic_recipe, stringResource(R.string.food_recipe_tile), colors.flame) to { navigator.push(RecipeScreen(null)) },
+                    ),
+                    columns = ACTION_COLUMNS,
+                    modifier = Modifier.padding(top = spacing.gap),
+                ) { (look, action), modifier ->
+                    IconTile(look.first, look.second, look.third, modifier, selected = false, onClick = action)
+                }
+
+                if (query.text.isBlank()) {
+                    if (usual.isNotEmpty()) {
+                        SectionLabel(stringResource(R.string.food_usual), info = infoOf(R.string.food_usual, R.string.info_usual_foods))
+                        Panel {
+                            usual.forEachIndexed { index, log ->
+                                if (index > 0) RowDivider()
+                                FoodRow(
+                                    title = log.name,
+                                    subtitle = summary(log),
+                                    kcal = log.kcal,
+                                    protein = log.protein,
+                                    carbs = log.carbs,
+                                    fat = log.fat,
+                                    onClick = { open(log) },
+                                    onAdd = { save(log) },
+                                )
+                            }
                         }
                     }
-                }
-                if (usual.isNotEmpty()) {
-                    SectionLabel(stringResource(R.string.food_usual), info = infoOf(R.string.food_usual, R.string.info_usual_foods))
-                    Panel {
-                        usual.forEach { log ->
-                            FoodRow(
-                                title = log.name,
-                                subtitle = listOfNotNull(log.amount, log.grams?.let { Units.format(it, log.unit) }).distinct().joinToString(" · "),
-                                kcal = log.kcal,
-                                protein = log.protein,
-                                onClick = { save(log.copy(id = 0)) },
-                            )
+                    if (pastMeals.isNotEmpty()) {
+                        SectionLabel(stringResource(R.string.food_copy_meal), info = infoOf(R.string.food_copy_meal, R.string.info_copy_meal))
+                        Panel {
+                            pastMeals.forEachIndexed { index, logs ->
+                                if (index > 0) RowDivider()
+                                val totals = logs.totals()
+                                FoodRow(
+                                    title = dayLabel(LocalDate.parse(logs.first().date), Util.logicalToday()),
+                                    subtitle = logs.joinToString(", ") { it.name },
+                                    kcal = totals.kcal,
+                                    protein = totals.protein,
+                                    carbs = totals.carbs,
+                                    fat = totals.fat,
+                                    onClick = { copy(logs) },
+                                    action = stringResource(R.string.food_copy),
+                                    onEdit = { dialog = FoodDialog.NameMeal(logs) },
+                                    editLabel = stringResource(R.string.food_name_meal),
+                                )
+                            }
                         }
                     }
-                }
-                if (recent.isNotEmpty()) {
-                    SectionLabel(stringResource(R.string.food_recent))
-                    Panel {
-                        recent.forEach { log ->
-                            FoodRow(
-                                title = log.name,
-                                subtitle = listOfNotNull(log.amount, log.grams?.let { Units.format(it, log.unit) }).distinct().joinToString(" · "),
-                                kcal = log.kcal,
-                                protein = log.protein,
-                                onClick = { save(log.copy(id = 0)) },
-                            )
+                    if (recent.isNotEmpty()) {
+                        SectionLabel(stringResource(R.string.food_recent))
+                        Panel {
+                            recent.forEachIndexed { index, log ->
+                                if (index > 0) RowDivider()
+                                FoodRow(
+                                    title = log.name,
+                                    subtitle = summary(log),
+                                    kcal = log.kcal,
+                                    protein = log.protein,
+                                    carbs = log.carbs,
+                                    fat = log.fat,
+                                    onClick = { open(log) },
+                                    onAdd = { save(log) },
+                                )
+                            }
                         }
                     }
-                    Text(stringResource(R.string.food_recent_hint), fontSize = 12.sp, color = TaroTheme.colors.accent, modifier = Modifier.padding(start = 8.dp, top = 6.dp))
-                }
-                if (custom.isNotEmpty()) {
-                    SectionLabel(stringResource(R.string.food_yours))
-                    Panel {
-                        custom.forEach { item ->
-                            FoodRow(
-                                title = item.name,
-                                subtitle = if (item.recipeId != null) stringResource(R.string.recipe_per_100g) else stringResource(R.string.food_per_100g, item.unit),
-                                unit = item.unit,
-                                kcal = item.kcal,
-                                protein = item.protein,
-                                perHundred = true,
-                                onClick = { dialog = FoodDialog.Amount(item) },
-                                onEdit = {
-                                    val id = item.key.removePrefix("custom:").toLongOrNull()
-                                    if (item.recipeId != null) {
-                                        navigator.push(RecipeScreen(item.recipeId))
-                                    } else {
-                                        id?.let(Database.getInstance(context)::customFood)?.let { dialog = FoodDialog.EditCustom(it) }
-                                    }
-                                },
-                            )
+                    if (custom.isNotEmpty()) {
+                        SectionLabel(stringResource(R.string.food_yours))
+                        Panel {
+                            custom.forEachIndexed { index, item ->
+                                if (index > 0) RowDivider()
+                                FoodRow(
+                                    title = item.name,
+                                    subtitle = if (item.recipeId != null) stringResource(R.string.recipe_per_100g) else stringResource(R.string.food_per_100g, item.unit),
+                                    unit = item.unit,
+                                    kcal = item.kcal,
+                                    protein = item.protein,
+                                    carbs = item.carbs,
+                                    fat = item.fat,
+                                    perHundred = true,
+                                    onClick = { dialog = FoodDialog.Amount(item) },
+                                    onEdit = {
+                                        val id = item.key.removePrefix("custom:").toLongOrNull()
+                                        if (item.recipeId != null) {
+                                            navigator.push(RecipeScreen(item.recipeId))
+                                        } else {
+                                            id?.let(Database.getInstance(context)::customFood)?.let { dialog = FoodDialog.EditCustom(it) }
+                                        }
+                                    },
+                                )
+                            }
                         }
                     }
-                }
-            } else {
-                SectionLabel(stringResource(R.string.food_results))
-                if (results.isEmpty()) {
-                    Text(stringResource(R.string.food_no_results), color = TaroTheme.colors.accent, modifier = Modifier.padding(start = 8.dp))
-                    SecondaryButton(
-                        text = stringResource(R.string.food_create_named, query.text.trim()),
-                        onClick = { dialog = FoodDialog.Create },
-                        icon = R.drawable.ic_add,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 10.dp),
-                    )
                 } else {
-                    Panel(modifier = Modifier.padding(bottom = 24.dp)) {
-                        results.forEach { item ->
-                            FoodRow(
-                                title = item.name,
-                                subtitle = stringResource(
-                                    when (item.source) {
-                                        FoodCatalog.SOURCE_CUSTOM -> R.string.food_source_custom
-                                        FoodCatalog.SOURCE_INDIAN -> R.string.food_source_indian
-                                        else -> R.string.food_source_usda
-                                    }
-                                ),
-                                kcal = item.kcal,
-                                protein = item.protein,
-                                perHundred = true,
-                                unit = item.unit,
-                                onClick = { dialog = FoodDialog.Amount(item) },
-                            )
+                    SectionLabel(stringResource(R.string.food_results))
+                    if (results.isEmpty()) {
+                        BentoNote(stringResource(R.string.food_no_results), Modifier.padding(start = spacing.tight))
+                        LinkText(
+                            stringResource(R.string.food_create_named, query.text.trim()),
+                            colors.special,
+                            onClick = { dialog = FoodDialog.Create },
+                            icon = R.drawable.ic_add,
+                            modifier = Modifier.padding(top = spacing.tight),
+                        )
+                    } else {
+                        Panel {
+                            results.forEachIndexed { index, item ->
+                                if (index > 0) RowDivider()
+                                FoodRow(
+                                    title = item.name,
+                                    subtitle = stringResource(
+                                        when (item.source) {
+                                            FoodCatalog.SOURCE_CUSTOM -> R.string.food_source_custom
+                                            FoodCatalog.SOURCE_INDIAN -> R.string.food_source_indian
+                                            else -> R.string.food_source_usda
+                                        }
+                                    ),
+                                    kcal = item.kcal,
+                                    protein = item.protein,
+                                    carbs = item.carbs,
+                                    fat = item.fat,
+                                    perHundred = true,
+                                    unit = item.unit,
+                                    onClick = { dialog = FoodDialog.Amount(item) },
+                                )
+                            }
                         }
                     }
                 }
+            }
+            if (added.isNotEmpty()) {
+                FoodTray(added, mealName, onDone, Modifier.align(Alignment.BottomCenter).padding(spacing.gap))
             }
         }
     }
 
+    if (pickingWhen) {
+        var draftMeal by remember { mutableStateOf(meal) }
+        WhenDialog(
+            title = stringResource(R.string.food_where_title),
+            date = date,
+            minuteOfDay = minute,
+            timeLabel = stringResource(R.string.food_time),
+            onSave = { day, at ->
+                date = day
+                minute = at
+                timeTouched = true
+                meal = draftMeal
+                pickingWhen = false
+            },
+            onDismiss = { pickingWhen = false },
+            top = {
+                Column {
+                    AppPreferences.mealOrders.arrange(meals, date).filter { it.plannedOn(date) || it.key in usedMeals || it.key == meal }.forEach { slot ->
+                        ChoiceRow(slot.name, slot.key == draftMeal) { draftMeal = slot.key }
+                    }
+                }
+            },
+        )
+    }
+
     when (val current = dialog) {
-        is FoodDialog.Amount -> AmountDialog(current.item, initialGrams = null, onSave = ::save, onDismiss = { dialog = null })
+        is FoodDialog.Amount -> AmountDialog(current.item, initialGrams = current.grams, onSave = ::save, onDismiss = { dialog = null }, confirmLabel = addLabel)
+        is FoodDialog.QuickFrom -> QuickAddDialog(initial = current.log, onSave = ::save, onDismiss = { dialog = null })
         FoodDialog.Quick -> QuickAddDialog(initial = null, onSave = ::save, onDismiss = { dialog = null })
         FoodDialog.Create -> CreateFoodDialog(
             initialName = query.text.trim(),
@@ -894,32 +960,156 @@ internal fun FoodRow(
     unit: String = Units.GRAMS,
     onEdit: (() -> Unit)? = null,
     editLabel: String? = null,
+    carbs: Double? = null,
+    fat: Double? = null,
+    onAdd: (() -> Unit)? = null,
+    action: String? = null,
 ) {
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
+    val colors = TaroTheme.colors
+    val iconSize = with(LocalDensity.current) { type.meterValue.lineHeight.toDp() }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(spacing.gap),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(spacing.gap))
+            .clickable(onClick = onClick)
+            .padding(horizontal = spacing.tight, vertical = spacing.gap),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = type.title, color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (subtitle.isNotBlank()) Text(subtitle, style = type.note, color = colors.accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(IntrinsicSize.Max)) {
+            Text(
+                text = if (perHundred) stringResource(R.string.food_kcal_per_100, number(kcal), unit) else stringResource(R.string.energy_kcal, number(kcal)),
+                style = type.meterValue,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (carbs != null || fat != null) {
+                StackBar(
+                    parts = listOf(
+                        protein * Macros.PROTEIN_KCAL to PROTEIN_BLUE,
+                        (carbs ?: 0.0) * Macros.CARB_KCAL to CARB_VIOLET,
+                        (fat ?: 0.0) * Macros.FAT_KCAL to FAT_CORAL,
+                    ),
+                    height = spacing.hair,
+                    modifier = Modifier.fillMaxWidth().padding(top = spacing.hair),
+                )
+            } else {
+                Text(stringResource(R.string.food_protein_short, number(protein)), style = type.note, color = PROTEIN_BLUE)
+            }
+        }
+        action?.let { LinkText(it, colors.special, onClick = onClick) }
+        if (onEdit != null) {
+            Icon(
+                painterResource(R.drawable.ic_edit),
+                contentDescription = editLabel ?: stringResource(R.string.recipe_edit, title),
+                tint = colors.accent,
+                modifier = Modifier.clip(CircleShape).clickable(onClick = onEdit).padding(spacing.hair).size(iconSize),
+            )
+        }
+        if (onAdd != null) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(iconSize * ADD_DISC_SHARE)
+                    .clip(CircleShape)
+                    .background(colors.special.copy(alpha = ADD_DISC_ALPHA))
+                    .clickable(onClick = onAdd),
+            ) {
+                Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.food_add_one, title), tint = colors.special, modifier = Modifier.size(iconSize))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchField(value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit, hint: String) {
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
+    val colors = TaroTheme.colors
+    val iconSize = with(LocalDensity.current) { type.title.lineHeight.toDp() }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(spacing.gap),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(spacing.loose))
+            .background(colors.accentOpaque)
+            .padding(horizontal = spacing.loose, vertical = spacing.gap),
+    ) {
+        Icon(painterResource(R.drawable.ic_search), contentDescription = null, tint = colors.accent, modifier = Modifier.size(iconSize))
+        Box(modifier = Modifier.weight(1f)) {
+            if (value.text.isEmpty()) Text(hint, style = type.title, color = colors.accent)
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                textStyle = type.title.copy(color = MaterialTheme.colorScheme.onSurface),
+                cursorBrush = SolidColor(colors.special),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (value.text.isNotEmpty()) {
+            Icon(
+                painterResource(R.drawable.ic_close),
+                contentDescription = stringResource(R.string.food_search_clear),
+                tint = colors.accent,
+                modifier = Modifier.clip(CircleShape).clickable { onValueChange(TextFieldValue()) }.size(iconSize),
+            )
+        }
+    }
+}
+
+@Composable
+private fun FoodTray(added: List<FoodLog>, mealName: String, onDone: () -> Unit, modifier: Modifier = Modifier) {
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
+    val colors = TaroTheme.colors
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(spacing.gap, RoundedCornerShape(spacing.loose + spacing.tight))
+            .clip(RoundedCornerShape(spacing.loose + spacing.tight))
+            .background(colors.dialogSurface)
+            .padding(horizontal = spacing.loose, vertical = spacing.gap),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                if (added.all { it.meal == added.first().meal }) stringResource(R.string.food_tray_title, mealName.lowercase()) else stringResource(R.string.food_tray_mixed),
+                style = type.title,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                stringResource(R.string.food_tray_note, added.joinToString(", ") { it.name }, number(added.sumOf { it.kcal })),
+                style = type.note,
+                color = colors.accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        LinkText(stringResource(R.string.food_done), colors.special, onClick = onDone)
+    }
+}
+
+@Composable
+private fun ChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(spacing.gap))
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .padding(horizontal = spacing.tight, vertical = spacing.gap),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (subtitle.isNotBlank()) Text(subtitle, fontSize = 12.sp, color = TaroTheme.colors.accent)
-        }
-        Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 12.dp)) {
-            Text(
-                text = if (perHundred) stringResource(R.string.food_kcal_per_100, number(kcal), unit) else stringResource(R.string.energy_kcal, number(kcal)),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(stringResource(R.string.food_protein_short, number(protein)), fontSize = 12.sp, color = PROTEIN_BLUE)
-        }
-        if (onEdit != null) {
-            IconButton(onClick = onEdit) {
-                Icon(painterResource(R.drawable.ic_edit), contentDescription = editLabel ?: stringResource(R.string.recipe_edit, title), tint = TaroTheme.colors.accent, modifier = Modifier.size(20.dp))
-            }
-        }
+        Text(label, style = type.title, color = if (selected) MaterialTheme.colorScheme.onSurface else TaroTheme.colors.accent, modifier = Modifier.weight(1f))
+        if (selected) Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = TaroTheme.colors.special, modifier = Modifier.size(with(LocalDensity.current) { type.title.lineHeight.toDp() }))
     }
 }
 
@@ -931,6 +1121,7 @@ fun AmountDialog(
     onSave: (FoodLog) -> Unit,
     onDismiss: () -> Unit,
     header: (@Composable () -> Unit)? = null,
+    confirmLabel: String? = null,
 ) {
     val start = initialGrams ?: item.portions.firstOrNull()?.grams ?: 100.0
     val baseUnit = Units.base(item)
@@ -943,7 +1134,7 @@ fun AmountDialog(
     TaroDialog(
         title = item.name,
         onDismiss = onDismiss,
-        confirmText = stringResource(R.string.action_save),
+        confirmText = confirmLabel ?: stringResource(R.string.action_save),
         confirmEnabled = amount != null,
         onConfirm = {
             val grams = amount ?: return@TaroDialog
@@ -966,27 +1157,37 @@ fun AmountDialog(
             )
         },
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+        val spacing = TaroTheme.spacing
+        val colors = TaroTheme.colors
+        val type = TaroTheme.text
+        fun step(direction: Int) {
+            val size = if (unit == FoodUnit.GRAM || unit == FoodUnit.ML) BASE_STEP else UNIT_STEP
+            val next = (((entered ?: 0.0) / size).roundToInt() + direction).coerceAtLeast(1) * size
+            text = TextFieldValue(Util.formatMeasure(next))
+            portion = null
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.gap), modifier = Modifier.verticalScroll(rememberScrollState())) {
             header?.invoke()
-            NumberField(
+            StepperField(
                 value = text,
                 onValueChange = {
                     text = it
                     portion = null
                 },
-                label = stringResource(R.string.food_amount),
+                unit = unit.label,
+                onMinus = { step(-1) },
+                onPlus = { step(1) },
                 decimal = true,
-                suffix = unit.label,
-                large = true,
-                modifier = Modifier.fillMaxWidth(),
             )
-            PillSelector(
+            TextTabs(
                 options = FoodUnit.entries.map { it to it.label },
                 selected = unit,
                 onSelect = {
                     unit = it
                     portion = null
                 },
+                color = colors.special,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
             )
             if (unit != baseUnit) {
                 Text(
@@ -994,16 +1195,18 @@ fun AmountDialog(
                         if (Units.approximate(unit, item)) R.string.food_unit_approx else R.string.food_unit_equals,
                         Units.format(amount ?: 0.0, item.unit),
                     ),
-                    fontSize = 12.sp,
-                    color = TaroTheme.colors.accent,
+                    style = type.note,
+                    color = colors.accent,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             if (item.portions.isNotEmpty()) {
-                FlowRow {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.gap, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
                     item.portions.forEach { option ->
-                        RangeChip(
-                            label = "${option.label} (${Units.format(option.grams, item.unit)})",
-                            selected = portion == option,
+                        LinkText(
+                            "${option.label} · ${Units.format(option.grams, item.unit)}",
+                            if (portion == option) colors.special else colors.accent,
                             onClick = {
                                 portion = option
                                 unit = baseUnit
@@ -1014,15 +1217,28 @@ fun AmountDialog(
                 }
             }
             val grams = amount ?: 0.0
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                TintChip(stringResource(R.string.energy_kcal, number(item.kcalFor(grams))), TaroTheme.colors.flame)
-                TintChip(stringResource(R.string.food_protein_short, number(item.proteinFor(grams))), PROTEIN_BLUE)
+            val protein = item.proteinFor(grams)
+            val carbs = item.carbsFor(grams)
+            val fat = item.fatFor(grams)
+            BentoTile(color = colors.flame, tinted = true, modifier = Modifier.fillMaxWidth()) {
+                BentoValue(number(item.kcalFor(grams)), colors.flame, unit = "kcal")
+                if (carbs != null || fat != null) {
+                    StackBar(
+                        parts = listOf(
+                            protein * Macros.PROTEIN_KCAL to PROTEIN_BLUE,
+                            (carbs ?: 0.0) * Macros.CARB_KCAL to CARB_VIOLET,
+                            (fat ?: 0.0) * Macros.FAT_KCAL to FAT_CORAL,
+                        ),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = spacing.tight),
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Fact(stringResource(R.string.food_grams_value, number(protein)), stringResource(R.string.food_protein), PROTEIN_BLUE, Modifier.weight(1f), style = type.factCompact)
+                    Fact(carbs?.let { stringResource(R.string.food_grams_value, number(it)) } ?: "-", stringResource(R.string.food_carbs), CARB_VIOLET, Modifier.weight(1f), style = type.factCompact)
+                    Fact(fat?.let { stringResource(R.string.food_grams_value, number(it)) } ?: "-", stringResource(R.string.food_fat), FAT_CORAL, Modifier.weight(1f), style = type.factCompact)
+                }
+                BentoNote(stringResource(R.string.food_per_100g_values, number(item.kcal), number(item.protein), item.unit), Modifier.padding(top = spacing.tight))
             }
-            Text(
-                text = stringResource(R.string.food_per_100g_values, number(item.kcal), number(item.protein), item.unit),
-                fontSize = 12.sp,
-                color = TaroTheme.colors.accent,
-            )
         }
     }
 }
@@ -1214,9 +1430,9 @@ fun EditFoodDialog(log: FoodLog, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun FoodDayChip(date: String, incompleteDays: Set<String>, modifier: Modifier = Modifier) {
+fun FoodDayToggle(date: String, incompleteDays: Set<String>, modifier: Modifier = Modifier) {
     val incomplete = date in incompleteDays
-    ActionChip(
+    LinkText(
         text = stringResource(if (incomplete) R.string.food_day_incomplete else R.string.food_day_complete),
         color = if (incomplete) MaterialTheme.colorScheme.error else TaroTheme.colors.goal,
         onClick = { AppPreferences.setFoodDayIncomplete(date, !incomplete) },

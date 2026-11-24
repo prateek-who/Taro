@@ -53,7 +53,6 @@
     <string name="notification_description_paused">Notifier lorsque le comptage est en pause</string>
     <string name="notification_description_steps_day">Pas aujourd\'hui</string>
     <string name="notification_step_counting_paused">Le comptage des pas est en pause</string>
-    <string name="notification_step_goal_completed">Objectif de pas atteint !</string>
     <string name="step_counting_paused">Comptage des pas en pause</string>
     <string name="step_counting_resumed">Comptage des pas repris</string>
     <string name="action_pause">Pause</string>
@@ -137,18 +136,14 @@
     <!-- Records -->
     <string name="personal_records">Records personnels</string>
     <string name="most_steps_day">Plus grand nombre de pas en un jour</string>
-    <string name="most_walked_month">Mois le plus actif</string>
     <string name="streak_record">Plus longue série de %1$s+ pas</string>
     <string name="top_3_days">Top 3 jours</string>
-    <string name="best_week">Meilleure semaine</string>
     <string name="avg_steps_per_day">Moyenne par jour</string>
     <string name="since_date">Depuis le %1$s</string>
 
     <!-- Daily Goal Notifications -->
     <string name="daily_goal_notifications">Alertes objectif quotidien</string>
     <string name="daily_goal_notification_channel_desc">Recevez des mises à jour sur votre progression quotidienne</string>
-    <string name="goal_achieved_title">🎉 Objectif atteint !</string>
-    <string name="goal_achieved_message">Vous avez atteint votre objectif de %1$s !</string>
 
     <!-- Step Count Details -->
     <string name="steps_count_with_distance">%1$d • %2$s</string>
@@ -164,17 +159,8 @@
     <string name="steps_updated">Nombre de pas mis à jour</string>
 
     <!-- Encouraging notification strings -->
-    <string name="encouraging_notification_title">Continue comme ça !</string>
-    <string name="encouraging_notification_15_percent">Beau début ! Tu as fait %1$d%% de ton objectif. Plus que %2$d pas !</string>
-    <string name="encouraging_notification_75_percent">Tu y es presque ! %1$d%% atteint. Encore %2$d pas à faire !</string>
 
-    <string name="encouraging_notification_15_percent_alt1">Joli progrès ! %1$d%% de l’objectif. Continue à bouger !</string>
-    <string name="encouraging_notification_15_percent_alt2">T’es sur la bonne voie ! %1$d%% fait. %2$d pas restants.</string>
-    <string name="encouraging_notification_15_percent_alt3">Bravo ! %1$d%% atteint. Reste actif !</string>
 
-    <string name="encouraging_notification_75_percent_alt1">Presque fini ! %1$d%% fait. Il ne reste que %2$d pas !</string>
-    <string name="encouraging_notification_75_percent_alt2">Dernier effort ! %1$d%% complet. Tu peux le faire — encore %2$d pas !</string>
-    <string name="encouraging_notification_75_percent_alt3">Tu touches au but ! %1$d%% fait. %2$d pas avant la victoire !</string>
 
     <!-- Pause step counting -->
     <string name="resume_at_time">Reprendre à l’heure choisie</string>

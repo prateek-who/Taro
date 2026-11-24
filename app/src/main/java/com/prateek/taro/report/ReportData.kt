@@ -1,5 +1,12 @@
 package com.prateek.taro.report
 
+import java.time.ZoneId
+import com.prateek.taro.ui.WALK_MERGE_MS
+import com.prateek.taro.util.Walks
+import com.prateek.taro.util.Streaks
+import com.prateek.taro.util.DayScores
+import com.prateek.taro.util.DayScore
+import com.prateek.taro.data.MinuteSteps
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -32,6 +39,46 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
 object ReportData {
+    fun scores(context: Context, from: LocalDate, to: LocalDate, minutes: Map<String, List<MinuteSteps>>? = null): Map<LocalDate, DayScore> {
+        val database = Database.getInstance(context)
+        val totals = database.getEntries(database.firstEntry, database.lastEntry)
+            .mapNotNull { entry -> runCatching { LocalDate.parse(entry.date) }.getOrNull()?.let { it to entry.steps } }
+            .toMap()
+        val first = totals.filterValues { it > 0 }.keys.minOrNull() ?: return emptyMap()
+        val last = minOf(to, Util.logicalToday().minusDays(1))
+        if (last.isBefore(from)) return emptyMap()
+        val goals = AppPreferences.goalHistory
+        val choices = AppPreferences.streakChoices
+        val preferRest = AppPreferences.streakPreferRest
+        val rowsByDay = minutes ?: database.getMinutes(from.toString(), last.toString()).groupBy { it.date }
+        val zone = ZoneId.systemDefault()
+        var best = totals.filterKeys { it.isBefore(from) }.values.maxOrNull() ?: 0
+        val out = linkedMapOf<LocalDate, DayScore>()
+        var day = from
+        while (!day.isAfter(last)) {
+            val steps = totals[day] ?: 0
+            if (steps > 0) {
+                val streak = Streaks.compute(
+                    start = first,
+                    end = day,
+                    today = null,
+                    value = { (totals[it] ?: 0).toDouble() },
+                    goal = { goals.on(it).toDouble() },
+                    choices = choices,
+                    makeUp = true,
+                    preferRest = preferRest,
+                ).current
+                val rows = rowsByDay[day.toString()].orEmpty()
+                val walks = Walks.merged(Walks.all(rows.map { it.minuteStart to it.steps }), WALK_MERGE_MS).count { it.minutes >= DayScores.WALK_MINUTES }
+                val early = day.atTime(DayScores.EARLY_HOUR, 0).atZone(zone).toInstant().toEpochMilli()
+                out[day] = DayScores.score(steps, goals.on(day), streak, walks, rows.filter { it.minuteStart < early }.sumOf { it.steps }, best)
+                best = maxOf(best, steps)
+            }
+            day = day.plusDays(1)
+        }
+        return out
+    }
+
     private const val TOP_FOODS = 3
     private const val BRISK_CADENCE = 100
 
@@ -43,21 +90,17 @@ object ReportData {
     fun stepsIn(context: Context, period: Period): Int =
         Database.getInstance(context).getEntries(period.start.toString(), period.end.toString()).sumOf { it.steps }
 
-    fun load(context: Context, period: Period): PeriodReport? {
-        val today = Util.logicalToday()
-        if (period.start.isAfter(today)) return null
-        val end = minOf(period.end, today)
+    fun days(context: Context, start: LocalDate, end: LocalDate, today: LocalDate = Util.logicalToday()): List<DayInput> {
         val database = Database.getInstance(context)
         val factors = AppPreferences.energyFactors
         val history = DailyEnergy.history(context, factors)
         val goals = AppPreferences.goalHistory
         val incomplete = AppPreferences.incompleteFoodDays
-        val steps = database.getEntries(period.start.toString(), end.toString()).associate { it.date to it.steps }
-        val foods = database.foodBetween(period.start.toString(), end.toString()).groupBy { it.date }
+        val steps = database.getEntries(start.toString(), end.toString()).associate { it.date to it.steps }
+        val foods = database.foodBetween(start.toString(), end.toString()).groupBy { it.date }
         val restingKcal = history?.restingPerDay ?: 0.0
-
-        val dates = generateSequence(period.start) { it.plusDays(1) }.takeWhile { !it.isAfter(end) }.toList()
-        val days = dates.map { date ->
+        val dates = generateSequence(start) { it.plusDays(1) }.takeWhile { !it.isAfter(end) }.toList()
+        return dates.map { date ->
             val key = date.toString()
             val activity = ActivityEnergy.day(context, key)
             val logs = foods[key].orEmpty()
@@ -75,6 +118,17 @@ object ReportData {
                 complete = date.isBefore(today),
             )
         }
+    }
+
+    fun load(context: Context, period: Period): PeriodReport? {
+        val today = Util.logicalToday()
+        if (period.start.isAfter(today)) return null
+        val end = minOf(period.end, today)
+        val database = Database.getInstance(context)
+        val factors = AppPreferences.energyFactors
+        val foods = database.foodBetween(period.start.toString(), end.toString()).groupBy { it.date }
+        val days = days(context, period.start, end, today)
+        val dates = days.map { it.date }
 
         val previous = period.previous().let { before ->
             val previousEnd = before.start.plusDays((dates.size - 1).toLong()).let { minOf(it, before.end) }
@@ -120,6 +174,7 @@ object ReportData {
                 badges = earned,
                 proteinTarget = AppPreferences.weight * AppPreferences.proteinPerKg,
                 hourSteps = hours.toList(),
+                scores = scores(context, period.start, end, minutes.groupBy { it.date }).mapValues { it.value.score },
                 briskMinutes = minutes.count { it.steps >= BRISK_CADENCE },
                 longestWalkMin = minutes.groupBy { it.date }.values.maxOfOrNull { day ->
                     AchievementData.longestWalk(day.map { it.minuteStart to it.steps })
@@ -172,11 +227,14 @@ object ReportScheduler {
             context.getString(R.string.report_notification_steps, Util.formatSteps(report.steps)),
             "%.1f %s".format(Locale.getDefault(), Util.metersToDistance(report.distanceM), Util.distanceUnit()),
             report.actualKg?.takeIf { abs(it) >= 0.05 }?.let { Util.formatWeightChange(it) },
+            report.bestScore?.let { context.getString(R.string.report_notification_score, Util.formatSteps(it.second)) },
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(if (period.kind == ReportKind.WEEK) R.string.report_notification_week else R.string.report_notification_month))
             .setContentText(parts.joinToString(" · "))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(parts.joinToString(" · ")))
+            .addAction(R.drawable.ic_notification, context.getString(R.string.report_notification_open), pending)
             .setContentIntent(pending)
             .setAutoCancel(true)
             .build()

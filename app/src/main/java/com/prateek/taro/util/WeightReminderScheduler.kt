@@ -1,5 +1,6 @@
 package com.prateek.taro.util
 
+import com.prateek.taro.energy.WeightJournal
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -74,10 +75,14 @@ object WeightReminderScheduler {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val trend = runCatching { WeightJournal.points(context).lastOrNull()?.trend }.getOrNull()
+        val text = trend?.let { context.getString(R.string.weight_reminder_trend_text, Util.formatWeight(it)) } ?: context.getString(R.string.weight_reminder_notification_text)
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.weight_reminder_notification_title))
-            .setContentText(context.getString(R.string.weight_reminder_notification_text))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .addAction(R.drawable.ic_notification, context.getString(R.string.reminder_log_weight), pendingIntent)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()

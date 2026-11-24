@@ -40,7 +40,9 @@ import com.prateek.taro.util.Database
 import com.prateek.taro.util.Util
 import java.util.*
 import com.prateek.taro.util.AppPreferences
-import com.prateek.taro.util.GoalNotificationWorker
+import com.prateek.taro.util.StepMoments
+import com.prateek.taro.util.StepTiers
+import com.prateek.taro.ui.components.TIER_NAMES
 import com.prateek.taro.util.MinuteRecorder
 import com.prateek.taro.energy.ActivityEnergy
 import com.prateek.taro.energy.ActivityTotals
@@ -50,7 +52,6 @@ import kotlin.math.roundToInt
 import com.prateek.taro.util.TimedPauseManager
 import com.prateek.taro.util.Util.distanceUnit
 import com.prateek.taro.util.WidgetManager
-import java.text.NumberFormat
 
 internal class MotionService : Service() {
     private var mTodaysSteps: Int = 0
@@ -179,16 +180,7 @@ internal class MotionService : Service() {
             mTodaysSteps += delta
             minuteRecorder.record(delta, previousEventTimeMs, eventTimeMs)
 
-            val target = AppPreferences.dailyGoalTarget
-            if (target > 0 && mTodaysSteps >= target && !goalReachedToday) {
-                goalReachedToday = true
-                GoalNotificationWorker.showDailyGoalNotification(this, target)
-            }
-
-            val encouragingNotifications = AppPreferences.encouragingNotifications
-            if (encouragingNotifications && !goalReachedToday && target > 0) {
-                GoalNotificationWorker.showEncouragingNotification(this, target, mTodaysSteps)
-            }
+            StepMoments.onSteps(this, mTodaysSteps, mCachedDailyTarget)
 
             handleStepUpdate()
 
@@ -266,7 +258,6 @@ internal class MotionService : Service() {
             if (todayStr > mCurrentDate) {
                 if (isNewDay) {
                     goalReachedToday = false
-                    GoalNotificationWorker.resetEncouragingNotificationFlags()
                 } else {
                     val target = AppPreferences.dailyGoalTarget
                     goalReachedToday = target > 0 && mTodaysSteps >= target
@@ -374,19 +365,35 @@ internal class MotionService : Service() {
         val stepsText = Util.stepsPlural(this, mTodaysSteps)
         val energy = todayEnergy()
         val stats = getString(R.string.notification_stats, Util.metersToDistance(energy.distanceM), distanceUnit(), energy.activeKcal.roundToInt())
+        val tier = if (dailyTarget > 0) StepTiers.reached(mTodaysSteps, dailyTarget) else -1
         val hasGoal = showProgressbar && dailyTarget > 0
-        val goalMet = hasGoal && mTodaysSteps >= dailyTarget
-        val progress = if (hasGoal) (mTodaysSteps.toLong() * 100 / dailyTarget).toInt() else 0
+        val progress = when {
+            dailyTarget <= 0 -> 0
+            tier < 0 -> (mTodaysSteps.toLong() * 100 / dailyTarget).toInt()
+            tier >= StepTiers.LAST -> 100
+            else -> {
+                val from = StepTiers.threshold(tier, dailyTarget)
+                ((mTodaysSteps - from).toLong() * 100 / (StepTiers.threshold(tier + 1, dailyTarget) - from).coerceAtLeast(1)).toInt()
+            }
+        }
 
         val title = when {
-            goalMet -> Util.goalMultiplier(mTodaysSteps, dailyTarget)?.let { getString(R.string.notification_title_goal_met, stepsText, it) } ?: stepsText
-            hasGoal -> getString(R.string.notification_title_progress, stepsText, progress)
+            tier == 0 -> getString(R.string.notification_title_tier, stepsText, getString(R.string.notification_goal_reached))
+            tier > 0 -> getString(R.string.notification_title_tier, stepsText, getString(TIER_NAMES[tier]))
             else -> stepsText
         }
         val text = when {
-            goalMet -> "$stats · ${getString(R.string.notification_step_goal_completed)}"
-            hasGoal -> "$stats · ${getString(R.string.notification_to_go, Util.formatSteps(dailyTarget - mTodaysSteps))}"
-            else -> stats
+            dailyTarget <= 0 -> stats
+            tier < 0 -> {
+                val left = dailyTarget - mTodaysSteps
+                val info = StepMoments.paceInfo(this, mTodaysSteps, dailyTarget)
+                val walk = info?.cadence?.let { getString(R.string.notification_to_go_walk, Util.formatSteps(left), (left / it).roundToInt().coerceAtLeast(1)) }
+                    ?: getString(R.string.notification_to_go, Util.formatSteps(left))
+                val usually = info?.goalAt?.takeIf { it > System.currentTimeMillis() }?.let { " " + getString(R.string.notification_usually_by, StepMoments.timeText(this, it)) }.orEmpty()
+                walk + usually
+            }
+            tier < StepTiers.LAST -> getString(R.string.notification_next_tier, Util.formatSteps(StepTiers.threshold(tier + 1, dailyTarget) - mTodaysSteps), getString(TIER_NAMES[tier + 1])) + " · " + stats
+            else -> getString(R.string.notification_top) + " · " + stats
         }
 
         val pausePendingIntent = PendingIntent.getService(
@@ -410,12 +417,9 @@ internal class MotionService : Service() {
             .addAction(R.drawable.ic_notification, getString(R.string.action_pause), pausePendingIntent)
             .setContentTitle(title)
             .setContentText(text)
-            .apply {
-                if (hasGoal) {
-                    setProgress(100, progress.coerceIn(0, 100), false)
-                    if (goalMet) setColor(ContextCompat.getColor(this@MotionService, R.color.colorGoal))
-                }
-            }
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setColor(StepMoments.tierColor(this, tier.coerceAtLeast(0)))
+            .apply { if (hasGoal) setProgress(100, progress.coerceIn(0, 100), false) }
     }
 
     private fun sendBundleUpdate(paused: Boolean = false) {
@@ -556,14 +560,14 @@ internal class MotionService : Service() {
             PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notificationText = if (TimedPauseManager.isTimedPauseActive(this)) {
-            TimedPauseManager.getRemainingTimeText(this) ?: getString(R.string.notification_step_counting_paused)
-        } else {
-            getString(R.string.notification_step_counting_paused)
-        }
+        val notificationText = listOfNotNull(
+            TimedPauseManager.getRemainingTimeText(this)?.takeIf { TimedPauseManager.isTimedPauseActive(this) },
+            getString(R.string.notification_steps_so_far, Util.formatSteps(mTodaysSteps)),
+        ).joinToString(" ")
 
         return NotificationCompat.Builder(this, pauseChannelId)
             .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.notification_step_counting_paused))
             .setContentText(notificationText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(notificationText))
             .setContentIntent(pendingIntent)

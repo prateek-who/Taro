@@ -1,5 +1,7 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material3.Icon
@@ -31,7 +33,10 @@ fun TaroNavigationBar(tabs: List<Tab>, pagerState: PagerState) {
             NavigationBarItem(
                 selected = pagerState.targetPage == index,
                 onClick = { scope.launch { pagerState.animateScrollToPage(index, animationSpec = TaroMotion.snappy()) } },
-                icon = { options.icon?.let { Icon(it, contentDescription = null) } },
+                icon = {
+                    val letter = (tab as? LetterTab)?.letter()
+                    if (letter != null) TabLetter(letter, selected = pagerState.targetPage == index) else options.icon?.let { Icon(it, contentDescription = null) }
+                },
                 label = { Text(options.title) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.onSurface,
@@ -42,6 +47,26 @@ fun TaroNavigationBar(tabs: List<Tab>, pagerState: PagerState) {
                 ),
             )
         }
+    }
+}
+
+interface LetterTab {
+    @Composable
+    fun letter(): String?
+}
+
+@Composable
+private fun TabLetter(letter: String, selected: Boolean) {
+    val type = TaroTheme.text
+    val color = if (selected) MaterialTheme.colorScheme.onSurface else TaroTheme.colors.accent
+    val size = with(androidx.compose.ui.platform.LocalDensity.current) { type.title.lineHeight.toDp() }
+    androidx.compose.foundation.layout.Box(
+        contentAlignment = androidx.compose.ui.Alignment.Center,
+        modifier = androidx.compose.ui.Modifier
+            .size(size)
+            .border(androidx.compose.ui.unit.Dp.Hairline + TaroTheme.spacing.hair / 2, color, androidx.compose.foundation.shape.CircleShape),
+    ) {
+        Text(letter, style = type.note, color = color)
     }
 }
 

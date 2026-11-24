@@ -1,5 +1,6 @@
 package com.prateek.taro.sleep
 
+import com.prateek.taro.util.Streaks
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -23,6 +24,9 @@ object SleepDates {
     fun wakeDateOf(endMs: Long, zone: ZoneId = ZoneId.systemDefault()): LocalDate =
         Instant.ofEpochMilli(endMs).atZone(zone).toLocalDate()
 
+    fun isDaytime(startMs: Long, zone: ZoneId = ZoneId.systemDefault()): Boolean =
+        Instant.ofEpochMilli(startMs).atZone(zone).hour in DAYTIME_START_HOUR until DAYTIME_END_HOUR
+
     fun manualSpan(wakeDate: LocalDate, bedMinute: Int, wakeMinute: Int, zone: ZoneId = ZoneId.systemDefault()): SleepSpan {
         val bedDate = if (bedMinute > wakeMinute) wakeDate.minusDays(1) else wakeDate
         return SleepSpan(at(bedDate, bedMinute, zone), at(wakeDate, wakeMinute, zone))
@@ -30,10 +34,14 @@ object SleepDates {
 
     private fun at(date: LocalDate, minuteOfDay: Int, zone: ZoneId): Long =
         LocalDateTime.of(date, LocalTime.of(minuteOfDay / 60, minuteOfDay % 60)).atZone(zone).toInstant().toEpochMilli()
+
+    private const val DAYTIME_START_HOUR = 10
+    private const val DAYTIME_END_HOUR = 18
 }
 
 object SleepInsights {
     const val HEALTHY_MIN = 7 * 60L
+    const val TARGET_MIN = 8 * 60L
     const val HEALTHY_MAX = 9 * 60L
     private const val SHORT_BELOW = 6 * 60L
     private const val LONG_ABOVE = 9 * 60L + 30
@@ -60,17 +68,6 @@ object SleepInsights {
         return sqrt(fromNoon.sumOf { (it - mean) * (it - mean) } / fromNoon.size).toLong()
     }
 
-    fun streak(nights: List<Night>, today: LocalDate): Int {
-        val byDate = nights.associateBy { it.wakeDate }
-        var day = today
-        if (byDate[day] == null) day = day.minusDays(1)
-        var count = 0
-        while (true) {
-            val night = byDate[day] ?: break
-            if (!inRange(night)) break
-            count++
-            day = day.minusDays(1)
-        }
-        return count
-    }
+    fun streak(nights: List<Night>, today: LocalDate): Int =
+        Streaks.ofDates(nights.filter(::inRange).map { it.wakeDate }, today).current
 }

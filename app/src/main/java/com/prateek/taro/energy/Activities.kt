@@ -6,6 +6,7 @@ import kotlin.math.max
 
 enum class ActivityType(@StringRes val label: Int, val met: Double) {
     STRENGTH(R.string.activity_strength, 3.5),
+    CALISTHENICS(R.string.activity_calisthenics, 3.8),
     CYCLING(R.string.activity_cycling, 6.8),
     SWIMMING(R.string.activity_swimming, 5.8),
     YOGA(R.string.activity_yoga, 2.5),

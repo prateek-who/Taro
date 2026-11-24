@@ -120,6 +120,8 @@ fun DaySwitcher(date: LocalDate, today: LocalDate, onChange: (LocalDate) -> Unit
             letterSpacing = 2.sp,
             fontWeight = FontWeight.SemiBold,
             color = if (date == today) TaroTheme.colors.accent else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            softWrap = false,
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
                 .clickable { picking = true }
