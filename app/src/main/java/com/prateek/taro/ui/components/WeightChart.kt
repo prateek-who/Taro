@@ -11,6 +11,10 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.background
 import androidx.compose.animation.core.animateFloatAsState
 import com.prateek.taro.R
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
@@ -19,17 +23,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -73,11 +73,7 @@ fun WeightChart(
     val dateFormat = remember { DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()) }
     val monthFormat = remember { DateTimeFormatter.ofPattern("MMM", Locale.getDefault()) }
     val pillSurface = TaroTheme.colors.dialogSurface
-    val reveal = remember { Animatable(0f) }
-    LaunchedEffect(points) {
-        reveal.snapTo(0f)
-        reveal.animateTo(1f, tween(900))
-    }
+    val reveal = rememberDrawIn(points)
 
     Canvas(modifier = modifier.semantics { contentDescription = description }) {
         if (points.isEmpty()) return@Canvas
@@ -108,9 +104,7 @@ fun WeightChart(
             if (span <= 0f) (left + right) / 2 else left + (right - left) * ChronoUnit.DAYS.between(first, date) / span
         fun x(index: Int): Float = xOf(points[index].date)
         fun y(value: Double) = (bottom - (bottom - top) * ((value - minY) / (maxY - minY))).toFloat()
-        fun path(values: List<Double>) = Path().apply {
-            values.indices.forEach { index -> if (index == 0) moveTo(x(index), y(values[index])) else lineTo(x(index), y(values[index])) }
-        }
+        fun path(values: List<Double>) = monotonePath(values.indices.map { index -> Offset(x(index), y(values[index])) })
 
         listOf(maxY, (minY + maxY) / 2, minY).forEach { value ->
             val gy = y(value)
@@ -241,3 +235,134 @@ private fun SeriesChip(label: String, selected: Boolean, dashed: Boolean, color:
         Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(start = 6.dp))
     }
 }
+
+data class WeightForecast(val date: java.time.LocalDate, val kg: Double, val sd: Double)
+
+@Composable
+fun WeightTrendChart(
+    points: List<TrendPoint>,
+    forecast: List<WeightForecast>,
+    color: Color,
+    todayLabel: String,
+    toDisplay: (Double) -> Double,
+    selected: Int?,
+    onSelect: (Int?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val accent = TaroTheme.colors.accent
+    val background = TaroTheme.colors.background
+    val ink = MaterialTheme.colorScheme.onSurface
+    val grid = ink.copy(alpha = TREND_GRID_ALPHA)
+    val measurer = rememberTextMeasurer()
+    val axis = TaroTheme.text.axis.copy(color = accent)
+    val dateFormat = remember { DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()) }
+    val reveal = rememberDrawIn(points)
+    val dates = points.map { it.date } + forecast.map { it.date }
+    val currentSelect by androidx.compose.runtime.rememberUpdatedState(onSelect)
+    var layoutX by remember { androidx.compose.runtime.mutableStateOf<List<Float>>(emptyList()) }
+    fun nearest(x: Float): Int? = layoutX.withIndex().minByOrNull { kotlin.math.abs(it.value - x) }?.index
+
+    Canvas(
+        modifier = modifier
+            .pointerInput(dates) {
+                detectTapGestures { tap -> nearest(tap.x)?.let { index -> currentSelect(if (index == selected) null else index) } }
+            }
+            .pointerInput(dates) {
+                detectHorizontalDragGestures { change, _ -> nearest(change.position.x)?.let { currentSelect(it) } }
+            },
+    ) {
+        if (points.isEmpty()) return@Canvas
+        val first = points.first().date
+        val today = points.last().date
+        val last = forecast.lastOrNull()?.date ?: today
+        val span = ChronoUnit.DAYS.between(first, last).toFloat().coerceAtLeast(1f)
+        val values = points.flatMap { listOf(it.kg, it.trend) } + forecast.flatMap { listOf(it.kg - it.sd, it.kg + it.sd) }
+        val middle = (values.min() + values.max()) / 2
+        val half = maxOf((values.max() - values.min()) / 2 * TREND_PAD, MIN_TREND_SPAN_KG / 2)
+        val factor = toDisplay(1.0)
+        val step = TICK_STEPS.firstOrNull { half * 2 * factor / it <= MAX_TICK_GAPS } ?: TICK_STEPS.last()
+        val low = floor((middle - half) * factor / step) * step / factor
+        val high = ceil((middle + half) * factor / step) * step / factor
+        val labelHeight = measurer.measure("0", axis).size.height
+        val stroke = size.height * TREND_STROKE_SHARE
+        val ticks = generateSequence(low * factor) { it + step }.takeWhile { it <= high * factor + step / 2 }.map { it / factor }.toList()
+        val tickLabels = ticks.map { measurer.measure((if (step < 1) "%.1f" else "%.0f").format(Locale.getDefault(), toDisplay(it)), axis) }
+        val gutter = (tickLabels.maxOf { it.size.width } + measurer.measure("0", axis).size.width).toFloat()
+        val inset = stroke * 1.6f
+        val left = gutter + inset
+        val right = size.width - inset
+        val top = labelHeight / 2f
+        val bottom = size.height - labelHeight * 1.6f
+        fun x(date: java.time.LocalDate) = left + ChronoUnit.DAYS.between(first, date) / span * (right - left)
+        fun y(kg: Double) = (bottom - (bottom - top) * ((kg - low) / (high - low))).toFloat()
+        layoutX = dates.map { x(it) }
+
+        ticks.forEachIndexed { index, value ->
+            val gy = y(value)
+            drawLine(grid, Offset(gutter, gy), Offset(size.width, gy), strokeWidth = stroke * 0.4f)
+            drawText(tickLabels[index], topLeft = Offset(0f, gy - tickLabels[index].size.height / 2f))
+        }
+        clipRect(right = left + (size.width - left) * reveal.value) {
+            if (forecast.isNotEmpty()) {
+                val band = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(x(today), y(points.last().trend))
+                    forecast.forEach { lineTo(x(it.date), y(it.kg + it.sd)) }
+                    forecast.asReversed().forEach { lineTo(x(it.date), y(it.kg - it.sd)) }
+                    close()
+                }
+                drawPath(band, color.copy(alpha = TREND_BAND_ALPHA))
+                val mean = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(x(today), y(points.last().trend))
+                    forecast.forEach { lineTo(x(it.date), y(it.kg)) }
+                }
+                drawPath(mean, color, style = Stroke(width = stroke * 0.8f, cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(stroke * 2, stroke * 2.5f))))
+                drawLine(accent, Offset(x(today), top), Offset(x(today), bottom), strokeWidth = stroke * 0.4f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(stroke * 1.5f, stroke * 2)))
+            }
+            points.forEach { drawCircle(accent, radius = stroke * 1.1f, center = Offset(x(it.date), y(it.kg))) }
+            if (points.size > 1) {
+                drawPath(monotonePath(points.map { Offset(x(it.date), y(it.trend)) }), color, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+        }
+        selected?.takeIf { it in dates.indices }?.let { index ->
+            val sx = layoutX[index]
+            drawLine(ink.copy(alpha = SELECT_LINE_ALPHA), Offset(sx, top), Offset(sx, bottom), strokeWidth = stroke * 0.5f)
+            if (index < points.size) {
+                val point = points[index]
+                drawCircle(color, radius = stroke * 1.3f, center = Offset(sx, y(point.trend)))
+                drawCircle(background, radius = stroke * 2.1f, center = Offset(sx, y(point.kg)))
+                drawCircle(ink, radius = stroke * 1.6f, center = Offset(sx, y(point.kg)))
+            } else {
+                val point = forecast[index - points.size]
+                drawCircle(color, radius = stroke * 1.6f, center = Offset(sx, y(point.kg)))
+            }
+        }
+
+        val tickDates = buildList {
+            add(first)
+            if (forecast.isNotEmpty()) add(today)
+            add(last)
+            val between = ChronoUnit.DAYS.between(first, today)
+            if (between > 2) add(first.plusDays(between / 2))
+        }.distinct()
+        val placed = mutableListOf<ClosedFloatingPointRange<Float>>()
+        tickDates.forEach { date ->
+            val text = if (forecast.isNotEmpty() && date == today) todayLabel else date.format(dateFormat)
+            val layout = measurer.measure(text, axis)
+            val from = (x(date) - layout.size.width / 2f).coerceIn(gutter, size.width - layout.size.width)
+            val span2 = from - labelHeight..from + layout.size.width + labelHeight
+            if (placed.none { it.start < span2.endInclusive && span2.start < it.endInclusive }) {
+                placed += span2
+                drawText(layout, topLeft = Offset(from, size.height - layout.size.height))
+            }
+        }
+    }
+}
+
+private const val SELECT_LINE_ALPHA = 0.35f
+private val TICK_STEPS = listOf(0.2, 0.5, 1.0, 2.0, 5.0, 10.0)
+private const val MAX_TICK_GAPS = 5
+private const val TREND_GRID_ALPHA = 0.07f
+private const val TREND_PAD = 1.2
+private const val MIN_TREND_SPAN_KG = 1.0
+private const val TREND_STROKE_SHARE = 0.018f
+private const val TREND_BAND_ALPHA = 0.16f

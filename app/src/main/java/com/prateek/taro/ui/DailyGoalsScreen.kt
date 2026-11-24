@@ -45,7 +45,6 @@ import com.prateek.taro.ui.components.taroTextFieldColors
 import com.prateek.taro.ui.components.SwitchRow
 import com.prateek.taro.util.AppPreferences
 import com.prateek.taro.util.AppPreferences.PreferenceKeys
-import com.prateek.taro.util.GoalNotificationWorker
 import kotlinx.coroutines.launch
 
 object DailyGoalsScreen : Screen {
@@ -62,6 +61,8 @@ private data class GoalSettings(
     val progressbar: Boolean,
     val encouraging: Boolean,
     val chartLine: Boolean,
+    val everyTier: Boolean,
+    val sprees: Boolean,
 ) {
     val target: Int get() = targetText.toIntOrNull() ?: 0
 }
@@ -72,6 +73,8 @@ private fun currentGoalSettings() = GoalSettings(
     progressbar = AppPreferences.dailyGoalNotificationProgressbar,
     encouraging = AppPreferences.encouragingNotifications,
     chartLine = AppPreferences.dailyGoalChartLine,
+    everyTier = AppPreferences.tierMomentsAll,
+    sprees = AppPreferences.spreeMoments,
 )
 
 @Composable
@@ -89,7 +92,6 @@ private fun DailyGoalsContent(onBack: () -> Unit) {
 
     fun save() {
         val settings = draft
-        val encouragingTurnedOn = settings.encouraging && !saved.encouraging
         focusManager.clearFocus()
         val today = Util.logicalToday()
         scope.launch {
@@ -99,6 +101,8 @@ private fun DailyGoalsContent(onBack: () -> Unit) {
                 it[PreferenceKeys.DAILY_GOAL_NOTIFICATION_PROGRESSBAR] = settings.progressbar
                 it[PreferenceKeys.ENCOURAGING_NOTIFICATIONS] = settings.encouraging
                 it[PreferenceKeys.DAILY_GOAL_CHART_LINE] = settings.chartLine
+                it[PreferenceKeys.TIER_MOMENTS_ALL] = settings.everyTier
+                it[PreferenceKeys.SPREE_MOMENTS] = settings.sprees
             }
             context.startService(
                 Intent(context, MotionService::class.java).apply {
@@ -107,15 +111,6 @@ private fun DailyGoalsContent(onBack: () -> Unit) {
                     putExtra("daily_target", settings.target)
                 }
             )
-            if (encouragingTurnedOn) {
-                GoalNotificationWorker.resetEncouragingNotificationFlags()
-                GoalNotificationWorker.showEncouragingNotification(
-                    context.applicationContext,
-                    settings.target,
-                    AppPreferences.steps,
-                    demo = true,
-                )
-            }
             saved = settings.copy(targetText = settings.target.toString())
             draft = saved
             toast.show(context.getString(R.string.daily_goals_saved), ToastKind.SUCCESS)
@@ -154,6 +149,14 @@ private fun DailyGoalsContent(onBack: () -> Unit) {
                 Column {
                     GoalSwitch(R.string.daily_goal_notification, draft.notification, switchesEnabled) {
                         draft = draft.copy(notification = it)
+                    }
+                    SettingsDivider()
+                    GoalSwitch(R.string.moments_every_tier, draft.everyTier, switchesEnabled && draft.notification) {
+                        draft = draft.copy(everyTier = it)
+                    }
+                    SettingsDivider()
+                    GoalSwitch(R.string.moments_sprees, draft.sprees, switchesEnabled) {
+                        draft = draft.copy(sprees = it)
                     }
                     SettingsDivider()
                     GoalSwitch(R.string.progress_in_notification, draft.progressbar, switchesEnabled) {

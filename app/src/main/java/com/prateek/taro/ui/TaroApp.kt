@@ -1,5 +1,6 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.util.StepMoments
 import com.prateek.taro.widget.FoodWidget
 import com.prateek.taro.food.Meals
 import com.prateek.taro.util.FoodReminderScheduler
@@ -137,7 +138,12 @@ fun TaroApp() {
     val toast = rememberToastState()
     val dataVersion = rememberDataVersion()
     var badgeConfetti by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { runCatching { CalibrationRepository.refit(context) } } }
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            runCatching { CalibrationRepository.refit(context) }
+            runCatching { SleepRepository.fileDaytimeAsNaps(context) }
+        }
+    }
     LaunchedEffect(dataVersion) { withContext(Dispatchers.IO) { runCatching { FoodWidget.refresh(context) } } }
     LaunchedEffect(refreshKey, dataVersion) {
         val unlocked = withContext(Dispatchers.IO) { runCatching { AchievementData.newlyEarned(context) }.getOrDefault(emptyList()) }
@@ -195,6 +201,8 @@ fun TaroApp() {
     activity?.intent?.removeExtra(FoodReminderScheduler.EXTRA_LOG_FOOD)
     var pendingReport by rememberSaveable { mutableStateOf(activity?.intent?.getStringExtra(ReportScheduler.EXTRA_REPORT)) }
     activity?.intent?.removeExtra(ReportScheduler.EXTRA_REPORT)
+    var pendingSteps by rememberSaveable { mutableStateOf(activity?.intent?.getBooleanExtra(StepMoments.EXTRA_OPEN_STEPS, false) == true) }
+    activity?.intent?.removeExtra(StepMoments.EXTRA_OPEN_STEPS)
 
     LaunchedEffect(Unit) {
         WeightReminderScheduler.schedule(context, replace = false)
@@ -207,6 +215,7 @@ fun TaroApp() {
             if (intent.getBooleanExtra(WeightReminderScheduler.EXTRA_LOG_WEIGHT, false)) weightPrompt = true
             intent.getStringExtra(ReportScheduler.EXTRA_REPORT)?.let { pendingReport = it }
             if (intent.getBooleanExtra(FoodReminderScheduler.EXTRA_LOG_FOOD, false)) pendingFood = true
+            if (intent.getBooleanExtra(StepMoments.EXTRA_OPEN_STEPS, false)) pendingSteps = true
         }
         (activity as? ComponentActivity)?.addOnNewIntentListener(listener)
         onDispose { (activity as? ComponentActivity)?.removeOnNewIntentListener(listener) }
@@ -220,6 +229,12 @@ fun TaroApp() {
                         AppPreferences.markReportSeen(it)
                         navigator.push(ReportStoryScreen(it))
                         pendingReport = null
+                    }
+                }
+                LaunchedEffect(pendingSteps) {
+                    if (pendingSteps) {
+                        pendingSteps = false
+                        navigator.push(StepsPage)
                     }
                 }
                 LaunchedEffect(pendingFood) {

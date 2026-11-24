@@ -10,6 +10,9 @@
     <color name="colorFlame">#FF8A50</color>
     <color name="colorSpecial">#FFD54F</color>
     <color name="colorSleep">#9FA8FF</color>
+    <color name="colorMint">#5EE0B5</color>
+    <color name="colorRed">#FF5252</color>
+    <color name="colorPurple">#C38BFF</color>
 
     <color name="widgetPrimary">#E9E9E9</color>
     <color name="widgetSecondary">#BCBCBC</color>

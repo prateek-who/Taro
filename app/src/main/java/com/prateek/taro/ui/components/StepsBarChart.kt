@@ -1,17 +1,13 @@
 package com.prateek.taro.ui.components
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.EaseOutBack
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
@@ -21,7 +17,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -44,7 +39,6 @@ import kotlin.math.max
 import kotlin.math.sin
 
 private val AxisGray = Color(0xFF888888)
-private const val STAGGER = 0.07f
 
 private fun barColor(base: Color, value: Int, min: Int, max: Int, dark: Boolean): Color {
     if (max == min) return base
@@ -85,17 +79,10 @@ fun StepsBarChart(
     metColor: Color? = null,
     barTint: Color? = null,
 ) {
-    val appear = remember { Animatable(0f) }
-    LaunchedEffect(appearKey) {
-        appear.snapTo(0f)
-        appear.animateTo(1f, tween(900, easing = LinearEasing))
-    }
+    val growth = rememberBarGrowth(appearKey, values.size)
     val animated = values.map {
-        animateFloatAsState(it.toFloat(), tween(200, easing = FastOutSlowInEasing), label = "bar").value
+        animateFloatAsState(it.toFloat(), spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow), label = "bar").value
     }
-    val stagger = if (values.size > 1) minOf(STAGGER, 0.5f / (values.size - 1)) else 0f
-    fun growth(index: Int) =
-        EaseOutBack.transform(((appear.value - index * stagger) / (1f - stagger * (values.size - 1))).coerceIn(0f, 1f))
     val dataMax = animated.maxOrNull() ?: 0f
     val axisMax = if (goal > 0) max(dataMax, goal * 1.1f) * 1.05f else max(dataMax * 1.05f, 1f)
 
@@ -159,7 +146,7 @@ fun StepsBarChart(
                     topLeft = Offset(slotStart + (slot - layout.size.width) / 2, baseline + gap * 2),
                 )
             }
-            val grown = growth(index)
+            val grown = growth.bar(index)
             val height = value / axisMax * plotHeight * grown
             val metGoal = goalAt(index) > 0 && values[index] >= goalAt(index)
             val dim = if (selectedIndex != null && selectedIndex != index) 0.3f else 1f

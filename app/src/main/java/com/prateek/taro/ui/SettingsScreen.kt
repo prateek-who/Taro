@@ -32,6 +32,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.prateek.taro.R
+import com.prateek.taro.ui.components.NameDialog
 import com.prateek.taro.ui.components.LocalToast
 import com.prateek.taro.ui.components.ToastKind
 import com.prateek.taro.service.MidnightResetReceiver
@@ -77,7 +78,7 @@ object SettingsScreen : Screen {
     }
 }
 
-private enum class SettingsDialog { DAY_START, HEIGHT, AGE, SEX, CALORIE_GOAL, LEG_LENGTH, STEP_LENGTH, WEIGHT, LANGUAGE, THEME, UNIT_SYSTEM, DATE_FORMAT, FIRST_DAY, ABOUT, FOOD_REMINDER }
+private enum class SettingsDialog { NAME, DAY_START, HEIGHT, AGE, SEX, CALORIE_GOAL, LEG_LENGTH, STEP_LENGTH, WEIGHT, LANGUAGE, THEME, UNIT_SYSTEM, DATE_FORMAT, FIRST_DAY, ABOUT, FOOD_REMINDER }
 
 private class Choices(val entries: List<String>, val values: List<String>) {
     fun label(value: String) = entries.getOrNull(values.indexOf(value)) ?: value
@@ -99,7 +100,7 @@ private fun cmToInches(cm: Double) = (cm / 2.54).roundToInt()
 
 private const val LBS_PER_KG = 2.20462
 
-private fun heightLabel(cm: Double, imperial: Boolean) = if (imperial) {
+internal fun heightLabel(cm: Double, imperial: Boolean) = if (imperial) {
     val inches = cmToInches(cm)
     "${inches / 12}′${inches % 12}″"
 } else {
@@ -109,10 +110,10 @@ private fun heightLabel(cm: Double, imperial: Boolean) = if (imperial) {
 private fun legLengthLabel(cm: Int, imperial: Boolean) =
     if (imperial) "${cmToInches(cm.toDouble())} ${Util.stepLengthUnit()}" else "$cm ${Util.heightUnit()}"
 
-private fun stepLengthLabel(cm: Float, imperial: Boolean) =
+internal fun stepLengthLabel(cm: Float, imperial: Boolean) =
     "${twoDecimals.format(if (imperial) cm / 2.54f else cm)} ${Util.stepLengthUnit()}"
 
-private fun weightLabel(kg: Double, imperial: Boolean) =
+internal fun weightLabel(kg: Double, imperial: Boolean) =
     "${Util.formatMeasure(if (imperial) roundOne(kg * LBS_PER_KG) else kg)} ${Util.weightUnit()}"
 
 private fun roundOne(value: Double) = (value * 10).roundToInt() / 10.0
@@ -141,6 +142,8 @@ private fun SettingsContent(
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
 
     val height by AppPreferences.heightFlow().collectAsStateWithLifecycle(AppPreferences.height)
+    val streakAsk by AppPreferences.streakAskFlow().collectAsStateWithLifecycle(AppPreferences.streakAsk)
+    val streakPreferRest by AppPreferences.streakPreferRestFlow().collectAsStateWithLifecycle(AppPreferences.streakPreferRest)
     val foodReminder by AppPreferences.foodReminderEnabledFlow().collectAsStateWithLifecycle(AppPreferences.foodReminderEnabled)
     val foodReminderMinutes by AppPreferences.foodReminderMinutesFlow().collectAsStateWithLifecycle(AppPreferences.foodReminderMinutes)
     fun onFoodReminderChange(enabled: Boolean) {
@@ -159,6 +162,7 @@ private fun SettingsContent(
     }
     val calibration by AppPreferences.stepCalibrationFlow().collectAsStateWithLifecycle(AppPreferences.stepCalibration)
     val manualStepLength = AppPreferences.manualStepLength
+    val name by AppPreferences.nameFlow().collectAsStateWithLifecycle(AppPreferences.name)
     val age by AppPreferences.ageFlow().collectAsStateWithLifecycle(AppPreferences.age)
     val sex by AppPreferences.sexFlow().collectAsStateWithLifecycle(AppPreferences.sex)
     val calorieGoal by AppPreferences.calorieGoalFlow().collectAsStateWithLifecycle(AppPreferences.calorieGoal)
@@ -214,6 +218,13 @@ private fun SettingsContent(
         ScrollingColumn(padding) {
             SectionHeader(stringResource(R.string.header_personal_data))
             SettingsCard(tint = TaroTheme.colors.goal) {
+                PreferenceRow(
+                    icon = R.drawable.ic_you,
+                    title = stringResource(R.string.pref_name),
+                    summary = name.ifBlank { stringResource(R.string.pref_not_set) },
+                    onClick = { dialog = SettingsDialog.NAME },
+                )
+                PreferenceDivider()
                 PreferenceRow(
                     icon = R.drawable.ic_height,
                     title = stringResource(R.string.pref_height),
@@ -313,6 +324,32 @@ private fun SettingsContent(
                     TaroSwitch(
                         checked = reportNotifications,
                         onCheckedChange = ::onReportsChange,
+                        modifier = Modifier.padding(start = 16.dp),
+                    )
+                }
+                PreferenceDivider()
+                PreferenceRow(
+                    icon = R.drawable.ic_calories,
+                    title = stringResource(R.string.settings_streak_ask),
+                    summary = stringResource(R.string.settings_streak_ask_summary),
+                    onClick = { AppPreferences.streakAsk = !streakAsk },
+                ) {
+                    TaroSwitch(
+                        checked = streakAsk,
+                        onCheckedChange = { AppPreferences.streakAsk = it },
+                        modifier = Modifier.padding(start = 16.dp),
+                    )
+                }
+                PreferenceDivider()
+                PreferenceRow(
+                    icon = R.drawable.ic_sleep,
+                    title = stringResource(R.string.settings_streak_rest_first),
+                    summary = stringResource(R.string.settings_streak_rest_first_summary),
+                    onClick = { AppPreferences.streakPreferRest = !streakPreferRest },
+                ) {
+                    TaroSwitch(
+                        checked = streakPreferRest,
+                        onCheckedChange = { AppPreferences.streakPreferRest = it },
                         modifier = Modifier.padding(start = 16.dp),
                     )
                 }
@@ -455,6 +492,18 @@ private fun SettingsContent(
                 onDismiss = dismiss,
             )
         }
+
+        SettingsDialog.NAME -> NameDialog(
+            title = stringResource(R.string.pref_name),
+            label = stringResource(R.string.pref_name),
+            initial = name,
+            maxLength = NAME_MAX,
+            onSave = {
+                dialog = null
+                AppPreferences.name = it
+            },
+            onDismiss = dismiss,
+        )
 
         SettingsDialog.AGE -> AgeDialog(
             current = age,
@@ -608,3 +657,4 @@ private fun SettingsContent(
 }
 
 private val ABOUT_BLUE = Color(0xFF4FC3F7)
+private const val NAME_MAX = 30

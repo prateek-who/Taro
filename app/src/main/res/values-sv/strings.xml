@@ -50,7 +50,6 @@
     <string name="notification_description_paused">Avisera när stegräkning är pausad</string>
     <string name="notification_description_steps_day">Steg idag</string>
     <string name="notification_step_counting_paused">Stegräkning är pausad</string>
-    <string name="notification_step_goal_completed">Stegmål uppnått!</string>
     <string name="step_counting_paused">Pausat stegräkning</string>
     <string name="step_counting_resumed">Återupptagit stegräkning</string>
     <string name="action_pause">Pausa</string>
@@ -134,18 +133,14 @@
     <!-- Records -->
     <string name="personal_records">Personliga mål</string>
     <string name="most_steps_day">Högsta stegantal</string>
-    <string name="most_walked_month">Mest aktiva månad</string>
     <string name="streak_record">Längsta serien med %1$s+ steg</string>
     <string name="top_3_days">Topp 3 dagar</string>
-    <string name="best_week">Bästa veckan</string>
     <string name="avg_steps_per_day">Snitt per dag</string>
     <string name="since_date">Sedan %1$s</string>
 
     <!-- Daily Goal Notifications -->
     <string name="daily_goal_notifications">Dagliga stegmålsavsieringar</string>
     <string name="daily_goal_notification_channel_desc">Få uppdateringar om din dagliga stegmålsutveckling</string>
-    <string name="goal_achieved_title">🎉 Du nådde ditt mål!</string>
-    <string name="goal_achieved_message">Du nådde ditt stegmål om %1$s!</string>
 
     <!-- Step Count Details -->
     <string name="steps_count_with_distance">%1$d • %2$s</string>
@@ -161,17 +156,8 @@
     <string name="steps_updated">Stegräkning uppdaterad</string>
 
     <!-- Encouraging notification strings -->
-    <string name="encouraging_notification_title">Fortsätt så!</string>
-    <string name="encouraging_notification_15_percent">Bra start! Du har gjort %1$d%% av ditt mål. Bara %2$d steg kvar!</string>
-    <string name="encouraging_notification_75_percent">Snart framme! %1$d%% klart. Bara %2$d steg till mål!</string>
 
-    <string name="encouraging_notification_15_percent_alt1">Snyggt jobbat! Du är %1$d%% klar. Fortsätt gå!</string>
-    <string name="encouraging_notification_15_percent_alt2">Du är på gång! %1$d%% klart. %2$d steg kvar!</string>
-    <string name="encouraging_notification_15_percent_alt3">Bra jobbat! %1$d%% klart. Håll igång!</string>
 
-    <string name="encouraging_notification_75_percent_alt1">Nästan där! %1$d%% gjort. Bara %2$d steg kvar!</string>
-    <string name="encouraging_notification_75_percent_alt2">Sista rycket! %1$d%% klart. Du fixar det — %2$d steg kvar!</string>
-    <string name="encouraging_notification_75_percent_alt3">Målet är nära! %1$d%% klart. Bara %2$d steg till seger!</string>
 
     <!-- Pause step counting -->
     <string name="resume_at_time">Återuppta vid vald tid</string>

@@ -370,3 +370,35 @@ fun TimePickerDialog(
         )
     }
 }
+
+@Composable
+fun NameDialog(
+    title: String,
+    label: String,
+    initial: String,
+    maxLength: Int,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+    clean: (String) -> String = { it.trim() },
+    extra: @Composable () -> Unit = {},
+) {
+    var name by remember { mutableStateOf(initial.selectedAll()) }
+    val cleaned = clean(name.text)
+    TaroDialog(
+        title = title,
+        onDismiss = onDismiss,
+        confirmText = stringResource(R.string.action_save),
+        onConfirm = { onSave(cleaned) },
+        confirmEnabled = cleaned.isNotEmpty(),
+    ) {
+        Column {
+            TaroTextField(
+                value = name,
+                onValueChange = { if (it.text.length <= maxLength) name = it },
+                label = label,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            extra()
+        }
+    }
+}

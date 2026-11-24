@@ -2,6 +2,7 @@ package com.prateek.taro.energy
 
 import android.content.Context
 import com.prateek.taro.util.AppPreferences
+import com.prateek.taro.util.CalorieGoal
 import com.prateek.taro.util.Database
 import com.prateek.taro.util.Util
 import java.time.LocalDate
@@ -145,6 +146,24 @@ object DailyEnergy {
         )
     }
 
+    fun eatTarget(kcal: Double, goal: CalorieGoal?): Double = goal?.let { Metabolism.calorieTarget(kcal, it.goal, it.adjustment) } ?: kcal
+
+    fun todayNeed(history: EnergyHistory, burn: DayBurn, hourly: List<HourlyActive>?, nowMs: Long): TodayNeed {
+        val factors = history.factors
+        val expectedRest = hourly?.let { ActivityProfile.expectedRemaining(it, Util.logicalToday(), Util.fractionOfToday(nowMs)) }
+        val projected = Metabolism.withDigestion(
+            history.restingPerDay + burn.active + burn.logged + factors.activity * (expectedRest ?: 0.0),
+            factors.digestion,
+        )
+        val sd = factors.needSd(
+            history.restingPerDay / factors.resting,
+            burn.active / factors.activity + (expectedRest ?: history.averageActive / factors.activity),
+            burn.logged / factors.workout,
+        )
+        val rest = Metabolism.withDigestion(history.restingPerDay + burn.active + burn.logged, factors.digestion)
+        return TodayNeed(if (expectedRest != null) projected else maxOf(history.dailyNeed, projected), projected, sd, rest)
+    }
+
     fun insights(context: Context): BodyInsights {
         val age = AppPreferences.age
         val sex = AppPreferences.sex
@@ -209,6 +228,8 @@ object DailyEnergy {
         return BodyInsights(model, hourly, underLogged)
     }
 }
+
+data class TodayNeed(val need: Double, val projected: Double, val sd: Double, val rest: Double)
 
 data class UnderLoggedDay(val date: LocalDate, val logged: Double, val usual: Double)
 

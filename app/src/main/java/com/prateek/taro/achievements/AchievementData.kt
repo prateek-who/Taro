@@ -70,6 +70,8 @@ object AchievementData {
             days = days,
             goal = AppPreferences.dailyGoalTarget,
             goals = AppPreferences.goalHistory,
+            streakChoices = AppPreferences.streakChoices,
+            streakPreferRest = AppPreferences.streakPreferRest,
             workouts = snapshot.activities.mapNotNull { activity -> date(activity.date)?.let { it to activity.kcal } },
             weights = WeightJournal.points(context),
             losingWeight = AppPreferences.calorieGoal?.goal != DietGoal.BULK,

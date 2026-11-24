@@ -3,6 +3,7 @@ package com.prateek.taro.sleep
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
@@ -20,6 +21,11 @@ class SleepTest {
         val screen = listOf(on(17.0), off(23.0), on(27.0), off(27.0 + 2.0 / 60), on(31.0))
         val steps = mapOf(27 * hour + 5 * minute to 25, 27 * hour + 6 * minute to 20)
         assertEquals(SleepWindow(23 * hour, 31 * hour), SleepEstimator.estimate(18 * hour, 39 * hour, screen, steps))
+
+        val couch = listOf(off(18.0), on(23.0), off(24.0), on(28.5))
+        assertEquals(SleepWindow(18 * hour, 23 * hour), SleepEstimator.estimate(18 * hour, 39 * hour, couch, emptyMap()))
+        val usual = SleepWindow(23 * hour, 31 * hour)
+        assertEquals(SleepWindow(24 * hour, 28 * hour + 30 * minute), SleepEstimator.estimate(18 * hour, 39 * hour, couch, emptyMap(), usual))
     }
 
     @Test
@@ -35,6 +41,9 @@ class SleepTest {
         val night = SleepDates.manualSpan(LocalDate.of(2026, 9, 29), 22 * 60, 6 * 60, zone)
         assertEquals(8 * 60L, (night.end - night.start) / minute)
         assertEquals(LocalDate.of(2026, 9, 29), SleepDates.wakeDateOf(night.end, zone))
+        val afternoon = SleepDates.manualSpan(LocalDate.of(2026, 11, 20), 13 * 60 + 43, 17 * 60, zone)
+        assertTrue(SleepDates.isDaytime(afternoon.start, zone))
+        assertFalse(SleepDates.isDaytime(night.start, zone))
         val dst = SleepDates.manualSpan(LocalDate.of(2026, 3, 29), 23 * 60, 7 * 60, ZoneId.of("Europe/Berlin"))
         assertEquals(7 * 60L, (dst.end - dst.start) / minute)
     }

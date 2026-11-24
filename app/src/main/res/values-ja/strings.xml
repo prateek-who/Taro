@@ -50,7 +50,6 @@
     <string name="notification_description_paused">歩数カウントが一時停止されたときに通知</string>
     <string name="notification_description_steps_day">今日の歩数</string>
     <string name="notification_step_counting_paused">歩数カウントは一時停止中です</string>
-    <string name="notification_step_goal_completed">目標達成！</string>
     <string name="step_counting_paused">歩数カウント停止中</string>
     <string name="step_counting_resumed">歩数カウントを再開しました</string>
     <string name="action_pause">一時停止</string>
@@ -134,18 +133,14 @@
     <!-- Records -->
     <string name="personal_records">個人記録</string>
     <string name="most_steps_day">最多歩数日</string>
-    <string name="most_walked_month">最も歩いた月</string>
     <string name="streak_record">%1$s歩以上の最長連続記録</string>
     <string name="top_3_days">上位3日間</string>
-    <string name="best_week">一番歩いた週</string>
     <string name="avg_steps_per_day">1日当たりの平均</string>
     <string name="since_date">%1$s から</string>
 
     <!-- Daily Goal Notifications -->
     <string name="daily_goal_notifications">目標達成アラート</string>
     <string name="daily_goal_notification_channel_desc">1日の歩数目標を達成したときに通知します</string>
-    <string name="goal_achieved_title">目標達成！🎉</string>
-    <string name="goal_achieved_message">%1$s 歩の目標を達成しました！</string>
 
     <!-- Step Count Details -->
     <string name="steps_count_with_distance">%1$d 歩 / %2$s</string>
@@ -161,17 +156,8 @@
     <string name="steps_updated">歩数が更新されました</string>
 
     <!-- Encouraging notification strings -->
-    <string name="encouraging_notification_title">その調子!</string>
-    <string name="encouraging_notification_15_percent">素晴らしいスタートです! 1日の目標の %1$d%% を完了しました。あと %2$d 歩です!</string>
-    <string name="encouraging_notification_75_percent">あと少しです! %1$d%% が完了しました。目標まであと  %2$d 歩です!</string>
 
-    <string name="encouraging_notification_15_percent_alt1">素晴らしい進歩です! 1日の目標の %1$d%% を歩きました。歩き続けてください!</string>
-    <string name="encouraging_notification_15_percent_alt2">順調に進んでいます! 現在 %1$d%% に到達しています。あと %2$d 歩で目標達成!</string>
-    <string name="encouraging_notification_15_percent_alt3">今日の目標の %1$d%% を達成しました。その調子で続けましょう!</string>
 
-    <string name="encouraging_notification_75_percent_alt1">素晴らしいスタートです! 1日の目標の %1$d%% を完了しました。あと %2$d 歩です!</string>
-    <string name="encouraging_notification_75_percent_alt2">%1$d%% 到達しました。あと %2$d 歩で目標です!ラストスパート!</string>
-    <string name="encouraging_notification_75_percent_alt3">もうすぐゴールです！ %1$d%% が完了しました。勝利まで %2$d 歩!</string>
 
     <!-- Encouraging notification strings -->
     <string name="resume_at_time">再開時刻</string>

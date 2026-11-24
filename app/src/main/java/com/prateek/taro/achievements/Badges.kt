@@ -1,6 +1,9 @@
 package com.prateek.taro.achievements
 
 import com.prateek.taro.util.GoalHistory
+import com.prateek.taro.util.Forgive
+import com.prateek.taro.util.Streak
+import com.prateek.taro.util.Streaks
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import com.prateek.taro.R
@@ -60,6 +63,8 @@ data class AchievementInputs(
     val customFoods: List<LocalDate> = emptyList(),
     val claimed: Map<String, LocalDate> = emptyMap(),
     val goals: GoalHistory? = null,
+    val streakChoices: Map<LocalDate, Forgive> = emptyMap(),
+    val streakPreferRest: Boolean = true,
 ) {
     fun goalOn(date: LocalDate): Int = goals?.on(date) ?: goal
 
@@ -108,6 +113,23 @@ object Rules {
     fun nth(dates: List<LocalDate>, count: Int): BadgeProgress {
         val sorted = dates.sorted()
         return BadgeProgress(sorted.size.toDouble(), sorted.getOrNull(count - 1))
+    }
+
+    fun forgiving(streak: Streak, length: Int) = BadgeProgress(streak.longest.toDouble(), streak.reachedOn(length))
+
+    fun goalStreak(inputs: AchievementInputs): Streak {
+        val steps = inputs.days.associate { it.date to it.steps.toDouble() }
+        val first = steps.keys.minOrNull() ?: return Streak()
+        return Streaks.compute(
+            start = first,
+            end = steps.keys.max(),
+            today = null,
+            value = { steps[it] ?: 0.0 },
+            goal = { inputs.goalOn(it).toDouble() },
+            choices = inputs.streakChoices,
+            makeUp = true,
+            preferRest = inputs.streakPreferRest,
+        )
     }
 
     fun streak(dates: Collection<LocalDate>, length: Int): BadgeProgress {
@@ -260,7 +282,7 @@ object Badges {
 
     private fun goalStreak(id: String, title: Int, days: Int) =
         def(id, BadgeCategory.GOALS, title, R.string.badge_desc_streak, R.drawable.ic_calories, days.toDouble(), BadgeUnit.DAYS) {
-            Rules.streak(Rules.goalDays(it), days)
+            Rules.forgiving(Rules.goalStreak(it), days)
         }
 
     private fun climbTotal(id: String, title: Int, meters: Int) =
@@ -288,7 +310,7 @@ object Badges {
     private fun foodDays(id: String, title: Int, description: Int, count: Int, streak: Boolean = false) =
         def(id, BadgeCategory.FOOD, title, description, R.drawable.ic_calorie_goal, count.toDouble(), BadgeUnit.DAYS) { inputs ->
             val dates = inputs.foods.map { it.date }
-            if (streak) Rules.streak(dates, count) else Rules.nth(dates, count)
+            if (streak) Rules.forgiving(Streaks.ofDates(dates), count) else Rules.nth(dates, count)
         }
 
     private fun weighIns(id: String, title: Int, count: Int) =
@@ -308,7 +330,7 @@ object Badges {
 
     private fun healthyStreak(id: String, title: Int, count: Int) =
         def(id, BadgeCategory.SLEEP, title, R.string.badge_desc_healthy_nights, R.drawable.ic_badge_night, count.toDouble(), BadgeUnit.NIGHTS) {
-            Rules.streak(it.nights.filter(SleepInsights::inRange).map { night -> night.wakeDate }, count)
+            Rules.forgiving(Streaks.ofDates(it.nights.filter(SleepInsights::inRange).map { night -> night.wakeDate }), count)
         }
 
     val all: List<BadgeDef> = listOf(

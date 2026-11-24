@@ -65,6 +65,7 @@ data class ReportInputs(
     val hourSteps: List<Int> = emptyList(),
     val longestWalkMin: Int = 0,
     val briskMinutes: Int = 0,
+    val scores: Map<LocalDate, Int> = emptyMap(),
 )
 
 enum class WeightVerdict { MATCHES, LOST_MORE, LOST_LESS }
@@ -99,6 +100,8 @@ data class PeriodReport(
     val averageEaten: Double?,
     val stepsChange: Int?,
     val highlights: List<Highlight>,
+    val bestScore: Pair<LocalDate, Int>? = null,
+    val averageScore: Int? = null,
 ) {
     val balance: Double get() = eaten - burned
 }
@@ -167,6 +170,8 @@ object Reports {
             averageEaten = logged.takeIf { it.isNotEmpty() }?.let { eaten / it.size },
             stepsChange = stepsChange,
             highlights = highlights,
+            bestScore = inputs.scores.maxByOrNull { it.value }?.toPair(),
+            averageScore = inputs.scores.values.takeIf { it.isNotEmpty() }?.average()?.toInt(),
         )
     }
 }

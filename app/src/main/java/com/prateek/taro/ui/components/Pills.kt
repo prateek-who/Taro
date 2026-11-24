@@ -1,11 +1,14 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.foundation.border
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -50,6 +53,7 @@ fun <T> PillSelector(
     selected: T,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
+    accent: Color? = null,
 ) {
     val scroll = rememberScrollState()
     val density = LocalDensity.current
@@ -63,16 +67,29 @@ fun <T> PillSelector(
     val selectedIndex = options.indexOfFirst { it.first == selected }
     val left = animateFloatAsState(lefts.getOrElse(selectedIndex) { 0f }, TaroMotion.snappy(), label = "pill left")
     val width = animateFloatAsState(widths.getOrElse(selectedIndex) { 0f }, TaroMotion.snappy(), label = "pill width")
-    val indicator = MaterialTheme.colorScheme.onSurface
+    val indicator = accent ?: MaterialTheme.colorScheme.onSurface
 
     LaunchedEffect(selectedIndex, widths) {
         if (selectedIndex >= 0) scroll.animateScrollTo((lefts[selectedIndex] - widths[selectedIndex]).roundToInt().coerceAtLeast(0))
     }
 
+    val edge = MaterialTheme.colorScheme.onSurface.copy(alpha = PILL_BORDER_ALPHA)
+    val fade = with(density) { TaroTheme.spacing.loose.toPx() }
     Box(
         modifier = modifier
             .clip(CircleShape)
             .background(TaroTheme.colors.accentOpaque)
+            .border(TaroTheme.spacing.hair / 2, edge, CircleShape)
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                if (scroll.canScrollBackward) {
+                    drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = fade), blendMode = BlendMode.DstIn)
+                }
+                if (scroll.canScrollForward) {
+                    drawRect(Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = size.width - fade, endX = size.width), blendMode = BlendMode.DstIn)
+                }
+            }
             .horizontalScroll(scroll)
             .padding(4.dp),
     ) {
@@ -131,3 +148,5 @@ fun StatPill(icon: Int, text: String, color: Color, lit: Boolean, modifier: Modi
         InfoPopup(state, info, color)
     }
 }
+
+private const val PILL_BORDER_ALPHA = 0.16f

@@ -241,6 +241,8 @@ private fun ReportBody(report: PeriodReport) {
             StatRow(stringResource(R.string.report_goal_days), "${report.goalDays} / ${report.goalDaysPossible}")
         }
         report.bestDay?.let { StatRow(stringResource(R.string.report_best_day), "${it.date.format(dayFormat)} · ${Util.formatSteps(it.steps)}") }
+        report.bestScore?.let { (date, score) -> StatRow(stringResource(R.string.report_best_score), "${date.format(dayFormat)} · ${Util.formatSteps(score)}") }
+        report.averageScore?.let { StatRow(stringResource(R.string.report_average_score), Util.formatSteps(it)) }
         val days = report.inputs.days
         StepsBarChart(
             values = days.map { it.steps },
@@ -332,7 +334,7 @@ private fun ReportBody(report: PeriodReport) {
                 val average = nights.average().toLong()
                 StatRow(stringResource(R.string.report_average_night), stringResource(R.string.sleep_duration, (average / 60).toInt(), (average % 60).toInt()))
             }
-            report.inputs.bedtimeSpread?.let { StatRow(stringResource(R.string.sleep_spread_short), stringResource(R.string.sleep_spread_value, it.toInt())) }
+            report.inputs.bedtimeSpread?.let { StatRow(stringResource(R.string.sleep_spread_short), stringResource(R.string.sleep_spread_value, minutesText(it.toLong()))) }
             if (report.inputs.napMinutes.isNotEmpty()) {
                 val total = report.inputs.napMinutes.sum()
                 StatRow(

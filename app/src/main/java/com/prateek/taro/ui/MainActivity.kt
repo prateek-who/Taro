@@ -7,7 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.util.AppPreferences
 import com.prateek.taro.util.BackupScheduler
-import com.prateek.taro.util.GoalNotificationWorker
+import com.prateek.taro.util.StepMoments
 import com.prateek.taro.util.Util
 
 internal class MainActivity : AppCompatActivity() {
@@ -18,7 +18,7 @@ internal class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         BackupScheduler.ensureBackupScheduled(applicationContext)
-        GoalNotificationWorker.createNotificationChannels(this)
+        StepMoments.createNotificationChannels(this)
 
         setContent {
             TaroTheme {
