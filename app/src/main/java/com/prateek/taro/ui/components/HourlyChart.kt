@@ -258,7 +258,7 @@ private class ZoomWindow(private val hours: Float) {
         val fromStart = start
         val fromSpan = span
         animate(0f, 1f, animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)) { t, _ ->
-            span = fromSpan + (hours - fromSpan) * t
+            span = (fromSpan + (hours - fromSpan) * t).coerceAtMost(hours)
             start = (fromStart * (1f - t)).coerceIn(0f, hours - span)
         }
     }

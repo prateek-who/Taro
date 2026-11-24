@@ -1,5 +1,6 @@
 package com.prateek.taro.ui.components
 
+import com.prateek.taro.ui.theme.TaroMotion
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
@@ -59,6 +60,29 @@ fun rememberBarGrowth(key: Any?, count: Int): ChartProgress {
         clock.animateTo(1f, tween(total.toInt(), easing = LinearEasing))
     }
     return remember(clock, total, stagger) { ChartProgress(clock, total, stagger) }
+}
+
+@Composable
+fun rememberMorph(values: List<Double>): () -> List<Double> {
+    val enabled = rememberAnimationsEnabled()
+    val holder = remember { arrayOf(values, values) }
+    val mix = remember { Animatable(1f) }
+    LaunchedEffect(values, enabled) {
+        val (from, to) = holder
+        holder[0] = if (from.size == to.size) from.zip(to) { a, b -> a + (b - a) * mix.value } else to
+        holder[1] = values
+        if (!enabled || holder[0].size != values.size) {
+            mix.snapTo(1f)
+            return@LaunchedEffect
+        }
+        mix.snapTo(0f)
+        mix.animateTo(1f, TaroMotion.snappy())
+    }
+    return {
+        val (from, to) = holder
+        val t = mix.value.toDouble()
+        if (from.size != to.size || t >= 1.0) to else from.zip(to) { a, b -> a + (b - a) * t }
+    }
 }
 
 fun monotonePath(points: List<Offset>, path: Path = Path()): Path {

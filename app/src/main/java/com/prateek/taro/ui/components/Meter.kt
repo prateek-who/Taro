@@ -109,7 +109,8 @@ fun Meter(
 
 @Composable
 fun StackBar(parts: List<Pair<Double, Color>>, modifier: Modifier = Modifier, height: Dp = TaroTheme.spacing.gap) {
-    val progress = rememberDrawIn(parts.map { it.first })
+    val progress = rememberDrawIn(parts.size)
+    val values = rememberMorph(parts.map { it.first })
     val gap = with(LocalDensity.current) { TaroTheme.spacing.hair.toPx() }
     Canvas(
         modifier = modifier
@@ -117,8 +118,9 @@ fun StackBar(parts: List<Pair<Double, Color>>, modifier: Modifier = Modifier, he
             .height(height)
             .clip(RoundedCornerShape(height / 2)),
     ) {
-        val total = parts.sumOf { it.first.coerceAtLeast(0.0) }.takeIf { it > 0 } ?: return@Canvas
-        val shown = parts.filter { it.first > 0 }
+        val now = values().zip(parts) { value, part -> value to part.second }
+        val total = now.sumOf { it.first.coerceAtLeast(0.0) }.takeIf { it > 0 } ?: return@Canvas
+        val shown = now.filter { it.first > 0 }
         val room = size.width - gap * (shown.size - 1).coerceAtLeast(0)
         val reach = size.width * progress.value
         var x = 0f

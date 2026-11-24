@@ -181,9 +181,12 @@ fun PairedBars(values: List<Pair<Double, Double?>>, first: Color, second: Color,
 
 @Composable
 private fun Pairs(values: List<Pair<Double, Double?>>, first: Color, second: Color, modifier: Modifier) {
-    val growth = rememberBarGrowth(values, values.size * 2)
+    val growth = rememberBarGrowth(values.size, values.size * 2)
+    val morph = rememberMorph(values.flatMap { listOf(it.first, it.second ?: 0.0) })
     Canvas(modifier = modifier) {
         if (values.isEmpty()) return@Canvas
+        val flat = morph()
+        val values = values.mapIndexed { index, (a, b) -> (flat.getOrNull(index * 2) ?: a) to b?.let { flat.getOrNull(index * 2 + 1) ?: it } }
         val max = values.maxOf { maxOf(it.first, it.second ?: 0.0) }.takeIf { it > 0 } ?: 1.0
         val slot = size.width / values.size
         val gap = slot * 0.06f
