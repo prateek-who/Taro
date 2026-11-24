@@ -1,5 +1,13 @@
 package com.prateek.taro.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -16,7 +24,6 @@ import com.prateek.taro.ui.components.StepperField
 import com.prateek.taro.ui.components.TaroDatePickerDialog
 import com.prateek.taro.ui.components.dayLabel
 import kotlin.math.roundToInt
-import com.prateek.taro.ui.components.TintChip
 import java.time.LocalDate
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,6 +52,7 @@ import java.util.Locale
 
 private val WEIGHT_KG_RANGE = 20.0..400.0
 private const val WEIGHT_STEP = 0.1
+private const val PACE_DOT_SHARE = 0.6f
 private const val SPARK_POINTS = 13
 private const val SPARK_ASPECT = 4f
 
@@ -169,5 +177,16 @@ fun PaceMessage(assessment: PaceAssessment, goal: DietGoal?, modifier: Modifier 
         PaceStatus.STEADY -> stringResource(R.string.weight_pace_steady, actual) to TaroTheme.colors.goal
         PaceStatus.DRIFTING -> stringResource(R.string.weight_pace_drifting, actual) to TaroTheme.colors.special
     }
-    TintChip(text = text, color = color, modifier = modifier)
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
+    val dot = with(LocalDensity.current) { type.note.fontSize.toDp() } * PACE_DOT_SHARE
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(spacing.tight), modifier = modifier) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.height(with(LocalDensity.current) { type.note.lineHeight.toDp() }),
+        ) {
+            Box(modifier = Modifier.size(dot).clip(CircleShape).background(color))
+        }
+        Text(text, style = type.note, color = MaterialTheme.colorScheme.onSurface)
+    }
 }

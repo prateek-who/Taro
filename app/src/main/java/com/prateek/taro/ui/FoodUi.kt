@@ -1,5 +1,17 @@
 package com.prateek.taro.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.prateek.taro.ui.components.cornerGlow
+import com.prateek.taro.ui.theme.TaroMotion
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.text.BasicTextField
@@ -140,6 +152,10 @@ private const val ACTION_COLUMNS = 3
 private const val TRAY_ROOM = 6
 private const val ADD_DISC_SHARE = 1.6f
 private const val ADD_DISC_ALPHA = 0.18f
+private const val ADDED_FLASH_MS = 1800L
+private const val COUNT_BUMP = 1.3f
+private const val TRAY_BORDER_ALPHA = 0.7f
+private const val FLOAT_RISE_SHARE = 2.2f
 private const val BASE_STEP = 10.0
 private const val UNIT_STEP = 0.5
 
@@ -598,6 +614,14 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
     var query by remember { mutableStateOf(TextFieldValue()) }
     var dialog by remember { mutableStateOf<FoodDialog?>(null) }
     var added by remember { mutableStateOf<List<FoodLog>>(emptyList()) }
+    var flashed by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(flashed) {
+        if (flashed != null) {
+            delay(ADDED_FLASH_MS)
+            flashed = null
+        }
+    }
     var pickingWhen by remember { mutableStateOf(false) }
     val dataVersion = rememberDataVersion()
     val meals by AppPreferences.mealsFlow(context).collectAsStateWithLifecycle(AppPreferences.meals(context))
@@ -634,6 +658,7 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
         val copies = logs.map { it.copy(id = 0, date = date.toString(), meal = meal, loggedAt = it.loggedAt + shift) }
         Database.getInstance(context).logFoods(copies)
         added = added + copies
+        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
     }
     LaunchedEffect(date, meal, meals) {
         if (!timeTouched) {
@@ -650,6 +675,8 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
         val entry = log.copy(id = 0, date = date.toString(), meal = meal, loggedAt = Util.momentOf(date, minute))
         Database.getInstance(context).logFood(entry)
         added = added + entry
+        flashed = rowKey(log) to added.size
+        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         dialog = null
     }
 
@@ -718,6 +745,7 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
                                     fat = log.fat,
                                     onClick = { open(log) },
                                     onAdd = { save(log) },
+                                    justAdded = flashed?.first == rowKey(log),
                                 )
                             }
                         }
@@ -757,6 +785,7 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
                                     fat = log.fat,
                                     onClick = { open(log) },
                                     onAdd = { save(log) },
+                                    justAdded = flashed?.first == rowKey(log),
                                 )
                             }
                         }
@@ -825,9 +854,7 @@ private fun AddFoodContent(initialDate: LocalDate, initialMeal: String, onDone: 
                     }
                 }
             }
-            if (added.isNotEmpty()) {
-                FoodTray(added, mealName, onDone, Modifier.align(Alignment.BottomCenter).padding(spacing.gap))
-            }
+            FoodTrayHost(added, mealName, onDone, Modifier.align(Alignment.BottomCenter).padding(spacing.gap))
         }
     }
 
@@ -964,6 +991,7 @@ internal fun FoodRow(
     fat: Double? = null,
     onAdd: (() -> Unit)? = null,
     action: String? = null,
+    justAdded: Boolean = false,
 ) {
     val spacing = TaroTheme.spacing
     val type = TaroTheme.text
@@ -975,6 +1003,7 @@ internal fun FoodRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(spacing.gap))
+            .then(if (justAdded) Modifier.cornerGlow(colors.special) else Modifier)
             .clickable(onClick = onClick)
             .padding(horizontal = spacing.tight, vertical = spacing.gap),
     ) {
@@ -1012,15 +1041,26 @@ internal fun FoodRow(
             )
         }
         if (onAdd != null) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(iconSize * ADD_DISC_SHARE)
-                    .clip(CircleShape)
-                    .background(colors.special.copy(alpha = ADD_DISC_ALPHA))
-                    .clickable(onClick = onAdd),
-            ) {
-                Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.food_add_one, title), tint = colors.special, modifier = Modifier.size(iconSize))
+            val fill by animateColorAsState(if (justAdded) colors.special else colors.special.copy(alpha = ADD_DISC_ALPHA), label = "add disc")
+            Box(contentAlignment = Alignment.Center) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(iconSize * ADD_DISC_SHARE)
+                        .clip(CircleShape)
+                        .background(fill)
+                        .clickable(onClick = onAdd),
+                ) {
+                    AnimatedContent(justAdded, label = "add icon") { done ->
+                        Icon(
+                            painterResource(if (done) R.drawable.ic_check else R.drawable.ic_add),
+                            contentDescription = stringResource(R.string.food_add_one, title),
+                            tint = if (done) colors.background else colors.special,
+                            modifier = Modifier.size(iconSize),
+                        )
+                    }
+                }
+                if (justAdded) FloatingKcal(stringResource(R.string.food_added_kcal, number(kcal)))
             }
         }
     }
@@ -1065,19 +1105,53 @@ private fun SearchField(value: TextFieldValue, onValueChange: (TextFieldValue) -
 }
 
 @Composable
+private fun FoodTrayHost(added: List<FoodLog>, mealName: String, onDone: () -> Unit, modifier: Modifier = Modifier) {
+    AnimatedVisibility(
+        visible = added.isNotEmpty(),
+        enter = slideInVertically(TaroMotion.bouncy()) { it } + fadeIn(),
+        modifier = modifier,
+    ) {
+        FoodTray(added, mealName, onDone)
+    }
+}
+
+@Composable
 private fun FoodTray(added: List<FoodLog>, mealName: String, onDone: () -> Unit, modifier: Modifier = Modifier) {
     val spacing = TaroTheme.spacing
     val type = TaroTheme.text
     val colors = TaroTheme.colors
+    val shape = RoundedCornerShape(spacing.loose + spacing.tight)
+    val bump = remember { Animatable(1f) }
+    LaunchedEffect(added.size) {
+        bump.snapTo(COUNT_BUMP)
+        bump.animateTo(1f, TaroMotion.bouncy())
+    }
+    val disc = with(LocalDensity.current) { type.title.lineHeight.toDp() } * ADD_DISC_SHARE
     Row(
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(spacing.gap),
         modifier = modifier
             .fillMaxWidth()
-            .shadow(spacing.gap, RoundedCornerShape(spacing.loose + spacing.tight))
-            .clip(RoundedCornerShape(spacing.loose + spacing.tight))
+            .shadow(spacing.gap, shape, ambientColor = colors.special, spotColor = colors.special)
+            .clip(shape)
             .background(colors.dialogSurface)
+            .cornerGlow(colors.special)
+            .border(spacing.hair / 2, colors.special.copy(alpha = TRAY_BORDER_ALPHA), shape)
             .padding(horizontal = spacing.loose, vertical = spacing.gap),
     ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .graphicsLayer {
+                    scaleX = bump.value
+                    scaleY = bump.value
+                }
+                .size(disc)
+                .clip(CircleShape)
+                .background(colors.special),
+        ) {
+            Text(added.size.toString(), style = type.title, color = colors.background)
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 if (added.all { it.meal == added.first().meal }) stringResource(R.string.food_tray_title, mealName.lowercase()) else stringResource(R.string.food_tray_mixed),
@@ -1092,9 +1166,40 @@ private fun FoodTray(added: List<FoodLog>, mealName: String, onDone: () -> Unit,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        LinkText(stringResource(R.string.food_done), colors.special, onClick = onDone)
+        Text(
+            stringResource(R.string.food_done),
+            style = type.title,
+            color = colors.background,
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(colors.special)
+                .clickable(onClick = onDone)
+                .padding(horizontal = spacing.loose, vertical = spacing.tight),
+        )
     }
 }
+
+@Composable
+private fun FloatingKcal(text: String) {
+    val rise = remember { Animatable(0f) }
+    val lift = with(LocalDensity.current) { TaroTheme.text.title.lineHeight.toPx() } * FLOAT_RISE_SHARE
+    LaunchedEffect(Unit) { rise.animateTo(1f, tween(ADDED_FLASH_MS.toInt())) }
+    Text(
+        text,
+        style = TaroTheme.text.note,
+        color = TaroTheme.colors.special,
+        maxLines = 1,
+        softWrap = false,
+        modifier = Modifier
+            .wrapContentSize(unbounded = true)
+            .graphicsLayer {
+                translationY = -lift * rise.value
+                alpha = 1f - rise.value * rise.value
+            },
+    )
+}
+
+private fun rowKey(log: FoodLog) = "${log.name}|${log.grams}"
 
 @Composable
 private fun ChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {

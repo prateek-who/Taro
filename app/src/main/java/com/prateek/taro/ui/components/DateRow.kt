@@ -7,8 +7,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -72,20 +72,7 @@ fun DateRow(label: String, date: LocalDate, today: LocalDate, onChange: (LocalDa
 
 @Composable
 fun PickerRow(icon: Int, label: String, value: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(TaroTheme.colors.accentOpaque)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-    ) {
-        Icon(painterResource(icon), contentDescription = null, tint = TaroTheme.colors.accent, modifier = Modifier.size(20.dp))
-        Text(label, color = TaroTheme.colors.accent, modifier = Modifier.weight(1f))
-        Text(value, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-    }
+    Box(modifier = modifier) { EditRow(icon, TaroTheme.colors.accent, label, value, onClick) }
 }
 
 @Composable

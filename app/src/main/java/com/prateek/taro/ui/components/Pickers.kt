@@ -1,5 +1,6 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.annotation.DrawableRes
@@ -112,6 +113,30 @@ fun StepperButton(@DrawableRes icon: Int, label: String, enabled: Boolean, size:
             .alpha(if (enabled) 1f else DISABLED_ALPHA),
     ) {
         Icon(painterResource(icon), contentDescription = label, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(size * STEPPER_ICON_SHARE))
+    }
+}
+
+@Composable
+fun StepperValue(
+    text: String,
+    color: Color,
+    onMinus: () -> Unit,
+    onPlus: () -> Unit,
+    modifier: Modifier = Modifier,
+    unit: String? = null,
+    minusEnabled: Boolean = true,
+    plusEnabled: Boolean = true,
+    style: TextStyle = TaroTheme.text.value,
+) {
+    val spacing = TaroTheme.spacing
+    val button = with(LocalDensity.current) { TaroTheme.text.value.lineHeight.toDp() }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth()) {
+        StepperButton(R.drawable.ic_remove, stringResource(R.string.stepper_less), minusEnabled, button, onMinus)
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.Center, modifier = Modifier.weight(1f)) {
+            RollingText(text, style.copy(color = color))
+            unit?.let { Text(it, style = TaroTheme.text.unit, color = TaroTheme.colors.accent, modifier = Modifier.padding(start = spacing.hair, bottom = spacing.hair)) }
+        }
+        StepperButton(R.drawable.ic_add, stringResource(R.string.stepper_more), plusEnabled, button, onPlus)
     }
 }
 

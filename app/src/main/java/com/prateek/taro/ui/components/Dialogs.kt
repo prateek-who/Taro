@@ -11,9 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.TimePickerDefaults
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material3.TextFieldColors
@@ -336,40 +333,6 @@ fun HtmlDialog(title: String, html: String, onDismiss: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TimePickerDialog(
-    title: String,
-    initialHour: Int,
-    initialMinute: Int,
-    onConfirm: (hour: Int, minute: Int) -> Unit,
-    onDismiss: () -> Unit,
-    is24Hour: Boolean = true,
-) {
-    val state = rememberTimePickerState(initialHour = initialHour, initialMinute = initialMinute, is24Hour = is24Hour)
-    TaroDialog(
-        title = title,
-        onDismiss = onDismiss,
-        confirmText = stringResource(android.R.string.ok),
-        onConfirm = { onConfirm(state.hour, state.minute) },
-    ) {
-        TimePicker(
-            state = state,
-            colors = TimePickerDefaults.colors(
-                clockDialColor = TaroTheme.colors.accentOpaque,
-                clockDialSelectedContentColor = TaroTheme.colors.background,
-                selectorColor = MaterialTheme.colorScheme.onSurface,
-                timeSelectorSelectedContainerColor = MaterialTheme.colorScheme.onSurface,
-                timeSelectorSelectedContentColor = TaroTheme.colors.background,
-                timeSelectorUnselectedContainerColor = TaroTheme.colors.accentOpaque,
-                periodSelectorBorderColor = Color.Transparent,
-                periodSelectorSelectedContainerColor = MaterialTheme.colorScheme.onSurface,
-                periodSelectorSelectedContentColor = TaroTheme.colors.background,
-                periodSelectorUnselectedContainerColor = TaroTheme.colors.accentOpaque,
-            ),
-        )
-    }
-}
 
 @Composable
 fun NameDialog(
