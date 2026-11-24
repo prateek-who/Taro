@@ -49,6 +49,7 @@ private fun ResumeTimeDialog(
         title = stringResource(R.string.resume_at_time),
         initialHour = now.get(Calendar.HOUR_OF_DAY),
         initialMinute = (now.get(Calendar.MINUTE) + 1).coerceAtMost(59),
+        suggestions = emptyList(),
         onConfirm = { hour, minute ->
             val resumeTime = Calendar.getInstance().apply {
                 set(Calendar.HOUR_OF_DAY, hour)

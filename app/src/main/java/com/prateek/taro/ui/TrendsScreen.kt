@@ -39,7 +39,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import com.prateek.taro.R
-import androidx.compose.runtime.remember
 import com.prateek.taro.energy.WeightTrend
 import com.prateek.taro.report.Period
 import com.prateek.taro.report.ReportData
@@ -55,8 +54,6 @@ import com.prateek.taro.ui.components.Panel
 import com.prateek.taro.ui.components.PillSelector
 import com.prateek.taro.ui.components.SectionLabel
 import com.prateek.taro.ui.components.Sparkline
-import com.prateek.taro.ui.components.WeightForecast
-import com.prateek.taro.ui.components.WeightTrendChart
 import com.prateek.taro.ui.components.infoOf
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.util.Util
@@ -65,7 +62,6 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 object TrendsTab : Tab {
     override val options: TabOptions
@@ -89,9 +85,6 @@ private const val STEADY_KG = 0.2
 private const val EVEN_KCAL = 50
 private const val SAME_SHARE = 0.03
 private const val SAME_SLEEP_MIN = 10
-private const val FORECAST_STEP = 7
-private const val FORECAST_WEEKS = 4
-private const val STALE_DAYS = 14L
 private const val PLACEHOLDER_ASPECT = 0.9f
 private const val DIVIDER_ALPHA = 0.08f
 private const val BEST_COLUMNS = 2
@@ -236,7 +229,7 @@ private fun WeightTile(summary: TrendSummary, model: com.prateek.taro.energy.Bod
         val latest = points.last()
         val sd = model?.latest?.tissueSd
         val today = Util.logicalToday()
-        val stale = latest.date.takeIf { it.isBefore(today.minusDays(STALE_DAYS)) }
+        val stale = latest.date.takeIf { it.isBefore(today.minusDays(WEIGHT_STALE_DAYS)) }
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.weight(1f)) {
                 BentoValue(Util.formatWeight(latest.trend), MaterialTheme.colorScheme.onSurface)
@@ -249,57 +242,8 @@ private fun WeightTile(summary: TrendSummary, model: com.prateek.taro.energy.Bod
                 }
             }
         }
-        val start = minOf(today, latest.date).minusDays(summary.range.days.toLong())
-        val shown = points.filter { !it.date.isBefore(start) }
-        val daily = model?.dailyChangeKg()
-        val forecast = if (model != null && daily != null && stale == null) {
-            val needSd = model.factors.needSd(model.restingAtTissue, model.recentActive, model.recentWorkouts)
-            (1..FORECAST_WEEKS).map { week ->
-                val days = week * FORECAST_STEP
-                WeightForecast(
-                    date = latest.date.plusDays(days.toLong()),
-                    kg = latest.trend + daily * days,
-                    sd = sqrt((sd ?: 0.0) * (sd ?: 0.0) + (needSd * days / com.prateek.taro.energy.Metabolism.KCAL_PER_KG).let { it * it }),
-                )
-            }
-        } else {
-            emptyList()
-        }
-        var selected by remember(shown, forecast) { mutableStateOf<Int?>(null) }
-        val day = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
-        Text(
-            text = selected?.let { index ->
-                shown.getOrNull(index)?.let { stringResource(R.string.trends_weight_point, it.date.format(day), Util.formatWeight(it.kg), Util.formatWeight(it.trend)) }
-                    ?: forecast[index - shown.size].let {
-                        stringResource(R.string.trends_weight_forecast_point, it.date.format(day), Util.formatWeight(it.kg), Util.formatWeight(it.kg - it.sd), Util.formatWeight(it.kg + it.sd))
-                    }
-            } ?: stringResource(R.string.trends_weight_hint),
-            style = type.meterValue,
-            color = if (selected == null) colors.accent else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = spacing.gap),
-        )
-        WeightTrendChart(
-            points = shown,
-            forecast = forecast,
-            color = colors.goal,
-            todayLabel = stringResource(R.string.trends_today),
-            toDisplay = Util::kgToDisplay,
-            selected = selected,
-            onSelect = { selected = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(WEIGHT_ASPECT)
-                .padding(top = spacing.tight),
-        )
-        BentoNote(
-            forecast.lastOrNull()?.let { stringResource(R.string.trends_weight_course, Util.formatWeight(it.kg), it.date.format(day)) }
-                ?: stringResource(R.string.trends_forecast_wait),
-            Modifier.padding(top = spacing.tight),
-        )
-        stale?.let {
-            BentoNote(stringResource(R.string.trends_weight_stale, it.format(day)), Modifier.padding(top = spacing.tight))
-            LinkText(stringResource(R.string.weight_log), colors.goal, onClick = onLog, icon = R.drawable.ic_add)
-        }
+        WeightCourse(points, model, summary.range.days, WEIGHT_ASPECT)
+        if (stale != null) LinkText(stringResource(R.string.weight_log), colors.goal, onClick = onLog, icon = R.drawable.ic_add)
     }
 }
 
