@@ -1,5 +1,6 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.rotate
 import androidx.compose.material3.IconButton
 import com.prateek.taro.util.DayClock
@@ -31,9 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.prateek.taro.R
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.util.AppPreferences
@@ -88,40 +87,17 @@ fun dayLabel(date: LocalDate, today: LocalDate, todayLabel: String? = null): Str
 @Composable
 fun DaySwitcher(date: LocalDate, today: LocalDate, onChange: (LocalDate) -> Unit, modifier: Modifier = Modifier, todayLabel: String? = null) {
     var picking by remember { mutableStateOf(false) }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
+    StepSwitcher(
+        label = dayLabel(date, today, todayLabel),
+        onPrevious = { onChange(date.minusDays(1)) },
+        onNext = { onChange(date.plusDays(1)) },
+        nextEnabled = date.isBefore(today),
+        previousDescription = stringResource(R.string.day_previous),
+        nextDescription = stringResource(R.string.day_next),
+        labelColor = if (date == today) TaroTheme.colors.accent else MaterialTheme.colorScheme.onSurface,
+        onLabelClick = { picking = true },
         modifier = modifier,
-    ) {
-        IconButton(onClick = { onChange(date.minusDays(1)) }, modifier = Modifier.size(36.dp)) {
-            Icon(
-                painter = painterResource(R.drawable.ic_chevron_right),
-                contentDescription = stringResource(R.string.day_previous),
-                tint = TaroTheme.colors.accent,
-                modifier = Modifier.rotate(180f),
-            )
-        }
-        Text(
-            text = dayLabel(date, today, todayLabel).uppercase(),
-            fontSize = 13.sp,
-            letterSpacing = 2.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = if (date == today) TaroTheme.colors.accent else MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            softWrap = false,
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .clickable { picking = true }
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-        )
-        IconButton(onClick = { onChange(date.plusDays(1)) }, enabled = date.isBefore(today), modifier = Modifier.size(36.dp)) {
-            Icon(
-                painter = painterResource(R.drawable.ic_chevron_right),
-                contentDescription = stringResource(R.string.day_next),
-                tint = TaroTheme.colors.accent.copy(alpha = if (date.isBefore(today)) 1f else 0.25f),
-            )
-        }
-    }
+    )
     if (picking) {
         TaroDatePickerDialog(
             initial = date,
@@ -134,6 +110,47 @@ fun DaySwitcher(date: LocalDate, today: LocalDate, onChange: (LocalDate) -> Unit
         )
     }
 }
+
+@Composable
+fun StepSwitcher(
+    label: String,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    nextEnabled: Boolean,
+    previousDescription: String,
+    nextDescription: String,
+    modifier: Modifier = Modifier,
+    labelColor: Color = MaterialTheme.colorScheme.onSurface,
+    onLabelClick: (() -> Unit)? = null,
+) {
+    val spacing = TaroTheme.spacing
+    val button = spacing.wide + spacing.gap + spacing.hair
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = modifier) {
+        IconButton(onClick = onPrevious, modifier = Modifier.size(button)) {
+            Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = previousDescription, tint = TaroTheme.colors.accent, modifier = Modifier.rotate(180f))
+        }
+        Text(
+            text = label.uppercase(),
+            style = TaroTheme.text.label,
+            color = labelColor,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier
+                .clip(RoundedCornerShape(spacing.gap + spacing.hair))
+                .then(if (onLabelClick != null) Modifier.clickable(onClick = onLabelClick) else Modifier)
+                .padding(horizontal = spacing.tight, vertical = spacing.tight),
+        )
+        IconButton(onClick = onNext, enabled = nextEnabled, modifier = Modifier.size(button)) {
+            Icon(
+                painter = painterResource(R.drawable.ic_chevron_right),
+                contentDescription = nextDescription,
+                tint = TaroTheme.colors.accent.copy(alpha = if (nextEnabled) 1f else DISABLED_ALPHA),
+            )
+        }
+    }
+}
+
+private const val DISABLED_ALPHA = 0.25f
 
 @Composable
 fun TimeRow(label: String, minuteOfDay: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifier) {

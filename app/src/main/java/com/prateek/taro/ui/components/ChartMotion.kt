@@ -1,5 +1,10 @@
 package com.prateek.taro.ui.components
 
+import kotlinx.coroutines.delay
+import com.prateek.taro.ui.theme.TaroTheme
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.Modifier
 import com.prateek.taro.ui.theme.TaroMotion
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -20,6 +25,8 @@ private const val DRAW_IN_MS = 1100
 private const val BAR_GROW_MS = 650f
 private const val BAR_STAGGER_MS = 40f
 private const val BAR_SPREAD_MS = 480f
+private const val ENTER_MS = 420
+private const val ENTER_STAGGER_MS = 45L
 
 class ChartProgress internal constructor(private val clock: Animatable<Float, *>, private val total: Float, private val stagger: Float) {
     val value: Float get() = clock.value
@@ -117,14 +124,24 @@ fun Path.partial(fraction: Float): Path {
     return Path().also { measure.getSegment(0f, measure.length * fraction.coerceAtLeast(0f), it, true) }
 }
 
-private fun smootherstep(x: Double): Double = when {
-    x <= 0.0 -> 0.0
-    x >= 1.0 -> 1.0
-    else -> x * x * x * (x * (x * 6 - 15) + 10)
-}
-
-fun runningTotals(perHour: List<Double>, steps: Int, spreadHours: Double, leadHours: Double): List<Double> =
-    (0..perHour.size * steps).map { index ->
-        val hour = index.toDouble() / steps
-        perHour.withIndex().sumOf { (slot, amount) -> amount * smootherstep((hour - slot - leadHours) / spreadHours) }
+@Composable
+fun Modifier.enter(order: Int = 0): Modifier {
+    val enabled = rememberAnimationsEnabled()
+    val active = LocalTabActive.current
+    val rise = with(LocalDensity.current) { TaroTheme.spacing.gap.toPx() }
+    val progress = remember { Animatable(if (enabled) 0f else 1f) }
+    LaunchedEffect(active, enabled) {
+        if (!enabled) {
+            progress.snapTo(1f)
+            return@LaunchedEffect
+        }
+        if (!active || progress.value >= 1f) return@LaunchedEffect
+        delay(order * ENTER_STAGGER_MS)
+        progress.animateTo(1f, tween(ENTER_MS, easing = DrawInEasing))
     }
+    return graphicsLayer {
+        val p = progress.value
+        alpha = p
+        translationY = (1f - p) * rise
+    }
+}

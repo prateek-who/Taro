@@ -1,5 +1,8 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.BoneRows
+import com.prateek.taro.ui.components.BoneTile
+import com.prateek.taro.ui.components.Skeleton
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -64,7 +67,6 @@ import com.prateek.taro.ui.components.SecondaryButton
 import com.prateek.taro.ui.components.SectionLabel
 import com.prateek.taro.ui.components.StackBar
 import com.prateek.taro.ui.components.TaroDialog
-import com.prateek.taro.ui.components.TintChip
 import com.prateek.taro.ui.components.ToastKind
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.util.AppPreferences
@@ -182,7 +184,11 @@ private fun AchievementsContent() {
                 .padding(start = spacing.loose, end = spacing.loose, bottom = spacing.loose),
         ) {
             if (state == null) {
-                BentoNote(stringResource(R.string.badges_loading))
+                Skeleton {
+                    BoneTile(Modifier.fillMaxWidth().aspectRatio(BADGES_SKELETON))
+                    BoneTile(Modifier.fillMaxWidth().padding(top = TaroTheme.spacing.gap)) { BoneRows(3) }
+                    BoneTile(Modifier.fillMaxWidth().padding(top = TaroTheme.spacing.gap)) { BoneRows(5) }
+                }
                 return@Column
             }
             val badges = state.badges.filter { !it.def.claimable || it.earned }
@@ -461,8 +467,9 @@ private fun BadgeDialog(
                 modifier = Modifier.padding(top = spacing.loose),
             )
             if (badge.earned) {
-                TintChip(
+                Text(
                     text = stringResource(R.string.badge_earned_on, badge.progress.earnedOn!!.format(dateFormat)),
+                    style = TaroTheme.text.meterValue,
                     color = color,
                     modifier = Modifier.padding(top = spacing.loose),
                 )
@@ -518,3 +525,5 @@ private fun BadgeDialog(
         }
     }
 }
+
+private const val BADGES_SKELETON = 1.5f

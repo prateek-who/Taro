@@ -34,6 +34,7 @@ object FullBackup {
         "sensor_boot_count",
         "sensor_boot_time",
         "backup_location_uri",
+        "last_backup",
         "app_version_code",
         "alertdialog_last",
     )

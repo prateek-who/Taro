@@ -1,8 +1,12 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.TextTabs
+import com.prateek.taro.ui.components.BoneTilePair
+import com.prateek.taro.ui.components.BoneTile
+import com.prateek.taro.ui.components.BoneText
+import com.prateek.taro.ui.components.Skeleton
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -51,7 +55,6 @@ import com.prateek.taro.ui.components.LinkText
 import com.prateek.taro.ui.components.MeterBar
 import com.prateek.taro.ui.components.PairedBars
 import com.prateek.taro.ui.components.Panel
-import com.prateek.taro.ui.components.PillSelector
 import com.prateek.taro.ui.components.SectionLabel
 import com.prateek.taro.ui.components.Sparkline
 import com.prateek.taro.ui.components.infoOf
@@ -85,7 +88,6 @@ private const val STEADY_KG = 0.2
 private const val EVEN_KCAL = 50
 private const val SAME_SHARE = 0.03
 private const val SAME_SLEEP_MIN = 10
-private const val PLACEHOLDER_ASPECT = 0.9f
 private const val DIVIDER_ALPHA = 0.08f
 private const val BEST_COLUMNS = 2
 
@@ -119,14 +121,15 @@ private fun TrendsContent() {
                 .verticalScroll(rememberScrollState())
                 .padding(start = spacing.loose, end = spacing.loose, bottom = spacing.loose),
         ) {
-            PillSelector(
+            TextTabs(
                 options = TrendRange.entries.map { it to stringResource(it.label) },
                 selected = range,
                 onSelect = { range = it },
+                color = colors.goal,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
             if (summary == null || summary.range != range) {
-                Box(modifier = Modifier.fillMaxWidth().aspectRatio(PLACEHOLDER_ASPECT))
+                TrendsSkeleton()
                 return@Column
             }
             Text(
@@ -219,7 +222,7 @@ private fun WeightTile(summary: TrendSummary, model: com.prateek.taro.energy.Bod
     val colors = TaroTheme.colors
     val spacing = TaroTheme.spacing
     val type = TaroTheme.text
-    BentoTile(colors.goal, label = stringResource(R.string.weight_title), tinted = true, onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+    BentoTile(colors.goal, label = stringResource(R.string.weight_title), tinted = true, onClick = onClick, modifier = Modifier.fillMaxWidth(), order = 0) {
         val points = model.tissueTrend(summary.weights)
         if (points.isEmpty()) {
             BentoNote(stringResource(R.string.trends_weight_empty))
@@ -262,7 +265,7 @@ private fun change(now: Int?, before: Int?, span: String): Pair<String, Color>? 
 private fun StepsTrendTile(summary: TrendSummary, modifier: Modifier, onClick: () -> Unit) {
     val colors = TaroTheme.colors
     val span = stringResource(summary.range.span)
-    BentoTile(colors.goal, modifier = modifier, label = stringResource(R.string.tab_steps), tinted = true, onClick = onClick) {
+    BentoTile(colors.goal, modifier = modifier, label = stringResource(R.string.tab_steps), tinted = true, onClick = onClick, order = 1) {
         BentoValue(summary.steps?.let { Util.formatSteps(it) } ?: "-", MaterialTheme.colorScheme.onSurface, unit = stringResource(R.string.trends_a_day))
         change(summary.steps, summary.stepsBefore, span)?.let { (text, color) -> BentoNote(text, color = color) }
         Spacer()
@@ -282,7 +285,7 @@ private fun StepsTrendTile(summary: TrendSummary, modifier: Modifier, onClick: (
 private fun SleepTrendTile(summary: TrendSummary, modifier: Modifier, onClick: () -> Unit) {
     val colors = TaroTheme.colors
     val span = stringResource(summary.range.span)
-    BentoTile(colors.sleep, modifier = modifier, label = stringResource(R.string.tab_sleep), tinted = true, onClick = onClick) {
+    BentoTile(colors.sleep, modifier = modifier, label = stringResource(R.string.tab_sleep), tinted = true, onClick = onClick, order = 2) {
         BentoValue(summary.sleep?.let { minutesText(it) } ?: "-", MaterialTheme.colorScheme.onSurface, unit = stringResource(R.string.trends_a_night))
         val now = summary.sleep
         val before = summary.sleepBefore
@@ -311,7 +314,7 @@ private fun SleepTrendTile(summary: TrendSummary, modifier: Modifier, onClick: (
 @Composable
 private fun BalanceTile(summary: TrendSummary, modifier: Modifier, onClick: () -> Unit) {
     val colors = TaroTheme.colors
-    BentoTile(colors.special, modifier = modifier.fillMaxWidth(), label = stringResource(R.string.trends_balance), tinted = true, onClick = onClick) {
+    BentoTile(colors.special, modifier = modifier.fillMaxWidth(), label = stringResource(R.string.trends_balance), tinted = true, onClick = onClick, order = 3) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 val balance = summary.balance
@@ -341,7 +344,7 @@ private fun BalanceTile(summary: TrendSummary, modifier: Modifier, onClick: () -
 
 @Composable
 private fun ProteinTrendTile(summary: TrendSummary, modifier: Modifier, onClick: () -> Unit) {
-    BentoTile(PROTEIN_BLUE, modifier = modifier, label = stringResource(R.string.food_protein), tinted = true, onClick = onClick) {
+    BentoTile(PROTEIN_BLUE, modifier = modifier, label = stringResource(R.string.food_protein), tinted = true, onClick = onClick, order = 4) {
         BentoValue(summary.protein?.let { stringResource(R.string.food_macro_value, kcal(it)) } ?: "-", MaterialTheme.colorScheme.onSurface, unit = stringResource(R.string.trends_a_day))
         Spacer()
         if (summary.protein == null) {
@@ -360,7 +363,7 @@ private fun ProteinTrendTile(summary: TrendSummary, modifier: Modifier, onClick:
 @Composable
 private fun MovingTrendTile(summary: TrendSummary, modifier: Modifier, onClick: () -> Unit) {
     val colors = TaroTheme.colors
-    BentoTile(colors.flame, modifier = modifier, label = stringResource(R.string.trends_moving), tinted = true, onClick = onClick) {
+    BentoTile(colors.flame, modifier = modifier, label = stringResource(R.string.trends_moving), tinted = true, onClick = onClick, order = 5) {
         BentoValue(summary.movingKcal?.let { kcal(it) } ?: "-", MaterialTheme.colorScheme.onSurface, unit = stringResource(R.string.trends_kcal_a_day))
         summary.movingKm?.let { BentoNote(stringResource(R.string.trends_moving_km, "%.1f".format(Locale.getDefault(), it))) }
         Spacer()
@@ -443,3 +446,20 @@ private fun ReportRow(title: String, note: String, action: @Composable () -> Uni
         action()
     }
 }
+
+@Composable
+private fun TrendsSkeleton() {
+    val type = TaroTheme.text
+    val spacing = TaroTheme.spacing
+    Skeleton(Modifier.padding(top = spacing.loose)) {
+        BoneText(type.title, 0.92f, Modifier.padding(horizontal = spacing.hair))
+        BoneText(type.title, 0.55f, Modifier.padding(start = spacing.hair, end = spacing.hair, bottom = spacing.gap))
+        BoneTile(Modifier.fillMaxWidth().aspectRatio(SKELETON_WIDE))
+        BoneTilePair(SKELETON_SQUARE, Modifier.padding(top = spacing.gap))
+        BoneTile(Modifier.fillMaxWidth().aspectRatio(SKELETON_WIDE * 1.4f).padding(top = spacing.gap))
+        BoneTilePair(SKELETON_SQUARE, Modifier.padding(top = spacing.gap))
+    }
+}
+
+private const val SKELETON_WIDE = 1.3f
+private const val SKELETON_SQUARE = 0.85f

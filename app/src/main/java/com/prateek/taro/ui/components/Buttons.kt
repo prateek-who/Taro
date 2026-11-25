@@ -1,10 +1,8 @@
 package com.prateek.taro.ui.components
 
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,12 +18,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.prateek.taro.ui.theme.TaroTheme
 
 @Composable
@@ -43,17 +38,17 @@ fun PrimaryButton(
         onClick = onClick,
         enabled = enabled,
         shape = CircleShape,
-        contentPadding = PaddingValues(horizontal = 22.dp),
+        contentPadding = PaddingValues(horizontal = TaroTheme.spacing.loose + TaroTheme.spacing.tight),
         colors = ButtonDefaults.buttonColors(
             containerColor = fill,
             contentColor = ink,
             disabledContainerColor = fill.copy(alpha = 0.2f),
             disabledContentColor = ink.copy(alpha = 0.6f),
         ),
-        modifier = modifier.heightIn(min = 48.dp),
+        modifier = modifier.heightIn(min = TaroTheme.spacing.wide * 2),
     ) {
         if (icon != null) {
-            Icon(painterResource(icon), contentDescription = null, modifier = Modifier.padding(end = 8.dp).size(18.dp))
+            Icon(painterResource(icon), contentDescription = null, modifier = Modifier.padding(end = TaroTheme.spacing.tight).size(TaroTheme.spacing.loose + TaroTheme.spacing.hair))
         }
         Text(text, fontWeight = FontWeight.SemiBold)
     }
@@ -64,16 +59,16 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
     Button(
         onClick = onClick,
         shape = CircleShape,
-        contentPadding = PaddingValues(horizontal = 22.dp),
+        contentPadding = PaddingValues(horizontal = TaroTheme.spacing.loose + TaroTheme.spacing.tight),
         colors = ButtonDefaults.buttonColors(
             containerColor = TaroTheme.colors.accentOpaque,
             contentColor = MaterialTheme.colorScheme.onSurface,
         ),
         elevation = null,
-        modifier = modifier.heightIn(min = 48.dp),
+        modifier = modifier.heightIn(min = TaroTheme.spacing.wide * 2),
     ) {
         if (icon != null) {
-            Icon(painterResource(icon), contentDescription = null, modifier = Modifier.padding(end = 8.dp).size(18.dp))
+            Icon(painterResource(icon), contentDescription = null, modifier = Modifier.padding(end = TaroTheme.spacing.tight).size(TaroTheme.spacing.loose + TaroTheme.spacing.hair))
         }
         Text(text, fontWeight = FontWeight.SemiBold)
     }
@@ -87,10 +82,10 @@ fun StatRow(label: String, value: String, modifier: Modifier = Modifier, onClick
         modifier = modifier
             .fillMaxWidth()
             .infoClickable(state, info, onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = TaroTheme.spacing.loose, vertical = TaroTheme.spacing.gap + TaroTheme.spacing.hair),
     ) {
         InfoPopup(state, info, TaroTheme.colors.accent)
-        Text(label, fontSize = 15.sp, modifier = Modifier.weight(1f).alpha(0.7f))
-        Text(value, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, style = TaroTheme.text.meterLabel, color = TaroTheme.colors.accent, modifier = Modifier.weight(1f).padding(end = TaroTheme.spacing.gap))
+        Text(value, style = TaroTheme.text.meterValue, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.End)
     }
 }

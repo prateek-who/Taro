@@ -50,10 +50,13 @@ class DayClockTest {
         assertEquals(600.0, timeline.hours[13].eaten, 0.0)
         assertEquals(60, timeline.hours[5].sleepMinutes)
         assertEquals(Metabolism.withDigestion(60.0 * 0.95), timeline.hours[5].burn, 1e-6)
+        assertEquals(timeline.hours[8].burn, timeline.hours[8].resting + timeline.hours[8].active, 1e-9)
+        assertEquals(timeline.restingHour, timeline.hours[10].burn, 1e-9)
 
         val today = LocalDate.of(2026, 9, 30)
         val usual = (1L..14L).map { back -> HourlyActive(today.minusDays(back), DoubleArray(24) { if (it == 18) 200.0 else 0.0 }) }
         assertEquals(200.0, ActivityProfile.expectedRemaining(usual, today, 0.5)!!, 1e-9)
         assertEquals(100.0, ActivityProfile.expectedRemaining(usual, today, 18.5 / 24)!!, 1e-9)
+        assertEquals(200.0, ActivityProfile.usualHours(usual, today)!![18], 1e-9)
     }
 }

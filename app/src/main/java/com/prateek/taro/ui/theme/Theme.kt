@@ -1,6 +1,11 @@
 package com.prateek.taro.ui.theme
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.runtime.remember
+import android.content.res.Configuration
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -51,6 +56,7 @@ data class TaroSpacing(
     val tight: Dp = 6.dp,
     val gap: Dp = 10.dp,
     val loose: Dp = 16.dp,
+    val wide: Dp = 24.dp,
 )
 
 object TaroTheme {
@@ -111,7 +117,21 @@ fun TaroTheme(content: @Composable () -> Unit) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = TaroTypography,
-            content = content,
-        )
+        ) {
+            CompositionLocalProvider(LocalContentColor provides colorScheme.onSurface, content = content)
+        }
+    }
+}
+
+@Composable
+fun DarkTaroTheme(content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val base = LocalConfiguration.current
+    val night = remember(base) {
+        Configuration(base).apply { uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or Configuration.UI_MODE_NIGHT_YES }
+    }
+    val nightContext = remember(context, night) { context.createConfigurationContext(night) }
+    CompositionLocalProvider(LocalContext provides nightContext, LocalConfiguration provides night) {
+        TaroTheme(content)
     }
 }

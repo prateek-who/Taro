@@ -4,9 +4,19 @@ data class TimedAmount(val at: Long, val amount: Double)
 
 data class TimedSpan(val start: Long, val end: Long)
 
-data class HourSlot(val start: Long, val steps: Int, val burn: Double, val eaten: Double, val sleepMinutes: Int)
+data class HourSlot(
+    val start: Long,
+    val steps: Int,
+    val burn: Double,
+    val eaten: Double,
+    val sleepMinutes: Int,
+    val active: Double = 0.0,
+    val logged: Double = 0.0,
+) {
+    val resting: Double get() = (burn - active - logged).coerceAtLeast(0.0)
+}
 
-data class DayTimeline(val start: Long, val end: Long, val hours: List<HourSlot>, val sleep: List<TimedSpan>)
+data class DayTimeline(val start: Long, val end: Long, val hours: List<HourSlot>, val sleep: List<TimedSpan>, val restingHour: Double = 0.0)
 
 object DayTimelines {
     private const val HOUR = 3_600_000L
@@ -63,9 +73,18 @@ object DayTimelines {
                 },
                 eaten = food.filter { it.at in from until to }.sumOf { it.amount },
                 sleepMinutes = (asleep / MINUTE).toInt(),
+                active = active,
+                logged = logged,
             )
         }
-        return DayTimeline(start, end, hours, sleep.filter { it.end > start && it.start < end })
+        val restingHour = restingPerMs * HOUR
+        return DayTimeline(
+            start = start,
+            end = end,
+            hours = hours,
+            sleep = sleep.filter { it.end > start && it.start < end },
+            restingHour = if (digestion == null) Metabolism.withDigestion(restingHour, digestionShare) else restingHour,
+        )
     }
 
     fun activitySpan(loggedAt: Long, durationMinutes: Int?, dayStart: Long, dayEnd: Long): TimedSpan {

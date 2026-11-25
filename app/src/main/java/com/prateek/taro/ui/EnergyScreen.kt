@@ -1,11 +1,17 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.BentoTile
+import androidx.compose.foundation.shape.CircleShape
+import com.prateek.taro.ui.components.Bone
+import com.prateek.taro.ui.components.BoneRows
+import com.prateek.taro.ui.components.BoneTile
+import com.prateek.taro.ui.components.BoneText
+import com.prateek.taro.ui.components.Skeleton
 import androidx.compose.ui.graphics.Color
 import com.prateek.taro.food.Macros
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import com.prateek.taro.widget.FoodWidget
-import androidx.compose.foundation.layout.Box
 import java.time.LocalDate
 import com.prateek.taro.ui.components.DaySwitcher
 import com.prateek.taro.ui.components.LocalTabActive
@@ -40,13 +46,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.prateek.taro.R
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -66,6 +69,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.annotation.StringRes
+import com.prateek.taro.energy.ActivityProfile
 import com.prateek.taro.energy.DailyEnergy
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -82,12 +86,10 @@ import kotlin.math.roundToInt
 import com.prateek.taro.ui.components.Meter
 import com.prateek.taro.ui.components.Panel
 import com.prateek.taro.ui.components.SectionLabel
-import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
 import com.prateek.taro.util.CalorieGoal
 import com.prateek.taro.energy.DietGoal
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.size
 
@@ -203,26 +205,22 @@ private fun EnergyContent(tracking: TrackingState) {
                 .padding(start = spacing.loose, end = spacing.loose, bottom = spacing.loose),
         ) {
             if (historyLoad == null || (history != null && todayBurn == null) || (history != null && !isToday && pastBurn == null)) {
-                Box(modifier = Modifier.height(320.dp))
+                FoodSkeleton()
             } else if (history == null || todayBurn == null) {
-                Panel(modifier = Modifier.padding(top = 24.dp)) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                    ) {
+                BentoTile(color = TaroTheme.colors.special, tinted = true, modifier = Modifier.fillMaxWidth().padding(top = spacing.loose)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = stringResource(R.string.energy_missing_title),
-                            style = MaterialTheme.typography.titleMedium,
+                            style = TaroTheme.text.title,
+                            color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center,
                         )
                         Text(
                             text = stringResource(R.string.energy_missing_message),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = TaroTheme.text.note,
                             textAlign = TextAlign.Center,
                             color = TaroTheme.colors.accent,
-                            modifier = Modifier.padding(vertical = 12.dp),
+                            modifier = Modifier.padding(vertical = spacing.gap),
                         )
                         PrimaryButton(
                             text = stringResource(R.string.energy_add_details),
@@ -237,7 +235,7 @@ private fun EnergyContent(tracking: TrackingState) {
                 val need = DailyEnergy.todayNeed(history, todayBurn, insights?.hourly, now)
                 val todayNeed = need.need
                 val shown = pastBurn ?: todayBurn
-                val restingColor = lerp(colors.flame, colors.special, 0.3f).copy(alpha = 0.55f).compositeOver(colors.background)
+                val restingColor = restingTone()
                 val digestionColor = lerp(colors.flame, colors.special, 0.6f)
 
                 fun goalTarget(kcal: Double) = DailyEnergy.eatTarget(kcal, calorieGoal)
@@ -363,7 +361,7 @@ private fun EnergyContent(tracking: TrackingState) {
                 )
 
                 SectionLabel(stringResource(R.string.food_through_day), info = infoOf(R.string.info_hour_title, R.string.info_hour))
-                EnergyByHourPanel(date = selectedDate, dayNeed = if (isToday) todayNeed else null, refreshKey = if (isToday) "${tracking.refreshKey}-${tracking.steps}" else tracking.refreshKey)
+                BurnByHourPanel(date = selectedDate, usual = if (isToday) insights?.hourly?.let { ActivityProfile.usualHours(it, Util.logicalToday()) } else null, refreshKey = if (isToday) "${tracking.refreshKey}-${tracking.steps}" else tracking.refreshKey)
 
                 val week = history.pastDays + todayBurn
                 val glance = rememberInBackground(week, incompleteDays, dataVersion) { weekGlance(context, week, incompleteDays, history.restingPerDay) }?.value
@@ -455,10 +453,10 @@ private fun EnergyContent(tracking: TrackingState) {
 
                 Text(
                     text = stringResource(R.string.energy_footnote),
-                    fontSize = 12.sp,
+                    style = TaroTheme.text.note,
                     textAlign = TextAlign.Center,
                     color = colors.accent,
-                    modifier = Modifier.padding(top = 20.dp, bottom = 24.dp),
+                    modifier = Modifier.padding(top = spacing.loose, bottom = spacing.wide),
                 )
             }
         }
@@ -570,3 +568,27 @@ private fun LoggedActivityRow(activity: LoggedActivity, onEdit: () -> Unit, onDe
     }
 }
 
+
+@Composable
+private fun FoodSkeleton() {
+    val type = TaroTheme.text
+    val spacing = TaroTheme.spacing
+    val bar = with(LocalDensity.current) { type.note.lineHeight.toDp() } / 2
+    Skeleton(Modifier.padding(top = spacing.loose)) {
+        BoneTile(Modifier.fillMaxWidth()) {
+            BoneText(type.label, 0.3f)
+            BoneText(type.hero, 0.5f, Modifier.padding(top = spacing.tight))
+            BoneText(type.note, 0.7f)
+            repeat(4) {
+                Row(modifier = Modifier.padding(top = spacing.loose)) {
+                    BoneText(type.meterLabel, 0.3f, Modifier.weight(1f))
+                    BoneText(type.meterValue, 0.4f, Modifier.weight(1f))
+                }
+                Bone(Modifier.fillMaxWidth().height(bar).padding(top = spacing.hair), CircleShape)
+            }
+        }
+        BoneTile(Modifier.fillMaxWidth().padding(top = spacing.gap)) {
+            BoneRows(3)
+        }
+    }
+}

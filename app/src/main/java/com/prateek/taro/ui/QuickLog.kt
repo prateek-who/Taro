@@ -1,13 +1,12 @@
 package com.prateek.taro.ui
 
-import com.prateek.taro.ui.components.TileRow
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import com.prateek.taro.ui.components.BentoTile
 import com.prateek.taro.ui.components.SecondaryButton
 import com.prateek.taro.ui.components.PrimaryButton
-import com.prateek.taro.ui.components.Panel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.padding
@@ -133,17 +132,10 @@ fun DetectedRideCards(state: QuickLogState, modifier: Modifier = Modifier) {
     val cutoff = System.currentTimeMillis() - SHOW_DAYS_MS
     val format = remember { android.text.format.DateFormat.getTimeFormat(context) }
     val dayFormat = remember { java.text.SimpleDateFormat("EEE d MMM", java.util.Locale.getDefault()) }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = modifier) {
+    val spacing = TaroTheme.spacing
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.gap), modifier = modifier) {
         sessions.filter { it.end >= cutoff }.sortedByDescending { it.start }.forEach { ride ->
-            Panel {
-                Text(
-                    text = stringResource(R.string.ride_title).uppercase(),
-                    fontSize = 12.sp,
-                    letterSpacing = 2.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TaroTheme.colors.special,
-                    modifier = Modifier.padding(start = 8.dp, top = 4.dp),
-                )
+            BentoTile(color = TaroTheme.colors.special, label = stringResource(R.string.ride_title), tinted = true, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = stringResource(
                         R.string.ride_text,
@@ -152,10 +144,11 @@ fun DetectedRideCards(state: QuickLogState, modifier: Modifier = Modifier) {
                         format.format(java.util.Date(ride.start)),
                         format.format(java.util.Date(ride.end)),
                     ),
-                    fontSize = 15.sp,
-                    modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 4.dp),
+                    style = TaroTheme.text.title,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = spacing.tight),
                 )
-                TileRow(modifier = Modifier.padding(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.gap), modifier = Modifier.padding(top = spacing.loose)) {
                     PrimaryButton(
                         text = stringResource(R.string.ride_log),
                         onClick = { state.detected = ride },

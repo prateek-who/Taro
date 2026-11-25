@@ -1,5 +1,14 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.enter
+import com.prateek.taro.ui.components.BudgetBar
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.shape.CircleShape
+import com.prateek.taro.ui.components.TileBones
+import com.prateek.taro.ui.components.BoneTile
+import com.prateek.taro.ui.components.Bone
+import com.prateek.taro.ui.components.BoneText
+import com.prateek.taro.ui.components.Skeleton
 import androidx.compose.ui.platform.LocalConfiguration
 import com.prateek.taro.sleep.SleepInsights
 import com.prateek.taro.ui.components.NightColumns
@@ -8,7 +17,6 @@ import com.prateek.taro.ui.components.TIER_NAMES
 import com.prateek.taro.util.StepTiers
 import androidx.compose.ui.text.style.TextAlign
 import androidx.annotation.StringRes
-import com.prateek.taro.ui.components.FoodJar
 import com.prateek.taro.food.Macros
 import com.prateek.taro.ui.components.SpreeLabel
 import com.prateek.taro.ui.components.spreeStyles
@@ -133,7 +141,7 @@ private fun HomeScreen(tracking: TrackingState) {
     val weight by AppPreferences.weightFlow().collectAsStateWithLifecycle(AppPreferences.weight)
     val historyLoad = rememberInBackground(today, refreshKey, factors, weight) { DailyEnergy.history(context, factors) }
     val history = historyLoad?.value
-    val burn = rememberInBackground(history, tracking.steps, now) { history?.let { DailyEnergy.today(context, it, tracking.steps, now) } }?.value
+    val burn = rememberInBackground(history, tracking.steps / LIVE_STEP_BUCKET, now) { history?.let { DailyEnergy.today(context, it, tracking.steps, now) } }?.value
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -211,7 +219,7 @@ private fun DayTile(date: LocalDate, day: DayGlance, now: Long, onClick: () -> U
     val spans = day.sleep.map { StripSpan(it.start, it.end, colors.sleep) } +
         day.walks.map { StripSpan(it.start, it.end, colors.goal) } +
         day.workouts.map { StripSpan(it.start, it.end, colors.flame) }
-    BentoTile(color = colors.accent, onClick = onClick) {
+    BentoTile(order = 0, color = colors.accent, onClick = onClick) {
         BentoTitle(dateText, note = stringResource(R.string.home_your_day_note))
         DayStrip(
             start = day.start,
@@ -245,7 +253,7 @@ private fun StepsTile(steps: Int, goal: Int, streak: Streak, modifier: Modifier,
     val target = streak.challenge?.target?.roundToInt() ?: goal
     val type = TaroTheme.text
     val styles = tierStyles()
-    BentoTile(color = tierGlow(steps, goal, styles), tinted = true, onClick = onClick, modifier = modifier) {
+    BentoTile(order = 1, color = tierGlow(steps, goal, styles), tinted = true, onClick = onClick, modifier = modifier) {
         TierLabel(steps, goal, stringResource(R.string.energy_steps_label))
         Box(
             contentAlignment = Alignment.Center,
@@ -286,70 +294,77 @@ private fun FoodTile(loaded: Boolean, history: EnergyHistory?, burn: DayBurn?, n
     val insights by rememberBodyInsights(today)
     val food = rememberRefreshed(today, dataVersion) { Database.getInstance(context).foodOn(today).totals() }
 
-    BentoTile(label = stringResource(R.string.home_food), color = colors.special, tinted = true, onClick = onClick, modifier = modifier) {
-        if (!loaded || (history != null && burn == null)) return@BentoTile
+    BentoTile(order = 2, label = stringResource(R.string.home_food), color = colors.special, tinted = true, onClick = onClick, modifier = modifier) {
+        if (!loaded || (history != null && burn == null)) {
+            FoodTileSkeleton()
+            return@BentoTile
+        }
         if (history == null || burn == null) {
             BentoNote(stringResource(R.string.energy_missing_title), Modifier.padding(top = TaroTheme.spacing.tight))
             return@BentoTile
         }
-        val need = DailyEnergy.todayNeed(history, burn, insights?.hourly, now)
-        val floor = DailyEnergy.eatTarget(need.rest, calorieGoal)
-        val top = maxOf(floor, DailyEnergy.eatTarget(need.need, calorieGoal))
-        val ranged = top - floor >= RANGE_MIN_KCAL
-        val left = floor - food.kcal
-        val topLeft = top - food.kcal
-        val known = food.protein * Macros.PROTEIN_KCAL + food.carbs * Macros.CARB_KCAL + food.fat * Macros.FAT_KCAL
-        val squeeze = if (known > food.kcal && known > 0) food.kcal / known else 1.0
-        val parts = listOf(
-            food.protein * Macros.PROTEIN_KCAL * squeeze to PROTEIN_BLUE,
-            food.carbs * Macros.CARB_KCAL * squeeze to CARB_VIOLET,
-            food.fat * Macros.FAT_KCAL * squeeze to FAT_CORAL,
-            (food.kcal - known * squeeze).coerceAtLeast(0.0) to colors.special.copy(alpha = UNKNOWN_KCAL_ALPHA),
-        )
-        if (topLeft < 0) {
-            BentoValue(kcal(-topLeft), MaterialTheme.colorScheme.error)
-            BentoNote(stringResource(R.string.home_kcal_over))
-        } else {
-            BentoValue(kcal(left.coerceAtLeast(0.0)), colors.special)
-            BentoNote(if (ranged) stringResource(R.string.home_kcal_to_left, kcal(topLeft)) else stringResource(R.string.home_kcal_left))
-        }
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(top = TaroTheme.spacing.gap),
-        ) {
-            FoodJar(
-                parts = parts,
-                floor = if (ranged) floor else top,
-                top = top,
-                color = colors.special,
-                overColor = MaterialTheme.colorScheme.error,
-                modifier = Modifier.fillMaxWidth(JAR_WIDTH_SHARE),
+        Column(modifier = Modifier.weight(1f).enter()) {
+            val need = DailyEnergy.todayNeed(history, burn, insights?.hourly, now)
+            val floor = DailyEnergy.eatTarget(need.rest, calorieGoal)
+            val top = maxOf(floor, DailyEnergy.eatTarget(need.need, calorieGoal))
+            val ranged = top - floor >= RANGE_MIN_KCAL
+            val left = floor - food.kcal
+            val topLeft = top - food.kcal
+            val known = food.protein * Macros.PROTEIN_KCAL + food.carbs * Macros.CARB_KCAL + food.fat * Macros.FAT_KCAL
+            val squeeze = if (known > food.kcal && known > 0) food.kcal / known else 1.0
+            val parts = listOf(
+                food.protein * Macros.PROTEIN_KCAL * squeeze to PROTEIN_BLUE,
+                food.carbs * Macros.CARB_KCAL * squeeze to CARB_VIOLET,
+                food.fat * Macros.FAT_KCAL * squeeze to FAT_CORAL,
+                (food.kcal - known * squeeze).coerceAtLeast(0.0) to colors.special.copy(alpha = UNKNOWN_KCAL_ALPHA),
             )
-        }
-        val proteinTarget = weight.toDouble() * proteinPerKg
-        Row(horizontalArrangement = Arrangement.spacedBy(TaroTheme.spacing.gap), modifier = Modifier.padding(top = TaroTheme.spacing.gap)) {
-            TileMacro(R.string.food_protein, food.protein, proteinTarget, PROTEIN_BLUE, null, Modifier.weight(1f))
-            TileMacro(R.string.food_carbs, food.carbs, null, CARB_VIOLET, Macros.CARB_SHARE.let { Macros.grams(top, Macros.CARB_KCAL, it.start)..Macros.grams(top, Macros.CARB_KCAL, it.endInclusive) }, Modifier.weight(1f))
-            TileMacro(R.string.food_fat, food.fat, null, FAT_CORAL, Macros.FAT_SHARE.let { Macros.grams(top, Macros.FAT_KCAL, it.start)..Macros.grams(top, Macros.FAT_KCAL, it.endInclusive) }, Modifier.weight(1f))
+            val type = TaroTheme.text
+            val spacing = TaroTheme.spacing
+            if (topLeft < 0) {
+                BentoValue(kcal(-topLeft), MaterialTheme.colorScheme.error)
+                BentoNote(stringResource(R.string.home_kcal_over))
+            } else {
+                BentoValue(kcal(left.coerceAtLeast(0.0)), colors.special)
+                BentoNote(if (ranged) stringResource(R.string.home_kcal_up_to, kcal(topLeft)) else stringResource(R.string.home_kcal_left))
+            }
+            BudgetBar(
+                parts = parts,
+                eaten = food.kcal,
+                burned = burn.total,
+                floor = floor,
+                top = top,
+                modifier = Modifier.padding(top = spacing.gap),
+            )
+            Row(modifier = Modifier.padding(top = spacing.tight)) {
+                FitText(stringResource(R.string.home_food_eaten, kcal(food.kcal)), type.ringNote, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f), TextAlign.Start)
+                FitText(stringResource(R.string.home_food_burned, kcal(burn.total)), type.ringNote, colors.flame, Modifier.weight(1f), TextAlign.End)
+            }
+            Spacer(Modifier.weight(1f))
+            val proteinTarget = weight.toDouble() * proteinPerKg
+            TileMeter(R.string.food_protein, stringResource(R.string.food_protein_of, kcal(food.protein), kcal(proteinTarget)), food.protein, PROTEIN_BLUE, target = proteinTarget)
+            TileMeter(R.string.food_carbs, stringResource(R.string.food_macro_value, kcal(food.carbs)), food.carbs, CARB_VIOLET, range = Macros.CARB_SHARE.let { Macros.grams(top, Macros.CARB_KCAL, it.start)..Macros.grams(top, Macros.CARB_KCAL, it.endInclusive) })
+            TileMeter(R.string.food_fat, stringResource(R.string.food_macro_value, kcal(food.fat)), food.fat, FAT_CORAL, range = Macros.FAT_SHARE.let { Macros.grams(top, Macros.FAT_KCAL, it.start)..Macros.grams(top, Macros.FAT_KCAL, it.endInclusive) })
         }
     }
 }
 
 @Composable
-private fun TileMacro(@StringRes label: Int, grams: Double, target: Double?, color: Color, range: ClosedFloatingPointRange<Double>?, modifier: Modifier) {
-    val scale = maxOf(target ?: 0.0, range?.endInclusive ?: 0.0, grams).takeIf { it > 0 } ?: 1.0
+private fun TileMeter(@StringRes label: Int, value: String, grams: Double, color: Color, target: Double? = null, range: ClosedFloatingPointRange<Double>? = null) {
     val type = TaroTheme.text
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+    val scale = maxOf((target ?: 0.0) * TARGET_ROOM, (range?.endInclusive ?: 0.0) * TARGET_ROOM, grams).takeIf { it > 0 } ?: 1.0
+    Column(modifier = Modifier.padding(top = TaroTheme.spacing.tight)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(label), style = type.ringNote, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, modifier = Modifier.padding(end = TaroTheme.spacing.tight))
+            FitText(value, type.ringNote, TaroTheme.colors.accent, Modifier.weight(1f), TextAlign.End)
+        }
         MeterBar(
             fraction = (grams / scale).toFloat(),
             color = color,
             band = range?.let { (it.start / scale).toFloat()..(it.endInclusive / scale).toFloat() },
+            marker = target?.let { (it / scale).toFloat() },
+            height = TaroTheme.spacing.tight,
+            modifier = Modifier.padding(top = TaroTheme.spacing.hair),
         )
-        FitText(stringResource(R.string.food_macro_value, kcal(grams)), type.meterValue, color, Modifier.padding(top = TaroTheme.spacing.tight))
-        FitText(stringResource(label), type.axis, TaroTheme.colors.accent)
     }
 }
 
@@ -359,7 +374,7 @@ private fun SleepTile(refreshKey: Int, onClick: () -> Unit) {
     val colors = TaroTheme.colors
     val glance = rememberRefreshed(refreshKey) { sleepGlance(context) }
     val timeFormat = remember { android.text.format.DateFormat.getTimeFormat(context) }
-    BentoTile(label = stringResource(R.string.tab_sleep), color = colors.sleep, tinted = true, onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+    BentoTile(order = 3, label = stringResource(R.string.tab_sleep), color = colors.sleep, tinted = true, onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(TaroTheme.spacing.gap)) {
             Column(modifier = Modifier.weight(1f)) {
                 val last = glance.last
@@ -401,10 +416,15 @@ private fun WeekTile(history: EnergyHistory?, burn: DayBurn?, refreshKey: Int, o
     val context = LocalContext.current
     val colors = TaroTheme.colors
     val incomplete by AppPreferences.incompleteFoodDaysFlow().collectAsStateWithLifecycle(AppPreferences.incompleteFoodDays)
-    val week = rememberInBackground(history, burn?.date, refreshKey, incomplete) {
+    val loaded = rememberInBackground(history, burn?.date, refreshKey, incomplete) {
         if (history == null || burn == null) null else weekGlance(context, history.pastDays + burn, incomplete, history.restingPerDay)
-    }?.value ?: return
-    BentoTile(label = stringResource(R.string.home_this_week), color = colors.accent, onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+    }
+    if (loaded == null || history != null && burn != null && loaded.value == null) {
+        Skeleton { BoneTile(Modifier.fillMaxWidth().aspectRatio(WEEK_SKELETON)) { TileBones(chart = false) } }
+        return
+    }
+    val week = loaded.value ?: return
+    BentoTile(order = 4, label = stringResource(R.string.home_this_week), color = colors.accent, onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(TaroTheme.spacing.gap)) {
             Column(modifier = Modifier.weight(1f)) {
                 val net = week.net
@@ -449,6 +469,7 @@ private fun WeightTile(refreshKey: Int, modifier: Modifier, onEmpty: () -> Unit,
         insights?.model.tissueTrend(points).filter { !it.date.isBefore(Util.logicalToday().minusDays(30)) }
     }
     BentoTile(
+        order = 5,
         label = stringResource(R.string.weight_title),
         color = colors.accent,
         onClick = if (points.isEmpty()) onEmpty else onClick,
@@ -477,7 +498,7 @@ private fun WeightTile(refreshKey: Int, modifier: Modifier, onEmpty: () -> Unit,
 private fun StreakTile(streak: Streak, today: LocalDate, modifier: Modifier, onClick: () -> Unit) {
     val marks = weekMarks(streak, today).map { it.second }
     val spree = Sprees.reached(streak.current)
-    BentoTile(color = spreeStyles().getOrNull(spree)?.color ?: TaroTheme.colors.special, tinted = spree >= 0, onClick = onClick, modifier = modifier) {
+    BentoTile(order = 6, color = spreeStyles().getOrNull(spree)?.color ?: TaroTheme.colors.special, tinted = spree >= 0, onClick = onClick, modifier = modifier) {
         SpreeLabel(streak.current, stringResource(R.string.home_streak))
         StreakSpree(streak)
         Spacer(Modifier.weight(1f))
@@ -491,10 +512,10 @@ private fun StreakTile(streak: Streak, today: LocalDate, modifier: Modifier, onC
 }
 
 @Composable
-private fun FitText(text: String, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
+private fun FitText(text: String, style: TextStyle, color: Color, modifier: Modifier = Modifier, align: TextAlign = TextAlign.Center) {
     BasicText(
         text = text,
-        style = style.copy(color = color, textAlign = TextAlign.Center),
+        style = style.copy(color = color, textAlign = align),
         maxLines = 1,
         autoSize = TextAutoSize.StepBased(maxFontSize = style.fontSize),
         modifier = modifier,
@@ -503,4 +524,24 @@ private fun FitText(text: String, style: TextStyle, color: Color, modifier: Modi
 
 private const val RING_TEXT_SHARE = 0.7f
 private const val UNKNOWN_KCAL_ALPHA = 0.7f
-private const val JAR_WIDTH_SHARE = 0.56f
+private const val TARGET_ROOM = 1.25
+
+@Composable
+private fun ColumnScope.FoodTileSkeleton() {
+    val type = TaroTheme.text
+    val spacing = TaroTheme.spacing
+    Skeleton(Modifier.weight(1f)) {
+        BoneText(type.value, 0.6f, Modifier.padding(top = spacing.tight))
+        BoneText(type.note, 0.8f)
+        Bone(Modifier.fillMaxWidth().padding(top = spacing.gap + spacing.tight).height(spacing.gap + spacing.hair), CircleShape)
+        Bone(Modifier.fillMaxWidth(0.7f).padding(top = spacing.hair * 2).height(spacing.hair * 2), CircleShape)
+        BoneText(type.ringNote, 0.9f, Modifier.padding(top = spacing.tight))
+        Spacer(Modifier.weight(1f))
+        repeat(3) {
+            BoneText(type.ringNote, 0.75f, Modifier.padding(top = spacing.tight))
+            Bone(Modifier.fillMaxWidth().height(spacing.tight), CircleShape)
+        }
+    }
+}
+
+private const val WEEK_SKELETON = 2.6f

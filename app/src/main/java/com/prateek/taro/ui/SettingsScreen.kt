@@ -1,5 +1,12 @@
 package com.prateek.taro.ui
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxSize
 import com.prateek.taro.util.DayClock
 import com.prateek.taro.util.FoodReminderScheduler
 import com.prateek.taro.report.ReportScheduler
@@ -21,7 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
 import androidx.datastore.preferences.core.Preferences
@@ -44,11 +50,9 @@ import com.prateek.taro.ui.components.HtmlDialog
 import com.prateek.taro.ui.components.NumberInputDialog
 import com.prateek.taro.ui.components.PreferenceDivider
 import com.prateek.taro.ui.components.PreferenceRow
-import com.prateek.taro.ui.components.ScrollingColumn
 import com.prateek.taro.ui.components.SectionHeader
 import com.prateek.taro.ui.components.SettingsCard
 import com.prateek.taro.ui.components.SingleChoiceDialog
-import com.prateek.taro.ui.components.TaroScaffold
 import com.prateek.taro.ui.components.TaroSwitch
 import com.prateek.taro.util.AppPreferences
 import com.prateek.taro.util.AppPreferences.PreferenceKeys
@@ -58,7 +62,6 @@ import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Calendar
 import java.util.Locale
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 object SettingsScreen : Screen {
@@ -214,161 +217,100 @@ private fun SettingsContent(
         }
     }
 
-    TaroScaffold(title = stringResource(R.string.settings), onBack = onBack) { padding ->
-        ScrollingColumn(padding) {
-            SectionHeader(stringResource(R.string.header_personal_data))
-            SettingsCard(tint = TaroTheme.colors.goal) {
-                PreferenceRow(
-                    icon = R.drawable.ic_you,
-                    title = stringResource(R.string.pref_name),
-                    summary = name.ifBlank { stringResource(R.string.pref_not_set) },
-                    onClick = { dialog = SettingsDialog.NAME },
-                )
+    val colors = TaroTheme.colors
+    val spacing = TaroTheme.spacing
+    val notSet = stringResource(R.string.pref_not_set)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+    ) {
+        AppOverflowMenu(back = true, title = stringResource(R.string.settings), onBack = onBack)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = spacing.loose, end = spacing.loose, bottom = spacing.loose),
+        ) {
+            SectionHeader(stringResource(R.string.header_you), topPadding = spacing.hair)
+            SettingsCard(tint = colors.goal) {
+                PreferenceRow(R.drawable.ic_you, stringResource(R.string.pref_name), value = name.ifBlank { notSet }, onClick = { dialog = SettingsDialog.NAME })
+                PreferenceDivider()
+                PreferenceRow(R.drawable.ic_height, stringResource(R.string.pref_height), value = heightLabel(height, imperial), onClick = { dialog = SettingsDialog.HEIGHT })
                 PreferenceDivider()
                 PreferenceRow(
-                    icon = R.drawable.ic_height,
-                    title = stringResource(R.string.pref_height),
-                    summary = heightLabel(height, imperial),
-                    onClick = { dialog = SettingsDialog.HEIGHT },
-                )
-                PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_weight,
-                    title = stringResource(R.string.pref_weight),
-                    summary = weightLabel(weight, imperial),
+                    R.drawable.ic_weight,
+                    stringResource(R.string.pref_weight),
+                    summary = stringResource(R.string.pref_weight_note),
+                    value = weightLabel(weight, imperial),
                     onClick = { dialog = SettingsDialog.WEIGHT },
                 )
                 PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_age,
-                    title = stringResource(R.string.pref_age),
-                    summary = age?.toString() ?: stringResource(R.string.pref_not_set),
-                    onClick = { dialog = SettingsDialog.AGE },
-                )
+                PreferenceRow(R.drawable.ic_age, stringResource(R.string.pref_age), value = age?.toString() ?: notSet, color = colors.flame, onClick = { dialog = SettingsDialog.AGE })
                 PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_sex,
-                    title = stringResource(R.string.pref_sex),
-                    summary = sex?.let { sexLabel(it) } ?: stringResource(R.string.pref_not_set),
-                    onClick = { dialog = SettingsDialog.SEX },
-                )
+                PreferenceRow(R.drawable.ic_sex, stringResource(R.string.pref_sex), value = sex?.let { sexLabel(it) } ?: notSet, color = colors.flame, onClick = { dialog = SettingsDialog.SEX })
                 PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_calorie_goal,
-                    title = stringResource(R.string.calorie_goal),
-                    summary = calorieGoalSummary(calorieGoal),
-                    onClick = { dialog = SettingsDialog.CALORIE_GOAL },
-                )
+                PreferenceRow(R.drawable.ic_leg_length, stringResource(R.string.pref_leg_length), value = legLength?.let { legLengthLabel(it, imperial) } ?: notSet, onClick = { dialog = SettingsDialog.LEG_LENGTH })
                 PreferenceDivider()
+                PreferenceRow(R.drawable.ic_calorie_goal, stringResource(R.string.calorie_goal), value = calorieGoalSummary(calorieGoal), color = colors.special, onClick = { dialog = SettingsDialog.CALORIE_GOAL })
+            }
+
+            SectionHeader(stringResource(R.string.pref_step_length))
+            SettingsCard(tint = colors.goal) {
                 PreferenceRow(
-                    icon = R.drawable.ic_leg_length,
-                    title = stringResource(R.string.pref_leg_length),
-                    summary = legLength?.let { legLengthLabel(it, imperial) } ?: stringResource(R.string.pref_leg_length_not_set),
-                    onClick = { dialog = SettingsDialog.LEG_LENGTH },
-                )
-                PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_step_length,
-                    title = stringResource(R.string.pref_step_length),
+                    R.drawable.ic_step_length,
+                    stringResource(R.string.pref_step_length_used),
                     summary = when {
-                        manualStepLength == null && calibration != null ->
-                            "${stepLengthLabel(stepLength, imperial)} · ${stringResource(R.string.pref_step_length_calibrated)}"
-                        abs(stepLength - estimatedStepLength) < 0.01f -> "~${stepLengthLabel(estimatedStepLength, imperial)}"
-                        else -> stepLengthLabel(stepLength, imperial)
+                        manualStepLength != null -> stringResource(R.string.pref_step_length_manual)
+                        calibration != null -> stringResource(R.string.pref_step_length_calibrated)
+                        else -> stringResource(R.string.pref_step_length_estimated)
                     },
+                    value = stepLengthLabel(stepLength, imperial),
                     onClick = { dialog = SettingsDialog.STEP_LENGTH },
                 )
                 PreferenceDivider()
                 PreferenceRow(
-                    icon = R.drawable.ic_calibrate,
-                    title = stringResource(R.string.calibration_title),
+                    R.drawable.ic_calibrate,
+                    stringResource(R.string.calibration_title),
                     summary = calibration?.let {
                         stringResource(R.string.calibration_status, stepLengthLabel(it.walkingStepCm, imperial), it.samples)
                     } ?: stringResource(R.string.calibration_not_calibrated),
                     onClick = onOpenCalibration,
                 )
                 PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_accuracy,
-                    title = stringResource(R.string.accuracy_title),
-                    summary = stringResource(R.string.accuracy_summary),
-                    onClick = onOpenAccuracy,
-                )
+                PreferenceRow(R.drawable.ic_accuracy, stringResource(R.string.accuracy_title), summary = stringResource(R.string.accuracy_summary), onClick = onOpenAccuracy)
             }
 
-            SectionHeader(stringResource(R.string.header_general))
-            SettingsCard(tint = TaroTheme.colors.flame) {
+            SectionHeader(stringResource(R.string.header_tracking))
+            SettingsCard(tint = colors.flame) {
                 PreferenceRow(
                     icon = R.drawable.ic_car,
                     title = stringResource(R.string.pref_vehicle_filter_title),
-                    summary = stringResource(
-                        if (hasPlayServices) R.string.pref_vehicle_filter_summary else R.string.vehicle_filter_unavailable
-                    ),
+                    summary = stringResource(if (hasPlayServices) R.string.pref_vehicle_filter_summary else R.string.vehicle_filter_unavailable),
                     enabled = hasPlayServices,
                     onClick = { onVehicleFilterChange(!vehicleFilter) },
+                    showChevron = false,
                 ) {
-                    TaroSwitch(
-                        checked = hasPlayServices && vehicleFilter,
-                        onCheckedChange = ::onVehicleFilterChange,
-                        enabled = hasPlayServices,
-                        modifier = Modifier.padding(start = 16.dp),
-                    )
+                    TaroSwitch(checked = hasPlayServices && vehicleFilter, onCheckedChange = ::onVehicleFilterChange, enabled = hasPlayServices)
                 }
                 PreferenceDivider()
                 PreferenceRow(
-                    icon = R.drawable.ic_schedule,
-                    title = stringResource(R.string.pref_reports_title),
-                    summary = stringResource(R.string.pref_reports_summary),
-                    onClick = { onReportsChange(!reportNotifications) },
-                ) {
-                    TaroSwitch(
-                        checked = reportNotifications,
-                        onCheckedChange = ::onReportsChange,
-                        modifier = Modifier.padding(start = 16.dp),
-                    )
-                }
-                PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_calories,
-                    title = stringResource(R.string.settings_streak_ask),
-                    summary = stringResource(R.string.settings_streak_ask_summary),
-                    onClick = { AppPreferences.streakAsk = !streakAsk },
-                ) {
-                    TaroSwitch(
-                        checked = streakAsk,
-                        onCheckedChange = { AppPreferences.streakAsk = it },
-                        modifier = Modifier.padding(start = 16.dp),
-                    )
-                }
-                PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_sleep,
-                    title = stringResource(R.string.settings_streak_rest_first),
-                    summary = stringResource(R.string.settings_streak_rest_first_summary),
-                    onClick = { AppPreferences.streakPreferRest = !streakPreferRest },
-                ) {
-                    TaroSwitch(
-                        checked = streakPreferRest,
-                        onCheckedChange = { AppPreferences.streakPreferRest = it },
-                        modifier = Modifier.padding(start = 16.dp),
-                    )
-                }
-                PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_calories,
+                    icon = R.drawable.ic_act_cycling,
                     title = stringResource(R.string.pref_rides_title),
                     summary = stringResource(if (hasPlayServices) R.string.pref_rides_summary else R.string.vehicle_filter_unavailable),
                     enabled = hasPlayServices,
                     onClick = { onWorkoutDetectionChange(!workoutDetection) },
+                    showChevron = false,
+                    color = colors.special,
                 ) {
-                    TaroSwitch(
-                        checked = hasPlayServices && workoutDetection,
-                        onCheckedChange = ::onWorkoutDetectionChange,
-                        enabled = hasPlayServices,
-                        modifier = Modifier.padding(start = 16.dp),
-                    )
+                    TaroSwitch(checked = hasPlayServices && workoutDetection, onCheckedChange = ::onWorkoutDetectionChange, enabled = hasPlayServices, color = colors.special)
                 }
-                PreferenceDivider()
+            }
+
+            SectionHeader(stringResource(R.string.header_reminders))
+            SettingsCard(tint = colors.special) {
                 PreferenceRow(
                     icon = R.drawable.ic_calorie_goal,
                     title = stringResource(R.string.pref_food_reminder_title),
@@ -378,66 +320,72 @@ private fun SettingsContent(
                         stringResource(R.string.pref_food_reminder_off)
                     },
                     onClick = { if (foodReminder) dialog = SettingsDialog.FOOD_REMINDER else onFoodReminderChange(true) },
+                    showChevron = false,
                 ) {
-                    TaroSwitch(
-                        checked = foodReminder,
-                        onCheckedChange = ::onFoodReminderChange,
-                        modifier = Modifier.padding(start = 16.dp),
-                    )
+                    TaroSwitch(checked = foodReminder, onCheckedChange = ::onFoodReminderChange)
                 }
                 PreferenceDivider()
                 PreferenceRow(
-                    icon = R.drawable.ic_unit,
-                    title = stringResource(R.string.unit_system),
-                    summary = units.label(unitValue),
-                    onClick = { dialog = SettingsDialog.UNIT_SYSTEM },
-                )
+                    icon = R.drawable.ic_schedule,
+                    title = stringResource(R.string.pref_reports_title),
+                    summary = stringResource(R.string.pref_reports_summary),
+                    onClick = { onReportsChange(!reportNotifications) },
+                    showChevron = false,
+                    color = colors.goal,
+                ) {
+                    TaroSwitch(checked = reportNotifications, onCheckedChange = ::onReportsChange, color = colors.goal)
+                }
                 PreferenceDivider()
                 PreferenceRow(
-                    icon = R.drawable.ic_dateformat,
-                    title = stringResource(R.string.date_format),
-                    summary = dateFormat,
-                    onClick = { dialog = SettingsDialog.DATE_FORMAT },
-                )
+                    icon = R.drawable.ic_calories,
+                    title = stringResource(R.string.settings_streak_ask),
+                    summary = stringResource(R.string.settings_streak_ask_summary),
+                    onClick = { AppPreferences.streakAsk = !streakAsk },
+                    showChevron = false,
+                ) {
+                    TaroSwitch(checked = streakAsk, onCheckedChange = { AppPreferences.streakAsk = it })
+                }
                 PreferenceDivider()
                 PreferenceRow(
-                    icon = R.drawable.ic_firstday,
-                    title = stringResource(R.string.first_day_of_the_week),
-                    summary = weekdays.label(firstDay.toString()),
-                    onClick = { dialog = SettingsDialog.FIRST_DAY },
-                )
-                PreferenceDivider()
+                    icon = R.drawable.ic_sleep,
+                    title = stringResource(R.string.settings_streak_rest_first),
+                    summary = stringResource(R.string.settings_streak_rest_first_summary),
+                    onClick = { AppPreferences.streakPreferRest = !streakPreferRest },
+                    showChevron = false,
+                ) {
+                    TaroSwitch(checked = streakPreferRest, onCheckedChange = { AppPreferences.streakPreferRest = it })
+                }
+            }
+
+            SectionHeader(stringResource(R.string.header_day_units))
+            SettingsCard(tint = colors.sleep) {
                 PreferenceRow(
-                    icon = R.drawable.ic_day_start,
-                    title = stringResource(R.string.pref_day_start),
-                    summary = stringResource(R.string.pref_day_start_summary, dayStartLabel),
+                    R.drawable.ic_day_start,
+                    stringResource(R.string.pref_day_start),
+                    summary = stringResource(R.string.pref_day_start_note),
+                    value = dayStartLabel,
                     onClick = { dialog = SettingsDialog.DAY_START },
                 )
-            }
-
-            SectionHeader(stringResource(R.string.header_appearance))
-            SettingsCard(tint = TaroTheme.colors.special) {
-                PreferenceRow(
-                    icon = R.drawable.ic_language,
-                    title = stringResource(R.string.app_language),
-                    summary = languages.label(currentLanguage()),
-                    onClick = { dialog = SettingsDialog.LANGUAGE },
-                )
                 PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_theme,
-                    title = stringResource(R.string.theme),
-                    summary = themes.label(theme),
-                    onClick = { dialog = SettingsDialog.THEME },
-                )
+                PreferenceRow(R.drawable.ic_firstday, stringResource(R.string.first_day_of_the_week), value = weekdays.label(firstDay.toString()), onClick = { dialog = SettingsDialog.FIRST_DAY })
+                PreferenceDivider()
+                PreferenceRow(R.drawable.ic_unit, stringResource(R.string.unit_system), value = units.label(unitValue), onClick = { dialog = SettingsDialog.UNIT_SYSTEM })
+                PreferenceDivider()
+                PreferenceRow(R.drawable.ic_dateformat, stringResource(R.string.date_format), value = dateFormat, onClick = { dialog = SettingsDialog.DATE_FORMAT })
             }
 
-            SectionHeader(stringResource(R.string.header_about))
-            SettingsCard(tint = ABOUT_BLUE) {
+            SectionHeader(stringResource(R.string.header_look))
+            SettingsCard(tint = colors.accent) {
+                PreferenceRow(R.drawable.ic_theme, stringResource(R.string.theme), value = themes.label(theme), onClick = { dialog = SettingsDialog.THEME })
+                PreferenceDivider()
+                PreferenceRow(R.drawable.ic_language, stringResource(R.string.app_language), value = languages.label(currentLanguage()), onClick = { dialog = SettingsDialog.LANGUAGE })
+            }
+
+            SettingsCard(tint = colors.goal, modifier = Modifier.padding(top = spacing.gap)) {
                 PreferenceRow(
                     icon = R.drawable.ic_info,
                     title = stringResource(R.string.about_stepsy),
-                    summary = "${stringResource(R.string.about_version)}: ${BuildConfig.VERSION_NAME}  •  GPL-3.0",
+                    summary = "${stringResource(R.string.about_version)} ${BuildConfig.VERSION_NAME}  ·  GPL-3.0",
                     onClick = { dialog = SettingsDialog.ABOUT },
                 )
             }

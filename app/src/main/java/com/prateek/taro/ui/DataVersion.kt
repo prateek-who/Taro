@@ -20,6 +20,8 @@ fun rememberDataVersion(): Int {
     return data * 31 + settings
 }
 
+const val LIVE_STEP_BUCKET = 25
+
 class Loaded<T>(val value: T)
 
 @Composable

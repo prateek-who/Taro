@@ -1,5 +1,6 @@
 package com.prateek.taro.util
 
+import androidx.datastore.preferences.core.longPreferencesKey
 import com.prateek.taro.energy.DetectedSession
 import com.prateek.taro.energy.DetectedActivities
 import com.prateek.taro.food.MealOrders
@@ -88,6 +89,7 @@ object AppPreferences {
         val BACKUP_LOCATION_URI                  = stringPreferencesKey("backup_location_uri")
         val BACKUP_FREQUENCY                     = stringPreferencesKey("backup_frequency")
         val BACKUP_RETENTION_COUNT               = intPreferencesKey("backup_retention")
+        val LAST_BACKUP                          = longPreferencesKey("last_backup")
         val DAILY_GOAL_NOTIFICATION              = booleanPreferencesKey("daily_goal_notification")
         val DAILY_GOAL_TARGET                    = intPreferencesKey("daily_goal_target")
         val GOAL_HISTORY                         = stringPreferencesKey("goal_history")
@@ -293,8 +295,10 @@ object AppPreferences {
             dataStore.edit { if (value == null) it.remove(PreferenceKeys.PACE_NUDGED) else it[PreferenceKeys.PACE_NUDGED] = value }
         }
 
+    fun tierMomentsAllFlow(): Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.TIER_MOMENTS_ALL] ?: true }
     val tierMomentsAll: Boolean get() = runBlocking { dataStore.data.first()[PreferenceKeys.TIER_MOMENTS_ALL] ?: true }
 
+    fun spreeMomentsFlow(): Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.SPREE_MOMENTS] ?: true }
     val spreeMoments: Boolean get() = runBlocking { dataStore.data.first()[PreferenceKeys.SPREE_MOMENTS] ?: true }
 
     var spreeSeen: String?
@@ -724,6 +728,12 @@ object AppPreferences {
     var backupRetention: Int
         get() = runBlocking { backupRetentionFlow().first() }
         set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.BACKUP_RETENTION_COUNT] = value } }
+
+    fun lastBackupFlow(): Flow<Long?> = dataStore.data.map { it[PreferenceKeys.LAST_BACKUP] }
+
+    suspend fun markBackedUp() {
+        dataStore.edit { it[PreferenceKeys.LAST_BACKUP] = System.currentTimeMillis() }
+    }
 
     // Notifications
 

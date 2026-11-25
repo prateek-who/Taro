@@ -1,5 +1,6 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.ui.graphics.drawscope.scale
 import com.prateek.taro.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.HorizontalDivider
@@ -73,12 +74,14 @@ fun BentoTile(
     tinted: Boolean = false,
     onClick: (() -> Unit)? = null,
     padding: Dp = TaroTheme.spacing.loose,
+    order: Int? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = TaroTheme.colors
     val spacing = TaroTheme.spacing
     Column(
         modifier = modifier
+            .then(if (order != null) Modifier.enter(order) else Modifier)
             .clip(RoundedCornerShape(spacing.loose + spacing.tight))
             .background(colors.accentOpaque)
             .then(if (tinted) Modifier.cornerGlow(color) else Modifier)
@@ -268,13 +271,14 @@ fun WeekDots(marks: List<DayMark>, modifier: Modifier = Modifier, labels: List<S
 @Composable
 private fun Dots(marks: List<DayMark>, modifier: Modifier) {
     val colors = TaroTheme.colors
+    val growth = rememberBarGrowth(Unit, marks.size)
     Canvas(modifier = modifier.aspectRatio(marks.size.coerceAtLeast(1).toFloat())) {
         val slot = size.width / marks.size
         val r = minOf(slot, size.height) * DOT_SHARE / 2
         val line = r * 0.22f
         marks.forEachIndexed { index, mark ->
             val center = Offset(slot * (index + 0.5f), size.height / 2)
-            when (mark) {
+            scale(growth.bar(index), center) { when (mark) {
                 DayMark.HIT -> drawCircle(colors.special, r, center)
                 DayMark.MADE_UP -> {
                     drawCircle(colors.special, r, center)
@@ -285,7 +289,7 @@ private fun Dots(marks: List<DayMark>, modifier: Modifier) {
                 DayMark.MISS -> drawCircle(colors.accent.copy(alpha = 0.35f), r, center)
                 DayMark.TODAY -> drawCircle(colors.goal, r - line, center, style = Stroke(line, pathEffect = PathEffect.dashPathEffect(floatArrayOf(line * 2f, line * 1.4f))))
                 DayMark.NONE -> drawCircle(colors.accent.copy(alpha = 0.3f), r - line, center, style = Stroke(line))
-            }
+            } }
         }
     }
 }
@@ -492,8 +496,8 @@ fun NavRow(@DrawableRes icon: Int, color: Color, title: String, note: String, on
 }
 
 @Composable
-fun RowDivider() {
-    HorizontalDivider(thickness = Dp.Hairline, color = MaterialTheme.colorScheme.onSurface.copy(alpha = ROW_DIVIDER_ALPHA))
+fun RowDivider(modifier: Modifier = Modifier) {
+    HorizontalDivider(thickness = Dp.Hairline, color = MaterialTheme.colorScheme.onSurface.copy(alpha = ROW_DIVIDER_ALPHA), modifier = modifier)
 }
 
 private const val DISC_SHARE = 0.9f

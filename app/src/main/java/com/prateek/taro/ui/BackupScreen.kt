@@ -1,5 +1,20 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.theme.TaroTheme
+import com.prateek.taro.ui.components.PrimaryButton
+import com.prateek.taro.ui.components.LinkText
+import com.prateek.taro.ui.components.BentoNote
+import com.prateek.taro.ui.components.BentoValue
+import com.prateek.taro.ui.components.BentoTile
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import android.text.format.DateUtils
 import com.prateek.taro.backup.CsvExport
 import com.prateek.taro.backup.BackupIO
 import com.prateek.taro.backup.FullBackup
@@ -15,7 +30,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,13 +37,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -47,11 +57,9 @@ import com.prateek.taro.ui.components.MessageDialog
 import com.prateek.taro.ui.components.NumberInputDialog
 import com.prateek.taro.ui.components.PreferenceDivider
 import com.prateek.taro.ui.components.PreferenceRow
-import com.prateek.taro.ui.components.ScrollingColumn
 import com.prateek.taro.ui.components.SectionHeader
 import com.prateek.taro.ui.components.SettingsCard
 import com.prateek.taro.ui.components.SingleChoiceDialog
-import com.prateek.taro.ui.components.TaroScaffold
 import com.prateek.taro.util.AppPreferences
 import com.prateek.taro.util.AppPreferences.PreferenceKeys
 import com.prateek.taro.util.BackupScheduler
@@ -102,11 +110,12 @@ private fun BackupContent(onBack: () -> Unit) {
         toast.show(context.getString(textRes), kind)
     }
 
-    LifecycleResumeEffect(frequency, locationUri) {
+    LifecycleResumeEffect(frequency, locationUri, retention) {
         nextBackup = if (frequency > 0 && locationSet) {
             val time = BackupScheduler.getNextBackupTime(context)
             val date = SimpleDateFormat(AppPreferences.dateFormatString, Locale.getDefault()).format(Date(time))
-            context.getString(R.string.next_backup_scheduled, date, DateFormat.getTimeFormat(context).format(time))
+            if (retention > 0) context.getString(R.string.backup_next_keeping, date, DateFormat.getTimeFormat(context).format(time), retention)
+            else context.getString(R.string.backup_next, date, DateFormat.getTimeFormat(context).format(time))
         } else {
             null
         }
@@ -156,13 +165,95 @@ private fun BackupContent(onBack: () -> Unit) {
         }
     }
 
-    TaroScaffold(
-        title = stringResource(R.string.header_data_backup),
-        onBack = onBack,
-    ) { padding ->
-        ScrollingColumn(padding) {
-            SectionHeader(stringResource(R.string.import_data))
-            SettingsCard {
+    val colors = TaroTheme.colors
+    val spacing = TaroTheme.spacing
+    val lastBackup by AppPreferences.lastBackupFlow().collectAsStateWithLifecycle(null)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+    ) {
+        AppOverflowMenu(back = true, title = stringResource(R.string.header_data_backup), onBack = onBack)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = spacing.loose, end = spacing.loose, bottom = spacing.loose),
+        ) {
+            BentoTile(color = colors.goal, label = stringResource(R.string.backup_last), tinted = true, modifier = Modifier.fillMaxWidth()) {
+                BentoValue(
+                    lastBackup?.let { DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString() }
+                        ?: stringResource(R.string.backup_never),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                BentoNote(
+                    nextBackup ?: stringResource(if (locationSet) R.string.backup_auto_off else R.string.backup_pick_folder),
+                    Modifier.padding(top = spacing.hair),
+                )
+                PrimaryButton(
+                    text = stringResource(R.string.manual_backup),
+                    onClick = {
+                        if (locationSet) {
+                            BackupScheduler.scheduleManualExport(context)
+                            showMessage(R.string.backup_started, ToastKind.INFO)
+                        } else {
+                            exportLauncher.launch(manualExportIntent())
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = spacing.gap),
+                )
+                if (locationSet) {
+                    LinkText(
+                        text = stringResource(R.string.backup_save_elsewhere),
+                        color = colors.accent,
+                        onClick = { exportLauncher.launch(manualExportIntent()) },
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(top = spacing.tight),
+                    )
+                }
+            }
+
+            SectionHeader(stringResource(R.string.backup_automatic))
+            SettingsCard(tint = colors.goal) {
+                PreferenceRow(
+                    R.drawable.ic_frequency,
+                    stringResource(R.string.backup_how_often),
+                    value = frequencyEntries.getOrNull(frequencyValues.indexOf(frequency.toString())) ?: frequency.toString(),
+                    enabled = locationSet,
+                    onClick = { dialog = BackupDialog.Frequency },
+                )
+                PreferenceDivider()
+                PreferenceRow(
+                    R.drawable.ic_retention,
+                    stringResource(R.string.backup_keep),
+                    value = if (retention == 0) stringResource(R.string.backup_retention_unlimited) else retention.toString(),
+                    enabled = frequency > 0,
+                    onClick = { dialog = BackupDialog.Retention },
+                )
+                PreferenceDivider()
+                PreferenceRow(
+                    R.drawable.ic_location,
+                    stringResource(R.string.backup_where),
+                    value = locationUri?.let { displayPath(it.toUri()) }?.ifBlank { null } ?: stringResource(R.string.backup_location_not_set),
+                    onClick = {
+                        locationLauncher.launch(
+                            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                            }
+                        )
+                    },
+                )
+            }
+
+            SectionHeader(stringResource(R.string.backup_restore))
+            SettingsCard(tint = colors.special) {
                 PreferenceRow(
                     icon = R.drawable.ic_import,
                     title = stringResource(R.string.import_data),
@@ -179,52 +270,13 @@ private fun BackupContent(onBack: () -> Unit) {
                 )
             }
 
-            SectionHeader(stringResource(R.string.export_data), topPadding = 8.dp)
-            SettingsCard {
-                PreferenceRow(
-                    icon = R.drawable.ic_frequency,
-                    title = stringResource(R.string.backup_frequency),
-                    summary = frequencyEntries.getOrNull(frequencyValues.indexOf(frequency.toString())) ?: frequency.toString(),
-                    enabled = locationSet,
-                    onClick = { dialog = BackupDialog.Frequency },
-                )
-                PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_retention,
-                    title = stringResource(R.string.backup_retention_count),
-                    summary = if (retention == 0) stringResource(R.string.backup_retention_unlimited) else retention.toString(),
-                    enabled = frequency > 0,
-                    onClick = { dialog = BackupDialog.Retention },
-                )
-                PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_location,
-                    title = stringResource(R.string.backup_location),
-                    summary = locationUri?.let { displayPath(it.toUri()) } ?: stringResource(R.string.backup_location_not_set),
-                    onClick = {
-                        locationLauncher.launch(
-                            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
-                                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
-                            }
-                        )
-                    },
-                )
-                PreferenceDivider()
-                PreferenceRow(
-                    icon = R.drawable.ic_export,
-                    title = stringResource(R.string.manual_backup),
-                    onClick = { exportLauncher.launch(manualExportIntent()) },
-                )
-            }
-
-            SectionHeader(stringResource(R.string.csv_export), topPadding = 8.dp)
+            SectionHeader(stringResource(R.string.csv_export))
             SettingsCard {
                 PreferenceRow(
                     icon = R.drawable.ic_calorie_goal,
                     title = stringResource(R.string.csv_food),
                     summary = stringResource(R.string.csv_food_summary),
+                    color = colors.special,
                     onClick = { foodCsvLauncher.launch("taro_food_${Util.todayDateString()}.csv") },
                 )
                 PreferenceDivider()
@@ -232,19 +284,8 @@ private fun BackupContent(onBack: () -> Unit) {
                     icon = R.drawable.ic_weight,
                     title = stringResource(R.string.csv_weight),
                     summary = stringResource(R.string.csv_weight_summary),
+                    color = colors.goal,
                     onClick = { weightCsvLauncher.launch("taro_weight_${Util.todayDateString()}.csv") },
-                )
-            }
-
-            nextBackup?.let {
-                Text(
-                    text = it,
-                    fontSize = 15.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 24.dp)
-                        .alpha(0.5f),
                 )
             }
         }
@@ -340,6 +381,7 @@ private suspend fun exportToUri(context: Context, uri: Uri): Boolean {
         context.contentResolver.openOutputStream(uri)?.use { outputStream ->
             outputStream.bufferedWriter().use { it.write(content) }
         } ?: return false
+        AppPreferences.markBackedUp()
         true
     } catch (e: Exception) {
         Log.e(TAG, "Manual export failed", e)

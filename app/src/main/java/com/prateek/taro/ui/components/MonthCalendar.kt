@@ -85,8 +85,8 @@ fun MonthCalendar(
             }
             Text(
                 text = shownMonth.format(titleFormat).replaceFirstChar { it.titlecase(Locale.getDefault()) },
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
+                style = TaroTheme.text.meterLabel,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.weight(1f),
             )
@@ -102,8 +102,8 @@ fun MonthCalendar(
             weekdays.forEach {
                 Text(
                     text = it.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = TaroTheme.text.axis,
+                    color = TaroTheme.colors.accent,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f),
                 )

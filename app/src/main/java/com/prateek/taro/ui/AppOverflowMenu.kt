@@ -52,7 +52,7 @@ import com.prateek.taro.ui.theme.TaroTheme
 data class MenuEntry(val title: Int, val hint: Int, val icon: Int, val color: Color, val onClick: () -> Unit)
 
 @Composable
-fun AppOverflowMenu(center: @Composable () -> Unit = {}, actions: List<MenuEntry> = emptyList(), back: Boolean = false, title: String? = null) {
+fun AppOverflowMenu(center: @Composable () -> Unit = {}, actions: List<MenuEntry> = emptyList(), back: Boolean = false, title: String? = null, trailing: (@Composable () -> Unit)? = null, onBack: (() -> Unit)? = null) {
     val navigator = LocalNavigator.currentOrThrow
 
     val spacing = TaroTheme.spacing
@@ -63,17 +63,19 @@ fun AppOverflowMenu(center: @Composable () -> Unit = {}, actions: List<MenuEntry
         if (actions.isNotEmpty()) MenuButton(R.drawable.ic_add, stringResource(R.string.quick_add), actions, openRotation = 45f, modifier = modifier)
     }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = padding) {
-        if (back) BackButton { navigator.pop() }
+        if (back) BackButton { onBack?.invoke() ?: navigator.pop() }
         title?.let {
             Text(
                 text = it,
                 style = TaroTheme.text.greeting,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
-                modifier = Modifier.padding(start = if (back) spacing.hair else spacing.tight),
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).padding(start = if (back) spacing.hair else spacing.tight),
             )
         }
         Box(contentAlignment = Alignment.Center, modifier = Modifier.weight(1f).padding(horizontal = spacing.hair)) { center() }
+        trailing?.invoke()
         plus(Modifier)
     }
 }

@@ -46,7 +46,8 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.platform.LocalDensity
 import com.prateek.taro.ui.theme.TaroMotion
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.ui.theme.rememberAnimationsEnabled
@@ -291,13 +292,16 @@ private fun DrawScope.drawArcAt(brush: Brush, start: Float, sweep: Float, radius
 
 @Composable
 fun LegendItem(color: Color, label: String, value: String, modifier: Modifier = Modifier) {
+    val type = TaroTheme.text
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
         Box(
             modifier = Modifier
-                .padding(end = 8.dp)
-                .size(10.dp)
+                .padding(end = TaroTheme.spacing.tight)
+                .size(with(LocalDensity.current) { type.note.fontSize.toDp() } * LEGEND_DOT_SHARE)
                 .background(color, CircleShape),
         )
-        Text("$label  $value", fontSize = 15.sp)
+        Text(if (value.isEmpty()) label else "$label  $value", style = type.note, color = MaterialTheme.colorScheme.onSurface)
     }
 }
+
+private const val LEGEND_DOT_SHARE = 0.7f

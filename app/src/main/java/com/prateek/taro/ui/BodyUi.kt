@@ -1,5 +1,8 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.BentoTile
+import com.prateek.taro.ui.components.BoneText
+import com.prateek.taro.ui.components.Skeleton
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,8 +11,6 @@ import com.prateek.taro.ui.components.WeightTrendChart
 import kotlin.math.sqrt
 import com.prateek.taro.ui.components.SecondaryButton
 import com.prateek.taro.ui.components.PrimaryButton
-import com.prateek.taro.ui.components.TileRow
-import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import com.prateek.taro.energy.UnderLoggedDay
@@ -24,8 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.prateek.taro.R
 import kotlin.math.abs
 import java.time.format.DateTimeFormatter
@@ -90,20 +89,20 @@ fun UnderLoggedCard(days: List<UnderLoggedDay>, modifier: Modifier = Modifier) {
     val incomplete by AppPreferences.incompleteFoodDaysFlow().collectAsStateWithLifecycle(emptySet())
     val day = days.firstOrNull { it.date.toString() !in checked && it.date.toString() !in incomplete } ?: return
     val format = remember { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
-    Panel(modifier = modifier) {
+    val spacing = TaroTheme.spacing
+    BentoTile(color = TaroTheme.colors.special, tinted = true, modifier = modifier.fillMaxWidth()) {
         Text(
             text = stringResource(R.string.underlog_title, format.format(Date(Util.dateStringToCalendarMillis(day.date.toString())))),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 6.dp),
+            style = TaroTheme.text.title,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
             text = stringResource(R.string.underlog_text, Util.formatSteps(day.logged.roundToInt()), Util.formatSteps(day.usual.roundToInt())),
-            fontSize = 13.sp,
+            style = TaroTheme.text.note,
             color = TaroTheme.colors.accent,
-            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 4.dp),
+            modifier = Modifier.padding(top = spacing.hair),
         )
-        TileRow(modifier = Modifier.padding(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.gap), modifier = Modifier.padding(top = spacing.loose)) {
             PrimaryButton(
                 text = stringResource(R.string.underlog_mark),
                 onClick = { AppPreferences.setFoodDayIncomplete(day.date.toString(), true) },
@@ -125,8 +124,17 @@ fun BodyFactors(model: BodyModel?, loaded: Boolean, modifier: Modifier = Modifie
     val colors = TaroTheme.colors
     Panel(modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.gap), modifier = Modifier.padding(spacing.tight)) {
+            if (model == null && !loaded) {
+                Skeleton {
+                    repeat(3) {
+                        BoneText(TaroTheme.text.meterLabel, 0.4f, Modifier.padding(top = spacing.tight))
+                        BoneText(TaroTheme.text.note, 0.8f)
+                    }
+                }
+                return@Column
+            }
             if (model == null) {
-                BentoNote(stringResource(if (loaded) R.string.body_empty else R.string.body_loading))
+                BentoNote(stringResource(R.string.body_empty))
                 return@Column
             }
             val factors = model.factors

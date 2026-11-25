@@ -1,5 +1,7 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.BoneText
+import com.prateek.taro.ui.components.Skeleton
 import com.prateek.taro.ui.components.LetterTab
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -249,9 +251,12 @@ private fun BadgesTile(badges: List<com.prateek.taro.achievements.BadgeResult>?,
     val colors = TaroTheme.colors
     val spacing = TaroTheme.spacing
     val type = TaroTheme.text
-    BentoTile(colors.special, modifier = modifier.fillMaxWidth(), label = stringResource(R.string.achievements_title), tinted = true, onClick = onClick) {
+    BentoTile(colors.special, modifier = modifier.fillMaxWidth(), label = stringResource(R.string.achievements_title), tinted = true, onClick = onClick, order = 1) {
         if (badges == null) {
-            BentoNote(stringResource(R.string.body_loading))
+            Skeleton {
+                BoneText(type.value, 0.3f, Modifier.padding(top = spacing.tight))
+                BoneText(type.note, 0.6f)
+            }
             return@BentoTile
         }
         val earned = badges.filter { it.earned }

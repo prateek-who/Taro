@@ -5,6 +5,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.prateek.taro.R
@@ -46,6 +47,7 @@ val TaroTypography = Typography(
 @Immutable
 data class TaroTextStyles(
     val greeting: TextStyle,
+    val dialogTitle: TextStyle,
     val title: TextStyle,
     val label: TextStyle,
     val value: TextStyle,
@@ -62,10 +64,14 @@ data class TaroTextStyles(
     val factCompact: TextStyle,
     val heavy: TextStyle,
     val stamp: TextStyle,
+    val storyLine: TextStyle,
+    val storyAside: TextStyle,
+    val storyNumber: TextStyle,
 )
 
 val TaroText = TaroTextStyles(
     greeting = TextStyle(fontFamily = Chivo, fontSize = 22.sp, lineHeight = 28.sp),
+    dialogTitle = TextStyle(fontFamily = Chivo, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold),
     title = TextStyle(fontFamily = Chivo, fontSize = 17.sp, lineHeight = 22.sp),
     label = TextStyle(fontFamily = Chivo, fontSize = 13.sp, lineHeight = 16.sp, letterSpacing = 1.7.sp, fontWeight = FontWeight.SemiBold),
     value = TextStyle(fontFamily = Chivo, fontSize = 32.sp, lineHeight = 38.sp),
@@ -82,4 +88,7 @@ val TaroText = TaroTextStyles(
     factCompact = TextStyle(fontFamily = Chivo, fontSize = 17.sp, lineHeight = 21.sp),
     heavy = TextStyle(fontFamily = ChivoHeavy, fontWeight = FontWeight.Black, fontSize = 13.sp, lineHeight = 17.sp, letterSpacing = 0.6.sp),
     stamp = TextStyle(fontFamily = ChivoHeavy, fontWeight = FontWeight.Black, fontSize = 56.sp, lineHeight = 54.sp, letterSpacing = 0.5.sp),
+    storyLine = TextStyle(fontFamily = Chivo, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.2).sp),
+    storyAside = TextStyle(fontFamily = Chivo, fontStyle = FontStyle.Italic, fontSize = 17.sp, lineHeight = 23.sp),
+    storyNumber = TextStyle(fontFamily = Chivo, fontSize = 64.sp, lineHeight = 66.sp, letterSpacing = (-2).sp),
 )
