@@ -1,5 +1,22 @@
 package com.prateek.taro.ui
 
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import com.prateek.taro.food.Macros
+import com.prateek.taro.ui.components.selectedAll
+import com.prateek.taro.ui.components.NameDialog
+import com.prateek.taro.ui.components.StepperValue
+import com.prateek.taro.ui.components.StepperField
+import com.prateek.taro.ui.components.StackBar
+import com.prateek.taro.ui.components.RowDivider
+import com.prateek.taro.ui.components.LinkText
+import com.prateek.taro.ui.components.Fact
+import com.prateek.taro.ui.components.BentoNote
+import com.prateek.taro.ui.components.BentoTile
 import com.prateek.taro.food.Units
 import com.prateek.taro.data.CustomFood
 import com.prateek.taro.ui.components.TaroDialog
@@ -13,10 +30,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,10 +43,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -42,15 +55,10 @@ import com.prateek.taro.food.FoodItem
 import com.prateek.taro.food.Ingredient
 import com.prateek.taro.food.Recipes
 import com.prateek.taro.ui.components.LocalToast
-import com.prateek.taro.ui.components.NumberField
 import com.prateek.taro.ui.components.Panel
 import com.prateek.taro.ui.components.PrimaryButton
-import com.prateek.taro.ui.components.ScrollingColumn
-import com.prateek.taro.ui.components.SecondaryButton
 import com.prateek.taro.ui.components.SectionLabel
-import com.prateek.taro.ui.components.TaroScaffold
 import com.prateek.taro.ui.components.TaroTextField
-import com.prateek.taro.ui.components.TintChip
 import com.prateek.taro.ui.components.ToastKind
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.util.Database
@@ -72,6 +80,11 @@ private sealed interface IngredientEdit {
     data class Add(val item: FoodItem) : IngredientEdit
     data class Change(val index: Int, val item: FoodItem) : IngredientEdit
 }
+
+private const val COOKED_STEP = 10.0
+private const val MAX_SERVINGS = 100
+private const val MAX_NAME = 60
+private const val PICKER_SHARE = 0.4f
 
 @Composable
 private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
@@ -109,99 +122,126 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
             unit = ingredient.unit ?: Units.GRAMS,
         ).takeIf { ingredient.grams > 0 }
 
-    TaroScaffold(
-        title = stringResource(if (existing == null) R.string.recipe_create else R.string.recipe_edit_title),
-        onBack = onDone,
-    ) { padding ->
-        ScrollingColumn(padding, modifier = Modifier.padding(horizontal = 16.dp)) {
-            TaroTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = stringResource(R.string.recipe_name),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-            )
+    var naming by remember { mutableStateOf(existing == null) }
+    val colors = TaroTheme.colors
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
 
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding(),
+    ) {
+        AppOverflowMenu(
+            back = true,
+            title = name.text.trim().ifEmpty { stringResource(R.string.recipe_create) },
+            trailing = {
+                IconButton(onClick = { naming = true }) {
+                    Icon(painterResource(R.drawable.ic_edit), contentDescription = stringResource(R.string.recipe_name), tint = colors.accent)
+                }
+            },
+        )
+        Column(
+            verticalArrangement = Arrangement.spacedBy(spacing.gap),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = spacing.loose, end = spacing.loose, bottom = spacing.loose),
+        ) {
             SectionLabel(stringResource(R.string.recipe_ingredients))
             Panel {
-                if (items.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.recipe_empty),
-                        fontSize = 13.sp,
-                        color = TaroTheme.colors.accent,
-                        modifier = Modifier.padding(8.dp),
-                    )
-                }
-                items.forEachIndexed { index, ingredient ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            FoodRow(
-                                title = ingredient.name,
-                                subtitle = Units.format(ingredient.grams, ingredient.unit),
-                                kcal = ingredient.kcal,
-                                protein = ingredient.protein,
-                                onClick = { resolve(ingredient)?.let { editing = IngredientEdit.Change(index, it) } },
-                            )
-                        }
-                        IconButton(onClick = { items = items.filterIndexed { i, _ -> i != index } }) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_delete),
-                                contentDescription = stringResource(R.string.food_delete, ingredient.name),
-                                tint = TaroTheme.colors.accent,
-                                modifier = Modifier.size(20.dp),
-                            )
+                Column(modifier = Modifier.padding(horizontal = spacing.tight)) {
+                    if (items.isEmpty()) {
+                        BentoNote(stringResource(R.string.recipe_empty), Modifier.padding(vertical = spacing.tight))
+                    }
+                    items.forEachIndexed { index, ingredient ->
+                        if (index > 0) RowDivider()
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                FoodRow(
+                                    title = ingredient.name,
+                                    subtitle = Units.format(ingredient.grams, ingredient.unit),
+                                    kcal = ingredient.kcal,
+                                    protein = ingredient.protein,
+                                    carbs = ingredient.carbs,
+                                    fat = ingredient.fat,
+                                    onClick = { resolve(ingredient)?.let { editing = IngredientEdit.Change(index, it) } },
+                                )
+                            }
+                            IconButton(onClick = { items = items.filterIndexed { i, _ -> i != index } }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_close),
+                                    contentDescription = stringResource(R.string.food_delete, ingredient.name),
+                                    tint = colors.accent,
+                                )
+                            }
                         }
                     }
+                    LinkText(
+                        text = stringResource(R.string.recipe_add_ingredient),
+                        color = colors.goal,
+                        icon = R.drawable.ic_add,
+                        onClick = { editing = IngredientEdit.Pick },
+                        modifier = Modifier.padding(vertical = spacing.tight),
+                    )
                 }
-                PrimaryButton(
-                    text = stringResource(R.string.recipe_add_ingredient),
-                    onClick = { editing = IngredientEdit.Pick },
-                    icon = R.drawable.ic_add,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                )
             }
 
             if (items.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 12.dp)) {
-                    TintChip(stringResource(R.string.energy_kcal, number(totals.kcal)), TaroTheme.colors.flame)
-                    TintChip(stringResource(R.string.food_protein_short, number(totals.protein)), PROTEIN_BLUE)
-                    TintChip(stringResource(R.string.recipe_raw_weight, grams(totals.grams)), TaroTheme.colors.accent)
+                BentoTile(color = colors.special, label = stringResource(R.string.recipe_whole_dish), tinted = true, modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.padding(top = spacing.tight)) {
+                        Fact(number(totals.kcal), stringResource(R.string.recipe_kcal), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f), alignment = Alignment.CenterStart)
+                        Fact(grams(totals.protein), stringResource(R.string.recipe_protein), PROTEIN_BLUE, Modifier.weight(1f), alignment = Alignment.CenterStart)
+                        Fact(grams(totals.grams), stringResource(R.string.recipe_raw), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f), alignment = Alignment.CenterStart)
+                    }
+                    if (totals.carbs != null || totals.fat != null) {
+                        StackBar(
+                            parts = listOf(
+                                totals.protein * Macros.PROTEIN_KCAL to PROTEIN_BLUE,
+                                (totals.carbs ?: 0.0) * Macros.CARB_KCAL to CARB_VIOLET,
+                                (totals.fat ?: 0.0) * Macros.FAT_KCAL to FAT_CORAL,
+                            ),
+                            modifier = Modifier.padding(top = spacing.gap),
+                        )
+                    }
                 }
             }
 
             SectionLabel(stringResource(R.string.recipe_yield))
-            Panel {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(8.dp)) {
-                    NumberField(
-                        value = cooked,
-                        onValueChange = { cooked = it },
-                        label = stringResource(R.string.recipe_cooked_weight),
-                        decimal = true,
-                        suffix = "g",
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text(stringResource(R.string.recipe_cooked_hint), fontSize = 12.sp, color = TaroTheme.colors.accent)
-                    NumberField(
-                        value = servings,
-                        onValueChange = { servings = it },
-                        label = stringResource(R.string.recipe_servings),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (items.isNotEmpty() && servingCount != null) {
-                        val weight = cookedValue ?: totals.grams
-                        Text(
-                            text = stringResource(
-                                R.string.recipe_per_serving,
-                                grams(weight / servingCount),
-                                number(totals.kcal / servingCount),
-                                number(totals.protein / servingCount),
-                            ),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
+            BentoTile(color = colors.accent, label = stringResource(R.string.recipe_cooked_weight), modifier = Modifier.fillMaxWidth()) {
+                StepperField(
+                    value = cooked,
+                    onValueChange = { cooked = it },
+                    unit = "g",
+                    onMinus = { cooked = Util.formatMeasure(((cookedValue ?: totals.grams) - COOKED_STEP).coerceAtLeast(COOKED_STEP)).selectedAll() },
+                    onPlus = { cooked = Util.formatMeasure((cookedValue ?: totals.grams) + COOKED_STEP).selectedAll() },
+                    decimal = true,
+                    modifier = Modifier.padding(top = spacing.tight),
+                )
+                BentoNote(stringResource(R.string.recipe_cooked_hint), Modifier.padding(top = spacing.tight))
+            }
+            BentoTile(color = colors.accent, label = stringResource(R.string.recipe_servings), modifier = Modifier.fillMaxWidth()) {
+                StepperValue(
+                    text = (servingCount ?: 1).toString(),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    onMinus = { servings = ((servingCount ?: 1) - 1).coerceAtLeast(1).toString().selectedAll() },
+                    onPlus = { servings = ((servingCount ?: 1) + 1).coerceAtMost(MAX_SERVINGS).toString().selectedAll() },
+                    minusEnabled = (servingCount ?: 1) > 1,
+                    plusEnabled = (servingCount ?: 1) < MAX_SERVINGS,
+                    modifier = Modifier.padding(top = spacing.tight),
+                )
+            }
+
+            if (items.isNotEmpty() && servingCount != null) {
+                val weight = cookedValue ?: totals.grams
+                BentoTile(color = colors.special, label = stringResource(R.string.recipe_one_serving), tinted = true, modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.padding(top = spacing.tight)) {
+                        Fact(grams(weight / servingCount), stringResource(R.string.recipe_portion), colors.special, Modifier.weight(1f), alignment = Alignment.CenterStart)
+                        Fact(number(totals.kcal / servingCount), stringResource(R.string.recipe_kcal), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f), alignment = Alignment.CenterStart)
+                        Fact(grams(totals.protein / servingCount), stringResource(R.string.recipe_protein), PROTEIN_BLUE, Modifier.weight(1f), alignment = Alignment.CenterStart)
                     }
                 }
             }
@@ -209,6 +249,7 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
             PrimaryButton(
                 text = stringResource(R.string.recipe_save),
                 enabled = valid,
+                tint = colors.special,
                 onClick = {
                     val recipe = Recipes.build(
                         name = name.text,
@@ -231,22 +272,38 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 20.dp),
+                    .padding(top = spacing.tight),
             )
             if (existing != null) {
-                SecondaryButton(
+                LinkText(
                     text = stringResource(R.string.recipe_delete),
+                    color = MaterialTheme.colorScheme.error,
                     onClick = {
                         Database.getInstance(context).deleteCustomFood(existing.id)
                         toast.show(context.getString(R.string.recipe_deleted, existing.name), ToastKind.INFO)
                         onDone()
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 24.dp),
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
                 )
             }
         }
+    }
+
+    if (naming) {
+        NameDialog(
+            title = stringResource(R.string.recipe_name),
+            label = stringResource(R.string.recipe_name),
+            initial = name.text,
+            maxLength = MAX_NAME,
+            onSave = {
+                name = TextFieldValue(it)
+                naming = false
+            },
+            onDismiss = {
+                naming = false
+                if (name.text.isBlank() && existing == null && items.isEmpty()) onDone()
+            },
+        )
     }
 
     fun ingredientFrom(log: FoodLog) = Ingredient(log.foodKey, log.name, log.grams ?: 0.0, log.kcal, log.protein, log.carbs, log.fat, log.unit)
@@ -309,17 +366,12 @@ private fun IngredientPickerDialog(foods: List<FoodItem>, onPick: (FoodItem) -> 
             )
             Column(
                 modifier = Modifier
-                    .padding(top = 8.dp)
-                    .heightIn(max = 320.dp)
+                    .padding(top = TaroTheme.spacing.tight)
+                    .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * PICKER_SHARE)
                     .verticalScroll(rememberScrollState()),
             ) {
                 if (query.text.isNotBlank() && results.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.recipe_no_match),
-                        fontSize = 13.sp,
-                        color = TaroTheme.colors.accent,
-                        modifier = Modifier.padding(8.dp),
-                    )
+                    BentoNote(stringResource(R.string.recipe_no_match), Modifier.padding(TaroTheme.spacing.tight))
                 }
                 results.forEach { item ->
                     FoodRow(
@@ -333,13 +385,12 @@ private fun IngredientPickerDialog(foods: List<FoodItem>, onPick: (FoodItem) -> 
                     )
                 }
             }
-            SecondaryButton(
+            LinkText(
                 text = stringResource(R.string.recipe_create_from_label),
-                onClick = { onCreate(query.text.trim()) },
+                color = TaroTheme.colors.goal,
                 icon = R.drawable.ic_add,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
+                onClick = { onCreate(query.text.trim()) },
+                modifier = Modifier.padding(top = TaroTheme.spacing.tight),
             )
         }
     }

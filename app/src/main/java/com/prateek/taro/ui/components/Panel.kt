@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
 import com.prateek.taro.ui.theme.TaroTheme
 
 @Composable
@@ -17,9 +16,9 @@ fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(TaroTheme.spacing.wide))
             .background(TaroTheme.colors.accentOpaque)
-            .padding(12.dp),
+            .padding(TaroTheme.spacing.gap + TaroTheme.spacing.hair),
         content = content,
     )
 }

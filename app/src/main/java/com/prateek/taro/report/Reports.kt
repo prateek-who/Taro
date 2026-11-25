@@ -66,6 +66,9 @@ data class ReportInputs(
     val longestWalkMin: Int = 0,
     val briskMinutes: Int = 0,
     val scores: Map<LocalDate, Int> = emptyMap(),
+    val nights: Map<LocalDate, Long> = emptyMap(),
+    val weighIns: Map<LocalDate, Double> = emptyMap(),
+    val usualActive: Double? = null,
 )
 
 enum class WeightVerdict { MATCHES, LOST_MORE, LOST_LESS }

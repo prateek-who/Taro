@@ -1,5 +1,6 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,7 +35,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.prateek.taro.ui.theme.TaroTheme
 import androidx.compose.animation.core.Animatable
@@ -69,6 +69,7 @@ fun TaroDialog(
     properties: DialogProperties = DialogProperties(),
     content: @Composable () -> Unit,
 ) {
+    val spacing = TaroTheme.spacing
     val entrance = remember { Animatable(0f) }
     LaunchedEffect(Unit) { entrance.animateTo(1f, TaroMotion.snappy()) }
 
@@ -80,29 +81,29 @@ fun TaroDialog(
                     scaleX = 0.92f + 0.08f * entrance.value
                     scaleY = scaleX
                 }
-                .clip(RoundedCornerShape(28.dp))
+                .clip(RoundedCornerShape(spacing.wide + spacing.hair * 2))
                 .background(TaroTheme.colors.dialogSurface)
-                .padding(24.dp),
+                .padding(spacing.wide),
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(bottom = 16.dp),
+                style = TaroTheme.text.dialogTitle,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = spacing.loose),
             )
             Box(modifier = Modifier.weight(1f, fill = false)) {
                 CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-                    ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
+                    ProvideTextStyle(TaroTheme.text.note) {
                         content()
                     }
                 }
             }
             if (confirmText != null || dismissText != null) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.gap),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 24.dp),
+                        .padding(top = spacing.wide),
                 ) {
                     if (dismissText != null) {
                         SecondaryButton(text = dismissText, onClick = onDismiss, modifier = Modifier.weight(1f))
@@ -124,9 +125,12 @@ fun SingleChoiceDialog(
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
+    val tick = with(LocalDensity.current) { type.meterLabel.lineHeight.toDp() }
     TaroDialog(title = title, onDismiss = onDismiss) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(spacing.tight),
             modifier = Modifier.verticalScroll(rememberScrollState()),
         ) {
             entries.forEachIndexed { index, entry ->
@@ -135,19 +139,20 @@ fun SingleChoiceDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(spacing.loose))
                         .background(if (selected) TaroTheme.colors.accentOpaque else Color.Transparent)
                         .clickable { onSelect(index) }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                        .padding(horizontal = spacing.loose, vertical = spacing.gap + spacing.hair * 2),
                 ) {
                     Text(
                         text = entry,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = type.meterLabel,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                         modifier = Modifier.weight(1f),
                     )
                     if (selected) {
-                        Icon(painterResource(R.drawable.ic_tick), contentDescription = null, modifier = Modifier.size(20.dp))
+                        Icon(painterResource(R.drawable.ic_tick), contentDescription = null, tint = TaroTheme.colors.goal, modifier = Modifier.size(tick))
                     }
                 }
             }
@@ -192,7 +197,6 @@ fun taroTextFieldColors(): TextFieldColors {
     )
 }
 
-private val FieldShape = RoundedCornerShape(16.dp)
 
 @Composable
 fun TaroTextField(
@@ -206,7 +210,7 @@ fun TaroTextField(
         onValueChange = onValueChange,
         label = { Text(label) },
         singleLine = true,
-        shape = FieldShape,
+        shape = RoundedCornerShape(TaroTheme.spacing.loose),
         colors = taroTextFieldColors(),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         modifier = modifier,
@@ -232,9 +236,9 @@ fun NumberField(
         label = { Text(label) },
         suffix = suffix?.let { { Text(it, color = TaroTheme.colors.accent) } },
         singleLine = true,
-        shape = FieldShape,
+        shape = RoundedCornerShape(TaroTheme.spacing.loose),
         colors = taroTextFieldColors(),
-        textStyle = if (large) MaterialTheme.typography.headlineMedium else LocalTextStyle.current,
+        textStyle = if (large) TaroTheme.text.value else LocalTextStyle.current,
         keyboardOptions = KeyboardOptions(
             keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
             imeAction = ImeAction.Done,
@@ -267,7 +271,7 @@ fun NumberInputDialog(
     ) {
         Column {
             supportingText?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 12.dp))
+                Text(it, style = TaroTheme.text.note, color = TaroTheme.colors.accent, modifier = Modifier.padding(bottom = TaroTheme.spacing.gap))
             }
             NumberField(
                 value = value,
@@ -301,7 +305,7 @@ fun FeetInchesDialog(
         confirmText = stringResource(android.R.string.ok),
         onConfirm = { onConfirm(feet.text.toIntOrNull() ?: 0, inches.text.toIntOrNull() ?: 0) },
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(TaroTheme.spacing.loose)) {
             NumberField(feet, { feet = it }, "ft", decimal = false, modifier = Modifier.weight(1f))
             NumberField(
                 inches,

@@ -1,5 +1,8 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.BoneRows
+import com.prateek.taro.ui.components.BoneTile
+import com.prateek.taro.ui.components.Skeleton
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
@@ -207,7 +210,7 @@ private fun DayPage(initial: LocalDate, onBack: () -> Unit) {
             BentoNote(stringResource(R.string.day_intro), Modifier.padding(start = spacing.hair, bottom = spacing.loose))
             DayTotals(date, Modifier.padding(bottom = spacing.loose))
             when {
-                events == null -> Unit
+                events == null -> Skeleton { BoneTile(Modifier.fillMaxWidth()) { BoneRows(4) } }
                 events.none { it !is DayEvent.Now } -> BentoNote(stringResource(R.string.day_empty), Modifier.padding(top = spacing.loose))
                 else -> events.forEachIndexed { index, event ->
                     val expanded = event.key in open
@@ -612,6 +615,5 @@ private const val LINE_SHARE = 0.22f
 private const val DEFAULT_WORKOUT_MINUTES = 30
 private const val MINUTE_MS = 60_000L
 private const val USUAL_NIGHTS = 14L
-private const val LIVE_STEP_BUCKET = 25
 private const val WEIGHT_LOOKBACK_DAYS = 90L
 private const val SAME_WEIGHT_KG = 0.05

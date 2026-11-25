@@ -1,9 +1,11 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.background
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -21,24 +23,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.prateek.taro.R
 import com.prateek.taro.ui.theme.TaroTheme
 
 @Composable
-fun SectionHeader(text: String, topPadding: Dp = 24.dp) {
+fun SectionHeader(text: String, topPadding: Dp = TaroTheme.spacing.wide) {
     Text(
         text = text.uppercase(),
+        style = TaroTheme.text.label,
         color = TaroTheme.colors.accent,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.SemiBold,
-        letterSpacing = 2.sp,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 8.dp, end = 8.dp, top = topPadding, bottom = 10.dp),
+            .padding(start = TaroTheme.spacing.tight, end = TaroTheme.spacing.tight, top = topPadding, bottom = TaroTheme.spacing.tight),
     )
 }
 
@@ -51,43 +48,38 @@ fun PreferenceRow(
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
     showChevron: Boolean = onClick != null,
+    value: String? = null,
+    color: Color? = null,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
+    val tint = color ?: LocalSettingsTint.current ?: TaroTheme.colors.goal
+    val iconSize = with(LocalDensity.current) { type.meterValue.lineHeight.toDp() }
     Row(
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(spacing.gap),
         modifier = modifier
             .fillMaxWidth()
-            .alpha(if (enabled) 1f else 0.4f)
+            .alpha(if (enabled) 1f else DISABLED_ALPHA)
+            .clip(RoundedCornerShape(spacing.gap))
             .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = spacing.tight, vertical = spacing.gap),
     ) {
-        val tint = LocalSettingsTint.current ?: MaterialTheme.colorScheme.onSurface
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .padding(end = 14.dp)
-                .size(38.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(tint.copy(alpha = 0.14f)),
-        ) {
-            Icon(painter = painterResource(icon), contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
-        }
+        IconDisc(icon, tint)
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(title, style = type.title, color = MaterialTheme.colorScheme.onSurface)
             if (!summary.isNullOrEmpty()) {
-                Text(summary, fontSize = 13.sp, color = TaroTheme.colors.accent, modifier = Modifier.padding(top = 2.dp))
+                Text(summary, style = type.note, color = TaroTheme.colors.accent, modifier = Modifier.padding(top = spacing.hair))
             }
         }
+        if (value != null) {
+            Text(value, style = type.meterValue, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, textAlign = TextAlign.End)
+            if (onClick != null) Icon(painterResource(R.drawable.ic_edit), contentDescription = null, tint = TaroTheme.colors.accent, modifier = Modifier.size(iconSize))
+        }
         trailing()
-        if (showChevron) {
-            Icon(
-                painter = painterResource(R.drawable.ic_chevron_right),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .size(20.dp)
-                    .alpha(0.4f),
-            )
+        if (showChevron && value == null) {
+            Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = TaroTheme.colors.accent, modifier = Modifier.size(iconSize))
         }
     }
 }
@@ -95,7 +87,11 @@ fun PreferenceRow(
 @Composable
 fun PreferenceDivider() {
     HorizontalDivider(
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-        modifier = Modifier.padding(start = 66.dp, end = 14.dp),
+        thickness = Dp.Hairline,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = DIVIDER_ALPHA),
+        modifier = Modifier.padding(horizontal = TaroTheme.spacing.tight),
     )
 }
+
+private const val DISABLED_ALPHA = 0.4f
+private const val DIVIDER_ALPHA = 0.08f

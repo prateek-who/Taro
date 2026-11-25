@@ -1,7 +1,7 @@
 package com.prateek.taro.ui
 
+import com.prateek.taro.ui.components.TextTabs
 import android.content.Context
-import com.prateek.taro.ui.components.ToggleGroup
 import com.prateek.taro.ui.components.TimeRow
 import androidx.compose.animation.AnimatedVisibility
 import com.prateek.taro.ui.components.infoOf
@@ -36,10 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.prateek.taro.R
 import androidx.compose.foundation.layout.navigationBarsPadding
 import cafe.adriel.voyager.core.screen.Screen
@@ -454,12 +451,12 @@ fun SleepEntryDialog(
         confirmEnabled = valid,
         onConfirm = { onSave(start, end, nap) },
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ToggleGroup(
+        Column(verticalArrangement = Arrangement.spacedBy(TaroTheme.spacing.tight)) {
+            TextTabs(
                 options = listOf(false to stringResource(R.string.sleep_night_label), true to stringResource(R.string.nap_label)),
                 selected = nap,
                 onSelect = { nap = it },
-                modifier = Modifier.padding(bottom = 4.dp),
+                color = TaroTheme.colors.sleep,
             )
             DateRow(
                 label = stringResource(if (nap) R.string.date_label else R.string.sleep_woke_on),
@@ -471,13 +468,12 @@ fun SleepEntryDialog(
             TimeRow(label = stringResource(R.string.nap_to), minuteOfDay = endMinutes, onChange = { endMinutes = it })
             Text(
                 text = if (valid) durationLabel(minutes.coerceAtLeast(0)) else stringResource(R.string.sleep_invalid),
-                fontSize = if (valid) 20.sp else 13.sp,
-                fontWeight = if (valid) FontWeight.Bold else FontWeight.Normal,
-                color = if (valid) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
+                style = if (valid) TaroTheme.text.fact else TaroTheme.text.note,
+                color = if (valid) TaroTheme.colors.sleep else MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
+                    .padding(top = TaroTheme.spacing.tight),
             )
         }
     }
@@ -510,8 +506,8 @@ private fun SleepDetectionCard() {
 private fun DiagnosticNote(text: String) {
     Text(
         text = text,
-        fontSize = 12.sp,
+        style = TaroTheme.text.note,
         color = TaroTheme.colors.accent,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+        modifier = Modifier.padding(start = TaroTheme.spacing.loose, end = TaroTheme.spacing.loose, bottom = TaroTheme.spacing.tight),
     )
 }

@@ -2,12 +2,15 @@ package com.prateek.taro.energy
 
 import com.prateek.taro.report.DayInput
 import com.prateek.taro.report.Highlight
+import com.prateek.taro.report.LateNight
 import com.prateek.taro.report.Period
 import com.prateek.taro.report.ReportInputs
 import com.prateek.taro.report.ReportKind
+import com.prateek.taro.report.StoryFinder
 import com.prateek.taro.report.Reports
 import com.prateek.taro.report.Totals
 import com.prateek.taro.report.WeightVerdict
+import com.prateek.taro.util.StreakMark
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
@@ -45,6 +48,13 @@ class EnergyTest {
         assertEquals(-2_100.0 / Metabolism.KCAL_PER_KG, report.expectedKg!!, 1e-9)
         assertEquals(WeightVerdict.MATCHES, report.verdict)
         assertEquals(Highlight.MoreSteps(40), report.highlights.first())
+
+        val dip = days.mapIndexed { i, day -> if (i == 2) day.copy(steps = 2_000) else day }
+        val turn = StoryFinder.turn(dip, mapOf(week.start.plusDays(1) to StreakMark.MET, week.start.plusDays(2) to StreakMark.MADE_UP))!!
+        assertEquals(week.start.plusDays(3), turn.turn.date)
+        assertEquals(true, turn.madeUp && turn.streakBefore)
+        val nights = (0 until 5).map { week.start.plusDays(it.toLong()) to 23 * 60 + 40 } + (week.start.plusDays(5) to 40)
+        assertEquals(LateNight(23 * 60 + 40, week.start.plusDays(5), 40), StoryFinder.lateNight(nights))
     }
 
     @Test

@@ -339,6 +339,7 @@ class BackupWorker(context: Context, workerParams: WorkerParameters) : Coroutine
                             Log.d(TAG, "Backup completed successfully: ${backupFile.name}")
                             updateNextBackupTimeAfterBackup(applicationContext)
                         }
+                        AppPreferences.markBackedUp()
                     } ?: run {
                         Log.e(TAG, "Failed to open output stream")
                         return@withContext Result.retry()

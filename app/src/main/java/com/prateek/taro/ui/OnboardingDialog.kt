@@ -1,5 +1,16 @@
 package com.prateek.taro.ui
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.core.animateFloatAsState
+import com.prateek.taro.ui.components.selectedAll
+import com.prateek.taro.ui.components.StepperField
+import com.prateek.taro.ui.components.MeterBar
+import com.prateek.taro.ui.components.LinkText
+import com.prateek.taro.ui.components.IconTileGrid
+import com.prateek.taro.ui.components.IconTile
+import com.prateek.taro.ui.components.Fact
+import com.prateek.taro.ui.components.BentoTile
+import com.prateek.taro.ui.components.TextTabs
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.LaunchedEffect
@@ -46,23 +57,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.datastore.preferences.core.edit
 import com.prateek.taro.R
 import com.prateek.taro.energy.Sex
-import com.prateek.taro.ui.components.NumberField
-import com.prateek.taro.ui.components.PillSelector
 import com.prateek.taro.ui.components.PrimaryButton
 import com.prateek.taro.ui.components.SecondaryButton
 import com.prateek.taro.ui.components.StatPill
-import com.prateek.taro.ui.components.TintChip
-import com.prateek.taro.ui.components.ToggleGroup
 import com.prateek.taro.ui.theme.TaroMotion
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.util.AppPreferences
@@ -84,6 +89,9 @@ private const val PAGES = 3
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OnboardingDialog(onDone: () -> Unit, onRestore: () -> Unit) {
+    val colors = TaroTheme.colors
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
     var page by remember { mutableIntStateOf(0) }
     var imperial by remember { mutableStateOf(AppPreferences.unitSystem == Util.UnitSystem.IMPERIAL) }
     var heightCm by remember { mutableStateOf(TextFieldValue()) }
@@ -141,17 +149,17 @@ fun OnboardingDialog(onDone: () -> Unit, onRestore: () -> Unit) {
                 .background(TaroTheme.colors.background)
                 .systemBarsPadding()
                 .imePadding()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = TaroTheme.spacing.wide, vertical = TaroTheme.spacing.loose),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(40.dp)) {
-                ProgressDots(page = page, modifier = Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(TaroTheme.spacing.wide + TaroTheme.spacing.loose)) {
+                if (page == 0) ProgressDots(page = page, modifier = Modifier.weight(1f)) else PageProgress(page, Modifier.weight(1f))
                 Text(
                     text = stringResource(R.string.onboarding_skip),
                     color = TaroTheme.colors.accent,
                     modifier = Modifier
                         .clip(CircleShape)
                         .clickable { finish(save = false) }
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = TaroTheme.spacing.gap, vertical = TaroTheme.spacing.tight),
                 )
             }
 
@@ -175,74 +183,73 @@ fun OnboardingDialog(onDone: () -> Unit, onRestore: () -> Unit) {
                         0 -> WelcomePage()
                         1 -> {
                             PageHeader(R.string.onboarding_body_title, R.string.onboarding_body_hint)
-                            Label(R.string.onboarding_units)
-                            ToggleGroup(
+                            TextTabs(
                                 options = unitValues.zip(unitEntries),
                                 selected = if (imperial) "imperial" else "metric",
                                 onSelect = { imperial = it == "imperial" },
+                                color = colors.goal,
                             )
-                            Spacer(Modifier.height(20.dp))
                             if (imperial) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    NumberField(heightFt, { heightFt = it }, stringResource(R.string.pref_height), Modifier.weight(1f), suffix = "ft", large = true)
-                                    NumberField(heightIn, { heightIn = it }, "", Modifier.weight(1f), suffix = "in", large = true)
+                                MeasureTile(R.string.pref_height, colors.goal) {
+                                    MeasureStepper(heightFt, { heightFt = it }, "ft", 1.0, 5.0, 1.0..8.0)
+                                    MeasureStepper(heightIn, { heightIn = it }, "in", 1.0, 7.0, 0.0..11.0)
                                 }
                             } else {
-                                NumberField(heightCm, { heightCm = it }, stringResource(R.string.pref_height), Modifier.fillMaxWidth(), decimal = true, suffix = "cm", large = true)
+                                MeasureTile(R.string.pref_height, colors.goal) {
+                                    MeasureStepper(heightCm, { heightCm = it }, "cm", 1.0, 170.0, 100.0..250.0, decimal = true)
+                                }
                             }
-                            Spacer(Modifier.height(12.dp))
-                            NumberField(
-                                value = weight,
-                                onValueChange = { weight = it },
-                                label = stringResource(R.string.pref_weight),
-                                decimal = true,
-                                suffix = if (imperial) "lbs" else "kg",
-                                large = true,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
+                            MeasureTile(R.string.pref_weight, colors.goal) {
+                                if (imperial) {
+                                    MeasureStepper(weight, { weight = it }, "lbs", 1.0, 155.0, 50.0..1100.0, decimal = true)
+                                } else {
+                                    MeasureStepper(weight, { weight = it }, "kg", 0.5, 70.0, 20.0..500.0, decimal = true)
+                                }
+                            }
                         }
                         else -> {
                             PageHeader(R.string.onboarding_more_title, R.string.onboarding_more_hint)
-                            NumberField(
-                                value = ageText,
-                                onValueChange = { ageText = it },
-                                label = stringResource(R.string.age_optional),
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Spacer(Modifier.height(20.dp))
-                            Label(R.string.onboarding_sex)
-                            FlowRow(modifier = Modifier.fillMaxWidth()) {
-                                PillSelector(
-                                    options = Sex.entries.map { it to sexLabel(it) },
-                                    selected = sex,
-                                    onSelect = { sex = it },
+                            MeasureTile(R.string.pref_age, colors.flame) {
+                                MeasureStepper(ageText, { ageText = it }, "", 1.0, 30.0, AGE_RANGE.first.toDouble()..AGE_RANGE.last.toDouble())
+                            }
+                            IconTileGrid(Sex.entries, columns = Sex.entries.size, modifier = Modifier.padding(top = spacing.gap)) { option, tileModifier ->
+                                IconTile(
+                                    icon = when (option) {
+                                        Sex.FEMALE -> R.drawable.ic_female
+                                        Sex.MALE -> R.drawable.ic_male
+                                        Sex.UNSPECIFIED -> R.drawable.ic_sex
+                                    },
+                                    label = sexLabel(option),
+                                    color = colors.flame,
+                                    selected = sex == option,
+                                    onClick = { sex = if (sex == option) null else option },
+                                    modifier = tileModifier,
                                 )
                             }
-                            Spacer(Modifier.height(20.dp))
-                            NumberField(
-                                value = leg,
-                                onValueChange = { leg = it },
-                                label = stringResource(R.string.leg_length_optional),
-                                suffix = if (imperial) "in" else "cm",
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Text(
-                                text = stringResource(R.string.leg_length_hint),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TaroTheme.colors.accent,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 4.dp, top = 8.dp, bottom = 16.dp),
-                            )
+                            MeasureTile(R.string.pref_leg_length, colors.goal) {
+                                MeasureStepper(leg, { leg = it }, if (imperial) "in" else "cm", 1.0, if (imperial) 31.0 else 80.0, if (imperial) 12.0..60.0 else 30.0..150.0)
+                                Text(
+                                    text = stringResource(R.string.leg_length_hint),
+                                    style = type.note,
+                                    color = colors.accent,
+                                )
+                            }
                             height?.let {
                                 val stepCm = Util.estimateStepLength(it, legCm)
-                                val label = if (imperial) "%.1f in".format(Locale.getDefault(), stepCm / 2.54f)
-                                else "%.1f cm".format(Locale.getDefault(), stepCm)
-                                TintChip(
-                                    text = stringResource(R.string.onboarding_estimated_step, label),
-                                    color = TaroTheme.colors.goal,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
+                                val stepText = if (imperial) "%.1f in".format(Locale.getDefault(), stepCm / 2.54f) else "%.0f cm".format(Locale.getDefault(), stepCm)
+                                val per = if (imperial) 160_934f else 100_000f
+                                BentoTile(color = colors.goal, tinted = true, modifier = Modifier.fillMaxWidth().padding(top = spacing.gap)) {
+                                    Row {
+                                        Fact(stepText, stringResource(R.string.onboarding_your_step), colors.goal, Modifier.weight(1f), alignment = Alignment.CenterStart)
+                                        Fact(
+                                            Util.formatSteps((per / stepCm).roundToInt()),
+                                            stringResource(if (imperial) R.string.onboarding_steps_mile else R.string.onboarding_steps_km),
+                                            MaterialTheme.colorScheme.onSurface,
+                                            Modifier.weight(1f),
+                                            alignment = Alignment.CenterStart,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -266,18 +273,14 @@ fun OnboardingDialog(onDone: () -> Unit, onRestore: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                else -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SecondaryButton(
-                        text = stringResource(R.string.onboarding_back),
-                        onClick = { page-- },
-                        modifier = Modifier.weight(1f),
-                    )
+                else -> Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = spacing.gap)) {
                     PrimaryButton(
                         text = stringResource(if (page == PAGES - 1) R.string.onboarding_save else R.string.onboarding_next),
                         enabled = if (page == 1) bodyValid else bodyValid && moreValid,
                         onClick = { if (page == PAGES - 1) finish(save = true) else page++ },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                     )
+                    LinkText(stringResource(R.string.onboarding_back), colors.accent, onClick = { page-- }, modifier = Modifier.padding(top = spacing.tight))
                 }
             }
         }
@@ -337,36 +340,71 @@ private fun ColumnScope.WelcomePage() {
 
 @Composable
 private fun PageHeader(title: Int, hint: Int) {
+    val spacing = TaroTheme.spacing
     Text(
         text = stringResource(title),
-        style = MaterialTheme.typography.headlineMedium,
-        fontWeight = FontWeight.SemiBold,
+        style = TaroTheme.text.greeting,
+        color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 24.dp),
+            .padding(top = spacing.loose),
     )
     Text(
         text = stringResource(hint),
-        style = MaterialTheme.typography.bodyMedium,
+        style = TaroTheme.text.note,
         color = TaroTheme.colors.accent,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 28.dp),
+            .padding(top = spacing.tight, bottom = spacing.loose),
     )
 }
 
 @Composable
-private fun Label(text: Int) {
-    Text(
-        text = stringResource(text).uppercase(),
-        fontSize = 12.sp,
-        letterSpacing = 2.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = TaroTheme.colors.accent,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 4.dp, bottom = 10.dp),
+private fun MeasureTile(label: Int, color: Color, content: @Composable ColumnScope.() -> Unit) {
+    BentoTile(
+        color = color,
+        label = stringResource(label),
+        tinted = true,
+        modifier = Modifier.fillMaxWidth().padding(top = TaroTheme.spacing.gap),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(TaroTheme.spacing.tight), modifier = Modifier.padding(top = TaroTheme.spacing.tight), content = content)
+    }
+}
+
+@Composable
+private fun MeasureStepper(
+    value: TextFieldValue,
+    onChange: (TextFieldValue) -> Unit,
+    unit: String,
+    step: Double,
+    start: Double,
+    range: ClosedFloatingPointRange<Double>,
+    decimal: Boolean = false,
+) {
+    fun bump(delta: Double) {
+        val next = Util.parseMeasure(value.text)?.let { (it + delta).coerceIn(range) } ?: start
+        onChange(Util.formatMeasure(next).selectedAll())
+    }
+    StepperField(
+        value = value,
+        onValueChange = onChange,
+        unit = unit,
+        onMinus = { bump(-step) },
+        onPlus = { bump(step) },
+        decimal = decimal,
     )
+}
+
+@Composable
+private fun PageProgress(page: Int, modifier: Modifier = Modifier) {
+    val spacing = TaroTheme.spacing
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.tight), modifier = modifier) {
+        repeat(PAGES - 1) { index ->
+            val filled by animateFloatAsState(if (index < page) 1f else 0f, TaroMotion.snappy(), label = "progress")
+            MeterBar(filled, TaroTheme.colors.goal, Modifier.weight(1f), height = spacing.hair * 2)
+        }
+        Spacer(Modifier.weight(1f))
+    }
 }
 
 @Composable
