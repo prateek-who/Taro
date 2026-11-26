@@ -5,7 +5,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.prateek.taro.R
@@ -64,9 +63,12 @@ data class TaroTextStyles(
     val factCompact: TextStyle,
     val heavy: TextStyle,
     val stamp: TextStyle,
-    val storyLine: TextStyle,
-    val storyAside: TextStyle,
-    val storyNumber: TextStyle,
+    val storyGiant: TextStyle,
+    val storyHead: TextStyle,
+    val storyMid: TextStyle,
+    val storySay: TextStyle,
+    val storyKick: TextStyle,
+    val storyTile: TextStyle,
 )
 
 val TaroText = TaroTextStyles(
@@ -88,7 +90,10 @@ val TaroText = TaroTextStyles(
     factCompact = TextStyle(fontFamily = Chivo, fontSize = 17.sp, lineHeight = 21.sp),
     heavy = TextStyle(fontFamily = ChivoHeavy, fontWeight = FontWeight.Black, fontSize = 13.sp, lineHeight = 17.sp, letterSpacing = 0.6.sp),
     stamp = TextStyle(fontFamily = ChivoHeavy, fontWeight = FontWeight.Black, fontSize = 56.sp, lineHeight = 54.sp, letterSpacing = 0.5.sp),
-    storyLine = TextStyle(fontFamily = Chivo, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.2).sp),
-    storyAside = TextStyle(fontFamily = Chivo, fontStyle = FontStyle.Italic, fontSize = 17.sp, lineHeight = 23.sp),
-    storyNumber = TextStyle(fontFamily = Chivo, fontSize = 64.sp, lineHeight = 66.sp, letterSpacing = (-2).sp),
+    storyGiant = TextStyle(fontFamily = ChivoHeavy, fontWeight = FontWeight.Black, fontSize = 120.sp, lineHeight = 112.sp, letterSpacing = (-5).sp),
+    storyHead = TextStyle(fontFamily = ChivoHeavy, fontWeight = FontWeight.Black, fontSize = 42.sp, lineHeight = 42.sp, letterSpacing = (-1.4).sp),
+    storyMid = TextStyle(fontFamily = ChivoHeavy, fontWeight = FontWeight.Black, fontSize = 26.sp, lineHeight = 29.sp, letterSpacing = (-0.6).sp),
+    storySay = TextStyle(fontFamily = Chivo, fontSize = 18.sp, lineHeight = 25.sp),
+    storyKick = TextStyle(fontFamily = ChivoHeavy, fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 16.sp, letterSpacing = 2.sp),
+    storyTile = TextStyle(fontFamily = ChivoHeavy, fontWeight = FontWeight.Black, fontSize = 30.sp, lineHeight = 32.sp, letterSpacing = (-1).sp),
 )

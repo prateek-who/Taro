@@ -201,23 +201,24 @@ object ReportData {
 }
 
 object StoryData {
-    private const val PERSONA_WEEKS = 4L
-    private const val RECENT_DAYS = 27L
+    private const val MIN_FOOD_DAYS = 3
+    private const val MIN_FAVOURITE = 10
+    private const val WALKING_STEPS = 60
+    private const val EARLY_HOUR = 8
+    private const val MIN_NAP = 30
 
     fun load(context: Context, report: PeriodReport): StoryFacts {
         val database = Database.getInstance(context)
         val period = report.inputs.period
+        val previous = period.previous()
         val today = Util.logicalToday()
         val end = minOf(period.end, today)
         val zone = ZoneId.systemDefault()
         val rows = database.getMinutes(period.start.toString(), end.toString())
+        val minutes = rows.map { it.minuteStart to it.steps }
         val byDay = rows.groupBy { LocalDate.parse(it.date) }.mapValues { (_, day) -> day.map { it.minuteStart to it.steps } }
         val complete = byDay.filterKeys { it.isBefore(today) }
-        fun perHour(minutes: List<Pair<Long, Int>>): List<Int> {
-            val hours = IntArray(24)
-            minutes.forEach { (at, steps) -> hours[java.time.Instant.ofEpochMilli(at).atZone(zone).hour] += steps }
-            return hours.toList()
-        }
+        val hours = IntArray(24).also { perHour -> minutes.forEach { (at, steps) -> perHour[java.time.Instant.ofEpochMilli(at).atZone(zone).hour] += steps } }.toList()
 
         val totals = database.getEntries(database.firstEntry, database.lastEntry)
             .mapNotNull { entry -> runCatching { LocalDate.parse(entry.date) }.getOrNull()?.let { it to entry.steps } }
@@ -236,46 +237,81 @@ object StoryData {
                 preferRest = AppPreferences.streakPreferRest,
             )
         }
-
         val scores = ReportData.scores(context, period.start, end, rows.groupBy { it.date })
         val turn = StoryFinder.turn(report.inputs.days, streak?.marks.orEmpty())
-        val climax = scores.maxByOrNull { it.value.score }?.let { (date, score) ->
-            val day = report.inputs.days.first { it.date == date }
-            val minutes = byDay[date].orEmpty()
-            Climax(
-                day = day,
-                score = score.score,
-                walkMinutes = Walks.merged(Walks.all(minutes), WALK_MERGE_MS).maxOfOrNull { it.minutes } ?: 0,
-                hours = perHour(minutes),
-            )
-        }
 
-        val sessions = database.sleepsSince(period.start.toString()).filter { !LocalDate.parse(it.wakeDate).isAfter(end) }
-        val bedtimes = sessions.filterNot { it.nap }.map { night ->
+        val sessions = database.sleepsSince(previous.start.toString())
+        fun sleepIn(range: Period) = sessions.filter { range.contains(LocalDate.parse(it.wakeDate)) && !LocalDate.parse(it.wakeDate).isAfter(end) }
+        val nowSleep = sleepIn(period)
+        val nights = nowSleep.filterNot { it.nap }
+        val bedtimes = nights.map { night ->
             val start = java.time.Instant.ofEpochMilli(night.startAt).atZone(zone)
             LocalDate.parse(night.wakeDate).minusDays(1) to start.hour * 60 + start.minute
         }
+        val bedtimeByWake = nights.associate { LocalDate.parse(it.wakeDate) to java.time.Instant.ofEpochMilli(it.startAt).atZone(zone).let { at -> at.hour * 60 + at.minute } }
 
-        val before = database.getMinutes(period.start.minusWeeks(PERSONA_WEEKS).toString(), period.start.minusDays(1).toString())
-            .groupBy { java.time.temporal.ChronoUnit.WEEKS.between(LocalDate.parse(it.date), period.start) }
-            .toSortedMap(compareByDescending { it })
-            .values.map { week -> perHour(week.map { it.minuteStart to it.steps }) }
+        val walks = complete.mapValues { (_, day) -> Walks.merged(Walks.all(day), WALK_MERGE_MS) }.filterValues { it.isNotEmpty() }
+        val allWalks = walks.values.flatten()
+        val habit = StoryFinder.habit(walks, complete.size, zone)
+        val earliest = allWalks.filter { java.time.Instant.ofEpochMilli(it.start).atZone(zone).hour < EARLY_HOUR }
+            .minByOrNull { java.time.Instant.ofEpochMilli(it.start).atZone(zone).toLocalTime() }
+        val longest = allWalks.maxByOrNull { it.minutes }
 
-        val recent = totals.filterKeys { !it.isBefore(end.minusDays(RECENT_DAYS)) && it.isBefore(minOf(end.plusDays(1), today)) }
+        val food = database.foodBetween(period.start.toString(), end.toString())
+        val foodBefore = database.foodBetween(previous.start.toString(), previous.end.toString())
+        val favourite = food.groupingBy { it.name }.eachCount().entries.filter { it.value >= 2 }.let { names ->
+            if (names.isEmpty()) {
+                null
+            } else {
+                val history = database.foodBetween("0000-01-01", end.toString()).filter { log -> names.any { it.key == log.name } }.groupBy { it.name }
+                history.maxByOrNull { it.value.size }?.takeIf { it.value.size >= MIN_FAVOURITE }?.let { (name, logs) ->
+                    Favourite(name, logs.size, logs.sumOf { it.kcal }, logs.minOf { LocalDate.parse(it.date) }, food.count { it.name == name })
+                }
+            }
+        }
+        fun daily(logs: List<com.prateek.taro.data.FoodLog>, pick: (com.prateek.taro.data.FoodLog) -> Double) =
+            logs.groupBy { it.date }.takeIf { it.size >= MIN_FOOD_DAYS }?.let { days -> days.values.sumOf { day -> day.sumOf(pick) } / days.size }
+        val eatenNow = daily(food) { it.kcal }
+        val eatenBefore = daily(foodBefore) { it.kcal }
+        val proteinNow = daily(food) { it.protein }
+        val proteinBefore = daily(foodBefore) { it.protein }
+        val proteinChange = if (proteinNow != null && proteinBefore != null && proteinBefore > 0) ((proteinNow - proteinBefore) * 100 / proteinBefore).toInt() else null
+        val versus = when {
+            eatenNow != null && eatenBefore != null -> Versus(VersusKind.EATEN, eatenNow, eatenBefore, proteinChange)
+            report.inputs.previous != null && report.inputs.previous.steps > 0 -> Versus(VersusKind.STEPS, report.steps.toDouble(), report.inputs.previous.steps.toDouble(), null)
+            else -> null
+        }
+
+        val nap = nowSleep.filter { it.nap }.maxByOrNull { it.durationMinutes }?.takeIf { it.durationMinutes >= MIN_NAP }?.let { Nap(it.startAt, it.endAt) }
+        val sleepNow = nowSleep.sumOf { it.durationMinutes }
+        val sleepBefore = sleepIn(previous).sumOf { it.durationMinutes }
+        val favouriteShare = favourite?.let { fav -> food.size.takeIf { it > 0 }?.let { fav.now * 100 / it } }
 
         return StoryFacts(
             plot = StoryFinder.plot(report, turn, scores.values.any { score -> score.bonuses.any { it.kind == BonusKind.BEST } }),
             turn = turn,
-            climax = climax,
+            biggest = StoryFinder.biggest(report.inputs.days, totals.filterKeys { !it.isAfter(end) }),
+            numbers = Numbers(
+                walkingMinutes = minutes.count { it.second >= WALKING_STEPS },
+                sleepMinutes = sleepNow,
+                eaten = food.takeIf { it.isNotEmpty() }?.sumOf { it.kcal },
+                protein = food.takeIf { it.isNotEmpty() }?.sumOf { it.protein },
+                proteinChange = proteinChange,
+            ),
+            twin = StoryFinder.twin(sleepNow, sleepBefore, report.steps, report.inputs.previous?.steps),
+            bedtimes = generateSequence(period.start) { it.plusDays(1) }.takeWhile { !it.isAfter(end) }.map { bedtimeByWake[it] }.toList(),
             odd = StoryFinder.oddSteps(complete.values.flatten(), zone),
             still = StoryFinder.stillness(complete, database.sleepsSince(period.start.minusDays(1).toString()).map { it.startAt to it.endAt }, zone),
             late = StoryFinder.lateNight(bedtimes),
-            samePeak = StoryFinder.samePeak(complete.mapValues { perHour(it.value) }),
-            topFood = database.foodBetween(period.start.toString(), end.toString()).groupingBy { it.name }.eachCount().maxByOrNull { it.value }?.toPair(),
-            persona = StoryFinder.persona(perHour(rows.map { it.minuteStart to it.steps }), before),
-            next = StoryFinder.next(streak?.current ?: 0, recent),
-            sleepMinutes = sessions.sumOf { it.durationMinutes },
-            stillMinutes = turn?.let { byDay[it.low.date] }.orEmpty(),
+            power = StoryFinder.powerHour(hours, report.inputs.days),
+            fastest = StoryFinder.fastest(minutes),
+            habit = habit,
+            nap = nap,
+            earliest = earliest,
+            favourite = favourite,
+            versus = versus,
+            milestone = StoryFinder.milestone(totals.filterKeys { !it.isAfter(end) }.values.sum().toLong(), report.inputs.days),
+            persona = StoryFinder.persona(hours, report.inputs.days, habit, favouriteShare, longest),
         )
     }
 }

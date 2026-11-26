@@ -103,13 +103,18 @@ internal class Database private constructor(private val dao: StepsDao) {
 
     internal fun pastEntryCount(food: CustomFood): Int = weighedLogsOf(food).size
 
-    internal fun recalculateFoodLogs(food: CustomFood): Int = changed {
+    internal fun recalculateFoodLogs(food: CustomFood): Int = retargetFoodLogs(FoodCatalog.customKey(food.id), food)
+
+    internal fun weighedLogCount(key: String): Int = dao.foodLogsWithKey(key).count { it.grams != null }
+
+    internal fun retargetFoodLogs(fromKey: String, food: CustomFood): Int = changed {
         val item = FoodCatalog.custom(food)
-        val logs = weighedLogsOf(food)
+        val logs = dao.foodLogsWithKey(fromKey).filter { it.grams != null }
         dao.updateFoodLogs(
             logs.map { log ->
                 val grams = log.grams ?: 0.0
                 log.copy(
+                    foodKey = item.key,
                     name = food.name,
                     unit = food.unit,
                     kcal = item.kcalFor(grams),

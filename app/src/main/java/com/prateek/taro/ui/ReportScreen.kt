@@ -513,32 +513,34 @@ private fun TotalsPanel(report: PeriodReport) {
                     repeat(FACTS_PER_ROW - row.size) { Box(Modifier.weight(1f)) }
                 }
             }
-            report.verdict?.let { verdict ->
-                val (text, color) = when (verdict) {
-                    WeightVerdict.MATCHES -> stringResource(R.string.report_verdict_matches) to colors.goal
-                    WeightVerdict.LOST_MORE -> stringResource(R.string.report_verdict_more) to colors.special
-                    WeightVerdict.LOST_LESS -> stringResource(R.string.report_verdict_less) to colors.flame
+            Column(modifier = Modifier.padding(horizontal = spacing.tight)) {
+                report.verdict?.let { verdict ->
+                    val (text, color) = when (verdict) {
+                        WeightVerdict.MATCHES -> stringResource(R.string.report_verdict_matches) to colors.goal
+                        WeightVerdict.LOST_MORE -> stringResource(R.string.report_verdict_more) to colors.special
+                        WeightVerdict.LOST_LESS -> stringResource(R.string.report_verdict_less) to colors.flame
+                    }
+                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(spacing.tight), modifier = Modifier.padding(top = spacing.loose)) {
+                        val dot = with(LocalDensity.current) { type.note.fontSize.toDp() * DOT_SHARE }
+                        Box(
+                            Modifier
+                                .padding(top = spacing.tight)
+                                .size(dot)
+                                .clip(CircleShape)
+                                .drawBehind { drawRect(color) }
+                        )
+                        Text(text, style = type.note, color = ink)
+                    }
                 }
-                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(spacing.tight), modifier = Modifier.padding(top = spacing.loose)) {
-                    val dot = with(LocalDensity.current) { type.note.fontSize.toDp() * DOT_SHARE }
-                    Box(
-                        Modifier
-                            .padding(top = spacing.tight)
-                            .size(dot)
-                            .clip(CircleShape)
-                            .drawBehind { drawRect(color) }
-                    )
-                    Text(text, style = type.note, color = ink)
+                if (report.inputs.topFoods.isNotEmpty()) {
+                    BentoNote(stringResource(R.string.report_top_foods_line, report.inputs.topFoods.joinToString(", ")), Modifier.padding(top = spacing.gap))
                 }
-            }
-            if (report.inputs.topFoods.isNotEmpty()) {
-                BentoNote(stringResource(R.string.report_top_foods_line, report.inputs.topFoods.joinToString(", ")), Modifier.padding(top = spacing.gap))
-            }
-            report.inputs.napMinutes.takeIf { it.isNotEmpty() }?.let { naps ->
-                BentoNote(pluralStringResource(R.plurals.report_naps_line, naps.size, naps.size, minutesText(naps.sum())), Modifier.padding(top = spacing.hair))
-            }
-            report.inputs.bedtimeSpread?.let {
-                BentoNote(stringResource(R.string.report_spread_line, minutesText(it.toLong())), Modifier.padding(top = spacing.hair))
+                report.inputs.napMinutes.takeIf { it.isNotEmpty() }?.let { naps ->
+                    BentoNote(pluralStringResource(R.plurals.report_naps_line, naps.size, naps.size, minutesText(naps.sum())), Modifier.padding(top = spacing.hair))
+                }
+                report.inputs.bedtimeSpread?.let {
+                    BentoNote(stringResource(R.string.report_spread_line, minutesText(it.toLong())), Modifier.padding(top = spacing.hair))
+                }
             }
         }
     }

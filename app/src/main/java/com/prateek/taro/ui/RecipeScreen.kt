@@ -337,6 +337,7 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
         is IngredientEdit.Change -> AmountDialog(
             item = edit.item,
             initialGrams = items.getOrNull(edit.index)?.grams,
+            initialValues = items.getOrNull(edit.index)?.let { Nutrition(it.kcal, it.protein, it.carbs, it.fat) },
             onSave = { log ->
                 items = items.mapIndexed { i, old -> if (i == edit.index) ingredientFrom(log).copy(key = old.key) else old }
                 editing = null

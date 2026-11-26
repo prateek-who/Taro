@@ -1,5 +1,12 @@
 package com.prateek.taro.ui
 
+import androidx.compose.ui.focus.FocusRequester
+import com.prateek.taro.ui.components.FactField
+import com.prateek.taro.ui.components.ValueField
+import androidx.compose.ui.res.pluralStringResource
+import com.prateek.taro.food.FoodEdits
+import com.prateek.taro.food.EditScope
+import kotlin.math.abs
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -1227,6 +1234,7 @@ fun AmountDialog(
     onDismiss: () -> Unit,
     header: (@Composable () -> Unit)? = null,
     confirmLabel: String? = null,
+    initialValues: Nutrition? = null,
 ) {
     val start = initialGrams ?: item.portions.firstOrNull()?.grams ?: 100.0
     val baseUnit = Units.base(item)
@@ -1235,6 +1243,12 @@ fun AmountDialog(
     var unit by remember { mutableStateOf(baseUnit) }
     val entered = Util.parseMeasure(text.text)?.takeIf { it > 0 }
     val amount = entered?.let { Units.toBase(it, unit, item) }?.takeIf { it < 5_000 }
+    var rates by remember { mutableStateOf(initialValues?.takeIf { start > 0 && !it.matches(item, start) }?.per(start)) }
+    var editing by remember { mutableStateOf(false) }
+    var scope by remember { mutableStateOf(EditScope.ENTRY) }
+    val values = (amount ?: 0.0).let { grams -> rates?.times(grams) ?: Nutrition.of(item, grams) }
+    val context = LocalContext.current
+    val pastCount = rememberInBackground(item.key) { Database.getInstance(context).weighedLogCount(item.key) }?.value ?: 0
 
     TaroDialog(
         title = item.name,
@@ -1243,6 +1257,12 @@ fun AmountDialog(
         confirmEnabled = amount != null,
         onConfirm = {
             val grams = amount ?: return@TaroDialog
+            val per100 = rates?.times(100.0)
+            val key = if (per100 != null && scope != EditScope.ENTRY && FoodEdits.canUpdate(item)) {
+                FoodEdits.saveValues(context, item, per100.kcal, per100.protein, per100.carbs, per100.fat, past = scope == EditScope.PAST)
+            } else {
+                item.key
+            }
             onSave(
                 FoodLog(
                     date = "",
@@ -1252,11 +1272,11 @@ fun AmountDialog(
                     amount = portion?.takeIf { it.grams == grams }?.label
                         ?: entered?.takeIf { unit != baseUnit }?.let { "${Util.formatMeasure(it)} ${unit.label}" },
                     unit = item.unit.takeIf { it != Units.GRAMS },
-                    kcal = item.kcalFor(grams),
-                    protein = item.proteinFor(grams),
-                    carbs = item.carbsFor(grams),
-                    fat = item.fatFor(grams),
-                    foodKey = item.key,
+                    kcal = values.kcal,
+                    protein = values.protein,
+                    carbs = values.carbs,
+                    fat = values.fat,
+                    foodKey = key,
                     loggedAt = 0,
                 )
             )
@@ -1321,32 +1341,157 @@ fun AmountDialog(
                     }
                 }
             }
-            val grams = amount ?: 0.0
-            val protein = item.proteinFor(grams)
-            val carbs = item.carbsFor(grams)
-            val fat = item.fatFor(grams)
-            BentoTile(color = colors.flame, tinted = true, modifier = Modifier.fillMaxWidth()) {
-                BentoValue(number(item.kcalFor(grams)), colors.flame, unit = "kcal")
-                if (carbs != null || fat != null) {
-                    StackBar(
-                        parts = listOf(
-                            protein * Macros.PROTEIN_KCAL to PROTEIN_BLUE,
-                            (carbs ?: 0.0) * Macros.CARB_KCAL to CARB_VIOLET,
-                            (fat ?: 0.0) * Macros.FAT_KCAL to FAT_CORAL,
-                        ),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = spacing.tight),
-                    )
-                }
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Fact(stringResource(R.string.food_grams_value, number(protein)), stringResource(R.string.food_protein), PROTEIN_BLUE, Modifier.weight(1f), style = type.factCompact)
-                    Fact(carbs?.let { stringResource(R.string.food_grams_value, number(it)) } ?: "-", stringResource(R.string.food_carbs), CARB_VIOLET, Modifier.weight(1f), style = type.factCompact)
-                    Fact(fat?.let { stringResource(R.string.food_grams_value, number(it)) } ?: "-", stringResource(R.string.food_fat), FAT_CORAL, Modifier.weight(1f), style = type.factCompact)
-                }
-                BentoNote(stringResource(R.string.food_per_100g_values, number(item.kcal), number(item.protein), item.unit), Modifier.padding(top = spacing.tight))
-            }
+            NutritionPanel(
+                values = values,
+                amount = amount,
+                editing = editing,
+                edited = rates != null,
+                onEdit = { editing = true },
+                onChange = { changed -> amount?.takeIf { it > 0 }?.let { rates = changed.per(it) } },
+                onReset = {
+                    rates = null
+                    editing = false
+                },
+                note = stringResource(R.string.food_per_100g_values, number(item.kcal), number(item.protein), item.unit),
+                scope = scope.takeIf { FoodEdits.canUpdate(item) },
+                onScope = { scope = it },
+                scopeNote = when (scope) {
+                    EditScope.ENTRY -> stringResource(R.string.food_scope_entry_note)
+                    EditScope.FOOD -> stringResource(if (FoodEdits.isCustom(item)) R.string.food_scope_food_note else R.string.food_scope_own_note, item.name)
+                    EditScope.PAST -> pluralStringResource(R.plurals.food_scope_past_note, pastCount, item.name, pastCount)
+                },
+            )
         }
     }
 }
+
+data class Nutrition(val kcal: Double, val protein: Double, val carbs: Double?, val fat: Double?) {
+    fun per(grams: Double) = Nutrition(kcal / grams, protein / grams, carbs?.div(grams), fat?.div(grams))
+
+    fun times(grams: Double) = Nutrition(kcal * grams, protein * grams, carbs?.times(grams), fat?.times(grams))
+
+    fun matches(item: FoodItem, grams: Double): Boolean {
+        fun close(a: Double?, b: Double?, tolerance: Double) = if (a == null || b == null) a == b else abs(a - b) <= tolerance
+        return close(kcal, item.kcalFor(grams), KCAL_TOLERANCE) && close(protein, item.proteinFor(grams), GRAM_TOLERANCE) &&
+            close(carbs, item.carbsFor(grams), GRAM_TOLERANCE) && close(fat, item.fatFor(grams), GRAM_TOLERANCE)
+    }
+
+    companion object {
+        private const val KCAL_TOLERANCE = 0.5
+        private const val GRAM_TOLERANCE = 0.05
+
+        fun of(item: FoodItem, grams: Double) = Nutrition(item.kcalFor(grams), item.proteinFor(grams), item.carbsFor(grams), item.fatFor(grams))
+
+        fun of(log: FoodLog) = Nutrition(log.kcal, log.protein, log.carbs, log.fat)
+    }
+}
+
+@Composable
+private fun NutritionPanel(
+    values: Nutrition,
+    amount: Double?,
+    editing: Boolean,
+    edited: Boolean,
+    onEdit: () -> Unit,
+    onChange: (Nutrition) -> Unit,
+    onReset: () -> Unit,
+    note: String,
+    scope: EditScope? = null,
+    onScope: (EditScope) -> Unit = {},
+    scopeNote: String = "",
+) {
+    val colors = TaroTheme.colors
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
+    BentoTile(color = colors.flame, tinted = true, modifier = Modifier.fillMaxWidth(), onClick = if (editing) null else onEdit) {
+        if (editing) {
+            NutritionFields(values, amount, onChange)
+        } else {
+            BentoValue(number(values.kcal), colors.flame, unit = "kcal")
+            MacroBar(values)
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Fact(stringResource(R.string.food_grams_value, number(values.protein)), stringResource(R.string.food_protein), PROTEIN_BLUE, Modifier.weight(1f), style = type.factCompact)
+                Fact(values.carbs?.let { stringResource(R.string.food_grams_value, number(it)) } ?: "-", stringResource(R.string.food_carbs), CARB_VIOLET, Modifier.weight(1f), style = type.factCompact)
+                Fact(values.fat?.let { stringResource(R.string.food_grams_value, number(it)) } ?: "-", stringResource(R.string.food_fat), FAT_CORAL, Modifier.weight(1f), style = type.factCompact)
+            }
+        }
+        if (edited && scope != null) {
+            TextTabs(
+                options = listOf(
+                    EditScope.ENTRY to stringResource(R.string.food_scope_entry),
+                    EditScope.FOOD to stringResource(R.string.food_scope_food),
+                    EditScope.PAST to stringResource(R.string.food_scope_past),
+                ),
+                selected = scope,
+                onSelect = onScope,
+                color = colors.special,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = spacing.gap),
+            )
+            BentoNote(scopeNote, Modifier.padding(top = spacing.tight), color = colors.special)
+        } else {
+            BentoNote(if (edited) stringResource(R.string.food_values_edited) else note, Modifier.padding(top = spacing.tight), color = if (edited) colors.special else colors.accent)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.wide), modifier = Modifier.padding(top = spacing.tight)) {
+            if (!editing) LinkText(stringResource(R.string.food_edit_values), colors.flame, onClick = onEdit, icon = R.drawable.ic_edit)
+            if (edited) LinkText(stringResource(R.string.food_reset_values), colors.accent, onClick = onReset)
+        }
+    }
+}
+
+@Composable
+private fun NutritionFields(values: Nutrition, amount: Double?, onChange: (Nutrition) -> Unit) {
+    fun text(value: Double?) = TextFieldValue(value?.let { Util.formatMeasure((it * 10).roundToInt() / 10.0) }.orEmpty())
+    var kcal by remember(amount) { mutableStateOf(text(values.kcal.roundToInt().toDouble())) }
+    var protein by remember(amount) { mutableStateOf(text(values.protein)) }
+    var carbs by remember(amount) { mutableStateOf(text(values.carbs)) }
+    var fat by remember(amount) { mutableStateOf(text(values.fat)) }
+    fun push() {
+        val k = Util.parseMeasure(kcal.text)?.takeIf { it in 0.0..MAX_KCAL } ?: return
+        val p = if (protein.text.isBlank()) 0.0 else Util.parseMeasure(protein.text)?.takeIf { it in 0.0..MAX_GRAMS } ?: return
+        val c = if (carbs.text.isBlank()) null else Util.parseMeasure(carbs.text)?.takeIf { it in 0.0..MAX_GRAMS } ?: return
+        val f = if (fat.text.isBlank()) null else Util.parseMeasure(fat.text)?.takeIf { it in 0.0..MAX_GRAMS } ?: return
+        onChange(Nutrition(k, p, c, f))
+    }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    val type = TaroTheme.text
+    ValueField(kcal, {
+        kcal = it
+        push()
+    }, TaroTheme.colors.flame, unit = "kcal", focusRequester = focus)
+    MacroBar(values)
+    Row(modifier = Modifier.fillMaxWidth()) {
+        FactField(protein, {
+            protein = it
+            push()
+        }, stringResource(R.string.food_protein), PROTEIN_BLUE, Modifier.weight(1f), unit = "g", style = type.factCompact)
+        FactField(carbs, {
+            carbs = it
+            push()
+        }, stringResource(R.string.food_carbs), CARB_VIOLET, Modifier.weight(1f), unit = "g", style = type.factCompact)
+        FactField(fat, {
+            fat = it
+            push()
+        }, stringResource(R.string.food_fat), FAT_CORAL, Modifier.weight(1f), unit = "g", style = type.factCompact)
+    }
+}
+
+@Composable
+private fun MacroBar(values: Nutrition) {
+    StackBar(
+        parts = listOf(
+            values.protein * Macros.PROTEIN_KCAL to PROTEIN_BLUE,
+            (values.carbs ?: 0.0) * Macros.CARB_KCAL to CARB_VIOLET,
+            (values.fat ?: 0.0) * Macros.FAT_KCAL to FAT_CORAL,
+        ),
+        modifier = Modifier.fillMaxWidth().padding(vertical = TaroTheme.spacing.tight),
+    )
+}
+
+private const val MAX_KCAL = 10_000.0
+private const val MAX_GRAMS = 1_000.0
 
 @Composable
 fun QuickAddDialog(
@@ -1358,18 +1503,23 @@ fun QuickAddDialog(
     var name by remember { mutableStateOf(TextFieldValue(initial?.name.orEmpty())) }
     var kcal by remember { mutableStateOf(TextFieldValue(initial?.kcal?.roundToInt()?.toString().orEmpty())) }
     var protein by remember { mutableStateOf(TextFieldValue(initial?.protein?.let(Util::formatMeasure).orEmpty())) }
-    val kcalValue = Util.parseMeasure(kcal.text)?.takeIf { it in 0.0..10_000.0 }
-    val proteinValue = if (protein.text.isBlank()) 0.0 else Util.parseMeasure(protein.text)?.takeIf { it in 0.0..500.0 }
+    var carbs by remember { mutableStateOf(TextFieldValue(initial?.carbs?.let(Util::formatMeasure).orEmpty())) }
+    var fat by remember { mutableStateOf(TextFieldValue(initial?.fat?.let(Util::formatMeasure).orEmpty())) }
+    val kcalValue = Util.parseMeasure(kcal.text)?.takeIf { it in 0.0..MAX_KCAL }
+    fun grams(field: TextFieldValue) = Util.parseMeasure(field.text)?.takeIf { it in 0.0..MAX_GRAMS }
+    val proteinValue = if (protein.text.isBlank()) 0.0 else grams(protein)
+    val carbsOk = carbs.text.isBlank() || grams(carbs) != null
+    val fatOk = fat.text.isBlank() || grams(fat) != null
 
     TaroDialog(
         title = stringResource(R.string.food_quick_add),
         onDismiss = onDismiss,
         confirmText = stringResource(R.string.action_save),
-        confirmEnabled = name.text.isNotBlank() && kcalValue != null && proteinValue != null,
+        confirmEnabled = name.text.isNotBlank() && kcalValue != null && proteinValue != null && carbsOk && fatOk,
         onConfirm = {
             onSave(
                 (initial ?: FoodLog(date = "", meal = "", name = "", grams = null, amount = null, kcal = 0.0, protein = 0.0, carbs = null, fat = null, foodKey = null, loggedAt = 0))
-                    .copy(name = name.text.trim(), kcal = kcalValue ?: 0.0, protein = proteinValue ?: 0.0)
+                    .copy(name = name.text.trim(), kcal = kcalValue ?: 0.0, protein = proteinValue ?: 0.0, carbs = grams(carbs), fat = grams(fat))
             )
         },
     ) {
@@ -1377,7 +1527,11 @@ fun QuickAddDialog(
             header?.invoke()
             TaroTextField(name, { name = it }, stringResource(R.string.food_name), Modifier.fillMaxWidth())
             NumberField(kcal, { kcal = it }, stringResource(R.string.food_kcal), Modifier.fillMaxWidth(), decimal = true, suffix = "kcal", large = true)
-            NumberField(protein, { protein = it }, stringResource(R.string.food_protein), Modifier.fillMaxWidth(), decimal = true, suffix = "g")
+            Row(horizontalArrangement = Arrangement.spacedBy(TaroTheme.spacing.tight)) {
+                NumberField(protein, { protein = it }, stringResource(R.string.food_protein), Modifier.weight(1f), decimal = true, suffix = "g")
+                NumberField(carbs, { carbs = it }, stringResource(R.string.food_carbs), Modifier.weight(1f), decimal = true, suffix = "g")
+                NumberField(fat, { fat = it }, stringResource(R.string.food_fat), Modifier.weight(1f), decimal = true, suffix = "g")
+            }
         }
     }
 }
@@ -1529,7 +1683,7 @@ fun EditFoodDialog(log: FoodLog, onDismiss: () -> Unit) {
 
     val current = item
     if (current != null && log.grams != null) {
-        AmountDialog(current, initialGrams = log.grams, onSave = ::update, onDismiss = onDismiss, header = timeRow)
+        AmountDialog(current, initialGrams = log.grams, onSave = ::update, onDismiss = onDismiss, header = timeRow, initialValues = Nutrition.of(log))
     } else {
         QuickAddDialog(initial = log, onSave = ::update, onDismiss = onDismiss, header = timeRow)
     }

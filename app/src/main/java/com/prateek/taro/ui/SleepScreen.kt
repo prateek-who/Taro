@@ -147,7 +147,6 @@ private fun SleepContent(tracking: TrackingState) {
     ) {
         AppOverflowMenu(
             back = true,
-            title = stringResource(R.string.tab_sleep),
             center = { DaySwitcher(date = selected, today = today, onChange = ::select, todayLabel = stringResource(R.string.sleep_last_night)) },
             actions = listOf(
                 MenuEntry(R.string.sleep_add, R.string.quick_sleep_hint, R.drawable.ic_sleep, colors.sleep) {
