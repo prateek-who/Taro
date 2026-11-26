@@ -7,6 +7,7 @@ import com.prateek.taro.report.Period
 import com.prateek.taro.report.ReportInputs
 import com.prateek.taro.report.ReportKind
 import com.prateek.taro.report.StoryFinder
+import com.prateek.taro.report.StoryType
 import com.prateek.taro.report.Reports
 import com.prateek.taro.report.Totals
 import com.prateek.taro.report.WeightVerdict
@@ -53,6 +54,10 @@ class EnergyTest {
         val turn = StoryFinder.turn(dip, mapOf(week.start.plusDays(1) to StreakMark.MET, week.start.plusDays(2) to StreakMark.MADE_UP))!!
         assertEquals(week.start.plusDays(3), turn.turn.date)
         assertEquals(true, turn.madeUp && turn.streakBefore)
+        val hours = List(24) { if (it == 22) 12_000 else 300 }
+        val power = StoryFinder.powerHour(hours, dip)!!
+        assertEquals(22 to 6, power.hour to power.units)
+        assertEquals(StoryType.NIGHT_SHIFT, StoryFinder.persona(hours, dip, null, null, null)!!.type)
         val nights = (0 until 5).map { week.start.plusDays(it.toLong()) to 23 * 60 + 40 } + (week.start.plusDays(5) to 40)
         assertEquals(LateNight(23 * 60 + 40, week.start.plusDays(5), 40), StoryFinder.lateNight(nights))
     }

@@ -3,52 +3,55 @@ package com.prateek.taro.ui
 import java.time.format.TextStyle as DayStyle
 import android.content.Context
 import android.content.Intent
-import androidx.annotation.DrawableRes
-import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,14 +60,12 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
@@ -77,43 +78,31 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.core.content.FileProvider
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.prateek.taro.R
-import com.prateek.taro.report.Climax
-import com.prateek.taro.report.DayInput
-import com.prateek.taro.report.Moment
+import com.prateek.taro.report.FastMinute
 import com.prateek.taro.report.Period
 import com.prateek.taro.report.PeriodReport
 import com.prateek.taro.report.Plot
 import com.prateek.taro.report.ReportData
 import com.prateek.taro.report.ReportKind
-import com.prateek.taro.report.Stillness
 import com.prateek.taro.report.StoryData
 import com.prateek.taro.report.StoryFacts
-import com.prateek.taro.report.StoryFinder
-import com.prateek.taro.report.WeightVerdict
-import com.prateek.taro.ui.components.RollingText
-import com.prateek.taro.ui.components.SPREE_NAMES
-import com.prateek.taro.ui.components.monotonePath
-import com.prateek.taro.ui.components.partial
-import com.prateek.taro.ui.components.rememberBarGrowth
-import com.prateek.taro.ui.components.rememberDrawIn
-import com.prateek.taro.ui.components.spreeStyles
-import com.prateek.taro.ui.components.tierStyles
+import com.prateek.taro.report.StoryType
+import com.prateek.taro.report.TwinKind
+import com.prateek.taro.report.VersusKind
+import com.prateek.taro.ui.components.LinkText
 import com.prateek.taro.ui.theme.DarkTaroTheme
 import com.prateek.taro.ui.theme.TaroMotion
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.ui.theme.rememberAnimationsEnabled
-import com.prateek.taro.util.Sprees
-import com.prateek.taro.util.StepTiers
 import com.prateek.taro.util.Util
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -126,12 +115,12 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.IsoFields
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ceil
-import kotlin.math.floor
+import kotlin.math.roundToInt
 import kotlin.math.roundToLong
-import kotlin.random.Random
 
 class ReportStoryScreen(private val periodKey: String) : Screen {
     @Composable
@@ -151,45 +140,58 @@ class ReportStoryScreen(private val periodKey: String) : Screen {
     }
 }
 
+private data class Duo(val bg: Color, val fg: Color)
+
+private val TOMATO = Duo(Color(0xFFFF5B3A), Color(0xFF1C0702))
+private val FOREST = Duo(Color(0xFF0D2414), Color(0xFFA6F57E))
+private val MIDNIGHT = Duo(Color(0xFF10153F), Color(0xFFB4BDFF))
+private val PLUM = Duo(Color(0xFF2C0B33), Color(0xFFFF9DE2))
+private val COCOA = Duo(Color(0xFF24160A), Color(0xFFFFD36B))
+private val TEAL = Duo(Color(0xFF0A2B28), Color(0xFF6FF0C8))
+private val CREAM = Duo(Color(0xFFF3EFE4), Color(0xFF14800F))
+private val INK = Duo(Color(0xFF0E0E0E), Color(0xFFFFD36B))
+private val COUCH = Duo(Color(0xFF1D1D1D), Color(0xFF8A8A8A))
+private val CREAM_INK = Color(0xFF151816)
+private val THIS_PERIOD = Color(0xFFFF8A50)
+
+private val LocalDuo = staticCompositionLocalOf { FOREST }
+
 private const val SLIDE_MS = 7_000
-private const val SHORT_SLIDE_MS = 5_000
-private val STORY_BACKGROUND = Color(0xFF060807)
-private const val AURA_ALPHA = 0.3f
-private const val AURA_DRIFT = 0.06f
-private const val AURA_MS = 14_000
-private const val SLAM_FROM = 1.9f
+private const val SOFT = 0.14f
+private const val DIM = 0.75f
+private const val SLAM_FROM = 2.2f
 private const val RISE_SHARE = 2f
-private const val SPINE_ASPECT = 10f
-private const val SPINE_DIM = 0.22f
-private const val SPINE_FLOOR = 0.08f
-private const val SPINE_BAR = 0.3f
-private const val MAX_PICTOS = 42
-private const val PICTO_STEP_MS = 40
-private const val SMALL_SLAM = 0.6f
-private const val MEDIUM_SLAM = 0.85f
-private const val LINE_DIM = 0.75f
-private const val ASIDE_DIM = 0.62f
-private const val CHART_ASPECT = 2.1f
-private const val LANE_ASPECT = 9f
-private const val BAR_SHARE = 0.6f
-private const val MISSED_ALPHA = 0.5f
-private const val UNFOCUSED_ALPHA = 0.25f
-private const val HEADROOM = 1.12f
-private const val STROKE_SHARE = 0.008f
-private const val NIGHT_FROM = 22
-private const val NIGHT_HOURS = 9
-private const val MAX_CHAIN = 14
-private const val STILL_HAIR = 0.15f
-private const val POSTER_GLOW = 0.22f
+private const val SPIN_FROM = -200f
+private const val SLAM_HAPTIC_MS = 180L
+private const val STICKER_TILT = -6f
+private const val ANSWER_MS = 650L
+private const val COUNT_MS = 1_400
+private const val DOT_STEP_MS = 30
+private const val MAX_DOTS = 120
+private const val CADENCE_ZONES = 4
+private val CADENCE_EDGES = listOf(60, 100, 120, 140, 185)
+private const val BRISK = 120
+private const val RUN = 140
+private const val TWIST_TIMES = 3
+private const val POWER_STEPS = 1_000
+private const val WIDE_MARQUEE = 1.5f
+private const val MARQUEE_TILT = -7f
+private const val MAX_RANK = 10
+private const val CLOSE_SHARE = 0.05
+private const val FAVOURITE_DAY_KCAL = 2_000.0
+private const val WEEK_DAYS = 14
+private const val MARATHON_KM = 42.195
+private val HALF_MILLION = 500_000L
+private val MILLION = 1_000_000L
 
 private class StorySlide(
-    val aura: Color,
-    val focus: Set<LocalDate>? = null,
-    val short: Boolean = false,
-    val content: @Composable ColumnScope.() -> Unit,
+    val duo: Duo,
+    val gated: Boolean = false,
+    val bleed: Boolean = false,
+    val content: @Composable ColumnScope.(answered: Boolean, release: () -> Unit) -> Unit,
 )
 
-private enum class Entrance { RISE, SLAM, POP, FADE }
+private enum class Entrance { RISE, SLAM, POP, SPIN }
 
 @Composable
 private fun ReportStory(period: Period, onClose: () -> Unit, onDetails: () -> Unit, onShare: (ImageBitmap) -> Unit) {
@@ -197,30 +199,32 @@ private fun ReportStory(period: Period, onClose: () -> Unit, onDetails: () -> Un
     val loaded = rememberInBackground(period) { ReportData.load(context, period)?.let { it to StoryData.load(context, it) } }
     val data = loaded?.value
     val slides = data?.let { (report, facts) -> storySlides(report, facts, onDetails, onShare) }.orEmpty()
-    val colors = TaroTheme.colors
     val spacing = TaroTheme.spacing
     var index by remember { mutableIntStateOf(0) }
     var paused by remember { mutableStateOf(false) }
+    val released = remember { mutableStateListOf<Int>() }
     val progress = remember { Animatable(0f) }
     val shown = remember { intArrayOf(-1) }
+    val waiting = slides.getOrNull(index)?.let { it.gated && index !in released } ?: false
 
-    LaunchedEffect(index, paused, slides.size) {
+    LaunchedEffect(index, paused, slides.size, waiting) {
         if (slides.isEmpty()) return@LaunchedEffect
         if (shown[0] != index) {
             progress.snapTo(0f)
             shown[0] = index
         }
-        if (paused || index == slides.lastIndex) return@LaunchedEffect
-        val length = if (slides[index].short) SHORT_SLIDE_MS else SLIDE_MS
-        progress.animateTo(1f, tween(((1f - progress.value) * length).toInt(), easing = LinearEasing))
+        if (paused || waiting || index == slides.lastIndex) return@LaunchedEffect
+        progress.animateTo(1f, tween(((1f - progress.value) * SLIDE_MS).toInt(), easing = LinearEasing))
         if (index < slides.lastIndex) index++
     }
 
-    val aura by animateColorAsState(slides.getOrNull(index)?.aura ?: colors.goal, tween(900), label = "aura")
+    val duo = slides.getOrNull(index)?.duo ?: FOREST
+    val bg by animateColorAsState(duo.bg, tween(500), label = "story bg")
+    val fg by animateColorAsState(duo.fg, tween(500), label = "story fg")
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(STORY_BACKGROUND)
+            .background(bg)
             .pointerInput(slides.size) {
                 detectTapGestures(
                     onPress = {
@@ -234,15 +238,8 @@ private fun ReportStory(period: Period, onClose: () -> Unit, onDetails: () -> Un
                 )
             },
     ) {
-        Aura(aura)
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = spacing.loose),
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.hair), modifier = Modifier.padding(top = spacing.gap)) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.hair), modifier = Modifier.padding(start = spacing.loose, end = spacing.loose, top = spacing.gap)) {
                 slides.indices.forEach { i ->
                     Box(
                         modifier = Modifier
@@ -250,49 +247,55 @@ private fun ReportStory(period: Period, onClose: () -> Unit, onDetails: () -> Un
                             .height(spacing.hair)
                             .drawBehind {
                                 val radius = CornerRadius(size.height / 2)
-                                drawRoundRect(Color.White.copy(alpha = 0.18f), cornerRadius = radius)
+                                drawRoundRect(fg.copy(alpha = 0.22f), cornerRadius = radius)
                                 val fill = when {
                                     i < index -> 1f
                                     i == index -> progress.value
                                     else -> 0f
                                 }
-                                drawRoundRect(Color.White.copy(alpha = 0.9f), size = Size(size.width * fill, size.height), cornerRadius = radius)
+                                drawRoundRect(fg, size = Size(size.width * fill, size.height), cornerRadius = radius)
                             },
                     )
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = spacing.gap)) {
-                Box(modifier = Modifier.weight(1f)) {
-                    data?.first?.let { Spine(it.inputs.days, slides.getOrNull(index)?.focus) }
-                }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = spacing.loose, end = spacing.tight)) {
+                Text(
+                    text = data?.first?.let { periodLabel(it.inputs.period) }.orEmpty(),
+                    style = TaroTheme.text.note,
+                    color = fg.copy(alpha = DIM),
+                    modifier = Modifier.weight(1f),
+                )
                 Icon(
                     painter = painterResource(R.drawable.ic_close),
                     contentDescription = stringResource(R.string.report_dismiss),
-                    tint = colors.accent,
+                    tint = fg,
                     modifier = Modifier
-                        .padding(start = spacing.gap)
                         .clip(CircleShape)
                         .clickable(onClick = onClose)
-                        .padding(spacing.tight),
+                        .padding(spacing.gap),
                 )
             }
             if (slides.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(if (loaded == null) R.string.story_loading else R.string.report_empty), style = TaroTheme.text.title, color = colors.accent)
+                    Text(stringResource(if (loaded == null) R.string.story_loading else R.string.report_empty), style = TaroTheme.text.title, color = fg)
                 }
             } else {
                 AnimatedContent(
                     targetState = index,
-                    transitionSpec = { fadeIn(tween(420)) togetherWith fadeOut(tween(200)) },
+                    transitionSpec = { fadeIn(tween(260, delayMillis = 160)) togetherWith fadeOut(tween(160)) },
                     label = "story slide",
                     modifier = Modifier.fillMaxSize(),
                 ) { page ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = spacing.loose * 2, bottom = spacing.loose),
-                        content = slides[page].content,
-                    )
+                    val slide = slides[page]
+                    CompositionLocalProvider(LocalDuo provides slide.duo) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(if (slide.bleed) Modifier else Modifier.navigationBarsPadding().padding(start = spacing.loose + spacing.tight, end = spacing.loose + spacing.tight, top = spacing.loose, bottom = spacing.loose)),
+                        ) {
+                            slide.content(this, page in released) { if (page !in released) released += page }
+                        }
+                    }
                 }
             }
         }
@@ -300,74 +303,17 @@ private fun ReportStory(period: Period, onClose: () -> Unit, onDetails: () -> Un
 }
 
 @Composable
-private fun Aura(color: Color) {
-    val enabled = rememberAnimationsEnabled()
-    val drift = if (enabled) {
-        rememberInfiniteTransition(label = "aura").animateFloat(-1f, 1f, infiniteRepeatable(tween(AURA_MS), RepeatMode.Reverse), label = "drift")
+private fun periodLabel(period: Period): String {
+    val dayFormat = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
+    return if (period.kind == ReportKind.WEEK) {
+        stringResource(R.string.report_week_range, period.start.format(dayFormat), period.end.format(dayFormat))
     } else {
-        null
-    }
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val shift = (drift?.value ?: 0f) * size.width * AURA_DRIFT
-        drawRect(
-            Brush.radialGradient(
-                listOf(color.copy(alpha = AURA_ALPHA), Color.Transparent),
-                center = Offset(size.width * 0.2f + shift, size.height * 0.12f + shift),
-                radius = size.width * 1.1f,
-            )
-        )
-        drawRect(
-            Brush.radialGradient(
-                listOf(color.copy(alpha = AURA_ALPHA / 2), Color.Transparent),
-                center = Offset(size.width * 0.9f - shift, size.height * 0.92f),
-                radius = size.width * 0.9f,
-            )
-        )
+        "${period.start.month.getDisplayName(DayStyle.FULL, Locale.getDefault())} ${period.start.year}"
     }
 }
 
 @Composable
-private fun Spine(days: List<DayInput>, focus: Set<LocalDate>?) {
-    val colors = TaroTheme.colors
-    val spacing = TaroTheme.spacing
-    val visible by animateFloatAsState(if (focus == null) 0f else 1f, tween(400), label = "spine")
-    val max = (days.maxOfOrNull { maxOf(it.steps, it.goal) } ?: 1).coerceAtLeast(1)
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(if (days.size > 7) spacing.hair / 2 else spacing.tight),
-        verticalAlignment = Alignment.Bottom,
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(SPINE_ASPECT)
-            .graphicsLayer { alpha = visible },
-    ) {
-        days.forEach { day ->
-            val lit by animateFloatAsState(if (focus?.contains(day.date) == true) 1f else SPINE_DIM, tween(500), label = "day")
-            val color = dayColor(day)
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxSize()
-                    .drawBehind {
-                        val height = size.height * (day.steps.toFloat() / max).coerceIn(SPINE_FLOOR, 1f)
-                        val width = size.width * SPINE_BAR
-                        drawRoundRect(
-                            color.copy(alpha = color.alpha * lit),
-                            topLeft = Offset((size.width - width) / 2, size.height - height),
-                            size = Size(width, height),
-                            cornerRadius = CornerRadius(minOf(width, height) / 2),
-                        )
-                    },
-            )
-        }
-    }
-}
-
-@Composable
-private fun dayColor(day: DayInput): Color =
-    if (day.goal > 0 && day.steps >= day.goal) TaroTheme.colors.goal else MaterialTheme.colorScheme.onSurface.copy(alpha = MISSED_ALPHA)
-
-@Composable
-private fun Reveal(delay: Int, entrance: Entrance = Entrance.RISE, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+private fun Reveal(delay: Int, entrance: Entrance = Entrance.RISE, modifier: Modifier = Modifier, tilt: Float = 0f, content: @Composable () -> Unit) {
     val enabled = rememberAnimationsEnabled()
     val haptics = LocalHapticFeedback.current
     val rise = with(LocalDensity.current) { TaroTheme.spacing.loose.toPx() * RISE_SHARE }
@@ -383,13 +329,14 @@ private fun Reveal(delay: Int, entrance: Entrance = Entrance.RISE, modifier: Mod
                 }
                 progress.animateTo(1f, TaroMotion.bouncy())
             }
-            Entrance.POP -> progress.animateTo(1f, TaroMotion.bouncy())
-            else -> progress.animateTo(1f, tween(if (entrance == Entrance.FADE) 900 else 700))
+            Entrance.POP, Entrance.SPIN -> progress.animateTo(1f, TaroMotion.bouncy())
+            Entrance.RISE -> progress.animateTo(1f, tween(700, easing = FastOutSlowInEasing))
         }
     }
     Box(
         modifier = modifier.graphicsLayer {
             val p = progress.value
+            rotationZ = tilt
             when (entrance) {
                 Entrance.RISE -> {
                     alpha = p.coerceIn(0f, 1f)
@@ -400,450 +347,300 @@ private fun Reveal(delay: Int, entrance: Entrance = Entrance.RISE, modifier: Mod
                     val scale = SLAM_FROM - (SLAM_FROM - 1f) * p
                     scaleX = scale
                     scaleY = scale
-                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f)
+                    transformOrigin = TransformOrigin(0f, 0.5f)
                 }
                 Entrance.POP -> {
                     alpha = p.coerceIn(0f, 1f)
                     scaleX = p
                     scaleY = p
                 }
-                Entrance.FADE -> alpha = p.coerceIn(0f, 1f)
+                Entrance.SPIN -> {
+                    alpha = p.coerceIn(0f, 1f)
+                    scaleX = p
+                    scaleY = p
+                    rotationZ = SPIN_FROM + (tilt - SPIN_FROM) * p
+                }
             }
         },
     ) { content() }
 }
 
-private const val SLAM_HAPTIC_MS = 180L
+@Composable
+private fun Kick(text: String, delay: Int = 0, color: Color = LocalDuo.current.fg) = Reveal(delay) {
+    Text(text.uppercase(), style = TaroTheme.text.storyKick, color = color.copy(alpha = DIM))
+}
 
 @Composable
-private fun Speaker(where: String? = null, delay: Int = 0) = Reveal(delay) {
-    val colors = TaroTheme.colors
-    val type = TaroTheme.text
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            painter = painterResource(R.drawable.ic_pic_phone),
-            contentDescription = null,
-            tint = colors.accent,
-            modifier = Modifier.size(with(LocalDensity.current) { type.heroLabel.lineHeight.toDp() }),
-        )
-        Text(
-            text = (if (where == null) stringResource(R.string.story_phone) else stringResource(R.string.story_phone_at, where)).uppercase(),
-            style = type.heroLabel,
-            color = colors.accent,
-            modifier = Modifier.padding(start = TaroTheme.spacing.tight),
-        )
+private fun Head(text: String, delay: Int = 0, color: Color = LocalDuo.current.fg, entrance: Entrance = Entrance.RISE, accent: String? = null, accentColor: Color = color) =
+    Reveal(delay, entrance, Modifier.padding(top = TaroTheme.spacing.gap)) {
+        Text(highlighted(text, accent, accentColor), style = TaroTheme.text.storyHead, color = color)
+    }
+
+@Composable
+private fun Mid(text: String, delay: Int = 0, color: Color = LocalDuo.current.fg, modifier: Modifier = Modifier) = Reveal(delay, modifier = modifier) {
+    Text(text, style = TaroTheme.text.storyMid, color = color)
+}
+
+@Composable
+private fun Say(text: String, delay: Int = 0, bold: String? = null, color: Color = LocalDuo.current.fg, alpha: Float = 1f, modifier: Modifier = Modifier) =
+    Reveal(delay, modifier = modifier.padding(top = TaroTheme.spacing.gap)) {
+        Text(highlighted(text, bold, color, FontWeight.Black), style = TaroTheme.text.storySay, color = color.copy(alpha = alpha))
+    }
+
+private fun highlighted(text: String, part: String?, color: Color, weight: FontWeight? = null) = buildAnnotatedString {
+    val at = part?.let { text.indexOf(it) } ?: -1
+    if (at < 0) {
+        append(text)
+    } else {
+        append(text.substring(0, at))
+        withStyle(SpanStyle(color = color, fontWeight = weight)) { append(part!!) }
+        append(text.substring(at + part!!.length))
     }
 }
 
 @Composable
-private fun Kick(text: String, delay: Int = 0) = Reveal(delay) {
-    Text(text.uppercase(), style = TaroTheme.text.heroLabel, color = TaroTheme.colors.accent)
-}
-
-@Composable
-private fun Line(text: String, highlight: String? = null, color: Color = TaroTheme.colors.goal, delay: Int = 0, style: TextStyle = TaroTheme.text.storyLine) = Reveal(delay) {
-    val ink = MaterialTheme.colorScheme.onSurface
-    val shown = buildAnnotatedString {
-        val at = highlight?.let { text.lastIndexOf(it) } ?: -1
-        if (at < 0) {
-            append(text)
-        } else {
-            append(text.substring(0, at))
-            withStyle(SpanStyle(color = color)) { append(highlight!!) }
-            append(text.substring(at + highlight!!.length))
-        }
+private fun Giant(text: String, delay: Int = 0, color: Color = LocalDuo.current.fg, entrance: Entrance = Entrance.SLAM, scale: Float = 1f) =
+    Reveal(delay, entrance, Modifier.fillMaxWidth()) {
+        val style = TaroTheme.text.storyGiant.let { it.copy(fontSize = it.fontSize * scale, lineHeight = it.lineHeight * scale, color = color) }
+        BasicText(text, style = style, maxLines = 1, autoSize = TextAutoSize.StepBased(maxFontSize = style.fontSize))
     }
-    Text(shown, style = style, color = ink, modifier = Modifier.padding(top = TaroTheme.spacing.gap))
-}
 
 @Composable
-private fun Say(text: String, highlight: String? = null, color: Color = TaroTheme.colors.goal, delay: Int = 0) =
-    Line(text, highlight, color, delay, TaroTheme.text.meterLabel.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = LINE_DIM)))
-
-@Composable
-private fun Aside(text: String, delay: Int) = Reveal(delay) {
-    Text(
-        text = text,
-        style = TaroTheme.text.storyAside,
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = ASIDE_DIM),
-        modifier = Modifier.padding(top = TaroTheme.spacing.gap),
-    )
-}
-
-@Composable
-private fun Slam(text: String, color: Color = MaterialTheme.colorScheme.onSurface, delay: Int = 0, share: Float = 1f) = Reveal(delay, Entrance.SLAM, Modifier.padding(top = TaroTheme.spacing.gap)) {
-    val stamp = TaroTheme.text.stamp
-    Text(
-        text = text.uppercase(),
-        style = stamp.copy(fontSize = stamp.fontSize * share, lineHeight = stamp.lineHeight * share),
-        color = color,
-    )
-}
-
-@Composable
-private fun BigNumber(value: String, color: Color, delay: Int = 0) = Reveal(delay) {
-    RollingText(value, style = TaroTheme.text.storyNumber.copy(color = color))
-}
-
-private class Thing(@DrawableRes val icon: Int, @StringRes val long: Int, @StringRes val short: Int, val size: Double)
-
-private val STEP_THINGS = listOf(
-    Thing(R.drawable.ic_pic_tower, R.string.story_thing_eiffel, R.string.story_short_eiffel, 1_665.0),
-    Thing(R.drawable.ic_pic_skyscraper, R.string.story_thing_burj, R.string.story_short_burj, 2_909.0),
-)
-private val DISTANCE_THINGS = listOf(
-    Thing(R.drawable.ic_pic_bridge, R.string.story_thing_sealink, R.string.story_short_sealink, 5_600.0),
-    Thing(R.drawable.ic_pic_mountain, R.string.story_thing_everest, R.string.story_short_everest, 8_849.0),
-    Thing(R.drawable.ic_pic_medal, R.string.story_thing_marathon, R.string.story_short_marathon, 42_195.0),
-    Thing(R.drawable.ic_pic_track, R.string.story_thing_track, R.string.story_short_track, 400.0),
-)
-private val SNACK_THINGS = listOf(
-    Thing(R.drawable.ic_pic_samosa, R.string.story_thing_samosa, R.string.story_short_samosa, 203.0),
-    Thing(R.drawable.ic_pic_pizza, R.string.story_thing_pizza, R.string.story_short_pizza, 285.0),
-    Thing(R.drawable.ic_pic_banana, R.string.story_thing_banana, R.string.story_short_banana, 105.0),
-    Thing(R.drawable.ic_pic_cup, R.string.story_thing_chai, R.string.story_short_chai, 68.0),
-)
-private val SLEEP_THINGS = listOf(
-    Thing(R.drawable.ic_pic_film, R.string.story_thing_film, R.string.story_short_film, 2.5 * 60),
-    Thing(R.drawable.ic_pic_koala, R.string.story_thing_koala, R.string.story_short_koala, 20.0 * 60),
-)
-private val WALK_THINGS = listOf(
-    Thing(R.drawable.ic_pic_tv, R.string.story_thing_sitcom, R.string.story_short_sitcom, 22.0),
-    Thing(R.drawable.ic_pic_note, R.string.story_thing_song, R.string.story_short_song, 3.5),
-)
-private val WEIGHT_THINGS = listOf(
-    Thing(R.drawable.ic_pic_mango, R.string.story_thing_mango, R.string.story_short_mango, 0.3),
-    Thing(R.drawable.ic_pic_banana, R.string.story_thing_banana_kg, R.string.story_short_banana, 0.12),
-    Thing(R.drawable.ic_pic_phone, R.string.story_thing_phone, R.string.story_short_phone, 0.2),
-)
-
-private class Match(val thing: Thing, val count: Double)
-
-private fun pick(random: Random, value: Double, vararg pools: Pair<List<Thing>, Double>): Match? =
-    pools.flatMap { (pool, scale) -> pool.map { Match(it, value * scale / it.size) } }
-        .filter { it.count >= 1.0 && it.count <= MAX_PICTOS * 4 }
-        .randomOrNull(random)
-
-private fun grouped(value: Number): String = NumberFormat.getIntegerInstance(Locale.getDefault()).format(value.toDouble().roundToLong())
-
-private fun amount(value: Double): String {
-    val tenths = (value * 10).roundToLong()
-    return if (value < 10 && tenths % 10 != 0L) "%.1f".format(Locale.getDefault(), tenths / 10.0) else grouped(value)
-}
-
-@Composable
-private fun Pictos(match: Match, color: Color, delay: Int, columns: Int = 10) {
-    val shown = minOf(ceil(match.count).toInt(), MAX_PICTOS)
-    val partial = (match.count - floor(match.count)).toFloat().takeIf { it > 0f && match.count < MAX_PICTOS }
-    val spacing = TaroTheme.spacing
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.tight), modifier = Modifier.padding(top = spacing.loose)) {
-        (0 until shown).chunked(columns).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.tight)) {
-                row.forEach { i ->
-                    val last = i == shown - 1 && partial != null
-                    Reveal(delay + i * PICTO_STEP_MS, Entrance.POP, Modifier.weight(1f)) {
-                        Icon(
-                            painter = painterResource(match.thing.icon),
-                            contentDescription = null,
-                            tint = color,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f)
-                                .then(if (last) Modifier.drawWithContent { clipRect(right = size.width * partial!!) { this@drawWithContent.drawContent() } } else Modifier),
-                        )
-                    }
-                }
-                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StoryBars(days: List<DayInput>, focus: Set<LocalDate>, until: LocalDate? = null, gap: LocalDate? = null, madeUp: LocalDate? = null, delay: Int = 0) {
-    val colors = TaroTheme.colors
-    val ink = MaterialTheme.colorScheme.onSurface
-    val measurer = rememberTextMeasurer()
-    val axis = TaroTheme.text.axis.copy(color = colors.accent)
-    val growth = rememberBarGrowth(delay, days.size)
-    val week = days.size <= 7
-    val max = (days.maxOfOrNull { maxOf(it.steps, it.goal) } ?: 1) * HEADROOM
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(CHART_ASPECT)
-            .padding(top = TaroTheme.spacing.gap),
-    ) {
-        val label = if (week) measurer.measure("M", axis).size.height.toFloat() else 0f
-        val height = size.height - label * 1.3f
-        val slot = size.width / days.size
-        val width = slot * BAR_SHARE
-        val stroke = size.minDimension * STROKE_SHARE
-        fun y(value: Double) = (height - value / max * height).toFloat()
-        val shownDays = days.filter { until == null || !it.date.isAfter(until) }
-        shownDays.lastOrNull()?.goal?.takeIf { it > 0 }?.let { goal ->
-            drawLine(ink.copy(alpha = 0.45f), Offset(0f, y(goal.toDouble())), Offset(size.width, y(goal.toDouble())), stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(stroke * 3, stroke * 4)))
-        }
-        days.forEachIndexed { i, day ->
-            val left = i * slot + (slot - width) / 2
-            if (week) {
-                val text = measurer.measure(day.date.dayOfWeek.getDisplayName(DayStyle.NARROW, Locale.getDefault()), axis)
-                drawText(text, topLeft = Offset(left + (width - text.size.width) / 2, size.height - text.size.height))
-            }
-            if (day !in shownDays) return@forEachIndexed
-            val grown = growth.bar(i)
-            val alpha = if (day.date in focus || focus.isEmpty()) 1f else UNFOCUSED_ALPHA
-            val radius = CornerRadius(width * 0.3f)
-            if (day.date == madeUp && day.goal > 0) {
-                val goalTop = y(day.goal.toDouble())
-                drawRoundRect(colors.goal.copy(alpha = alpha), Offset(left, height - (height - goalTop) * grown), Size(width, (height - goalTop) * grown), radius)
-                val top = y(day.steps.toDouble())
-                drawRoundRect(colors.mint.copy(alpha = alpha), Offset(left, goalTop - (goalTop - top) * grown), Size(width, (goalTop - top) * grown - stroke), radius)
-            } else {
-                val top = y(day.steps.toDouble())
-                val color = if (day.goal > 0 && day.steps >= day.goal) colors.goal else ink.copy(alpha = MISSED_ALPHA)
-                drawRoundRect(color.copy(alpha = color.alpha * alpha), Offset(left, height - (height - top) * grown), Size(width, (height - top) * grown), radius)
-            }
-            if (day.date == gap && day.goal > day.steps) {
-                drawRoundRect(
-                    colors.red,
-                    Offset(left, y(day.goal.toDouble())),
-                    Size(width, y(day.steps.toDouble()) - y(day.goal.toDouble())),
-                    radius,
-                    style = Stroke(stroke * 1.6f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(stroke * 3, stroke * 3))),
-                    alpha = grown.coerceIn(0f, 1f),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun NightBlip(moment: Moment, label: String) {
-    val colors = TaroTheme.colors
-    val measurer = rememberTextMeasurer()
-    val axis = TaroTheme.text.axis.copy(color = colors.accent)
-    val note = TaroTheme.text.meterValue.copy(color = colors.special)
-    val draw = rememberDrawIn(moment)
-    val zone = ZoneId.systemDefault()
-    val time = Instant.ofEpochMilli(moment.at).atZone(zone)
-    val hour = (time.hour + time.minute / 60.0 - NIGHT_FROM + 24) % 24
-    Canvas(modifier = Modifier.fillMaxWidth().aspectRatio(CHART_ASPECT)) {
-        val axisHeight = measurer.measure("0", axis).size.height * 1.3f
-        val laneHeight = size.height * 0.3f
-        val laneTop = size.height - axisHeight - laneHeight
-        val stroke = size.minDimension * STROKE_SHARE
-        drawRoundRect(colors.sleep.copy(alpha = 0.18f), Offset(0f, laneTop), Size(size.width, laneHeight), CornerRadius(laneHeight / 2))
-        val x = (hour / NIGHT_HOURS * size.width).toFloat()
-        val top = size.height * 0.12f
-        val reach = draw.value
-        drawLine(colors.special, Offset(x, laneTop), Offset(x, laneTop - (laneTop - top) * reach), stroke * 2.5f, StrokeCap.Round)
-        if (reach > 0.95f) {
-            drawCircle(colors.special, stroke * 4, Offset(x, top))
-            val text = measurer.measure(label, note)
-            val textX = if (x + text.size.width + stroke * 8 < size.width) x + stroke * 6 else x - text.size.width - stroke * 6
-            drawText(text, topLeft = Offset(textX, top - text.size.height / 2))
-        }
-        listOf(0 to "10p", 2 to "12a", 5 to "3a", 8 to "6a").forEach { (h, l) ->
-            val text = measurer.measure(l, axis)
-            val at = h.toFloat() / NIGHT_HOURS * size.width
-            drawText(text, topLeft = Offset((at - text.size.width / 2).coerceIn(0f, size.width - text.size.width), size.height - text.size.height))
-        }
-    }
-}
-
-@Composable
-private fun StillLane(minutes: List<Pair<Long, Int>>, still: Stillness) {
-    val colors = TaroTheme.colors
-    val measurer = rememberTextMeasurer()
-    val axis = TaroTheme.text.axis.copy(color = colors.accent)
-    val draw = rememberDrawIn(still)
-    val zone = ZoneId.systemDefault()
-    fun hourOf(at: Long) = Instant.ofEpochMilli(at).atZone(zone).let { it.hour + it.minute / 60f }
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(LANE_ASPECT / 1.6f)
-            .padding(top = TaroTheme.spacing.loose),
-    ) {
-        val axisHeight = measurer.measure("0", axis).size.height * 1.3f
-        val lane = size.height - axisHeight
-        val radius = CornerRadius(lane / 2)
-        val stroke = size.minDimension * STROKE_SHARE * 2
-        fun x(hour: Float) = hour / 24f * size.width
-        drawRoundRect(Color.White.copy(alpha = 0.06f), Offset.Zero, Size(size.width, lane), radius)
-        minutes.filter { it.second > 0 }.forEach { (at, _) ->
-            val left = x(hourOf(at))
-            drawRect(colors.goal.copy(alpha = draw.value), Offset(left, lane * 0.2f), Size(size.width / (24 * 60) * 2, lane * 0.6f))
-        }
-        val from = x(hourOf(still.from))
-        val width = still.minutes / (24f * 60f) * size.width * draw.value
-        drawRoundRect(colors.special.copy(alpha = STILL_HAIR), Offset(from, 0f), Size(width, lane), radius)
-        drawRoundRect(colors.special, Offset(from, 0f), Size(width, lane), radius, style = Stroke(stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(stroke * 2, stroke * 2))))
-        listOf(0 to "12a", 6 to "6a", 12 to "12p", 18 to "6p").forEach { (h, l) ->
-            val text = measurer.measure(l, axis)
-            drawText(text, topLeft = Offset(x(h.toFloat()).coerceAtMost(size.width - text.size.width), size.height - text.size.height))
-        }
-    }
-}
-
-@Composable
-private fun HourCurve(hours: List<Int>, color: Color) {
-    val measurer = rememberTextMeasurer()
-    val axis = TaroTheme.text.axis.copy(color = TaroTheme.colors.accent)
-    val draw = rememberDrawIn(hours)
-    val peak = hours.indices.maxByOrNull { hours[it] } ?: 0
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(CHART_ASPECT * 1.2f),
-    ) {
-        val axisHeight = measurer.measure("0", axis).size.height * 1.3f
-        val height = size.height - axisHeight
-        val max = (hours.maxOrNull() ?: 1).coerceAtLeast(1) * HEADROOM
-        val points = hours.mapIndexed { i, v -> Offset((i + 0.5f) / hours.size * size.width, (height - v / max * height).toFloat()) }
-        val line = monotonePath(points)
-        val area = monotonePath(points).apply {
-            lineTo(points.last().x, height)
-            lineTo(points.first().x, height)
-            close()
-        }
-        drawPath(area, Brush.verticalGradient(listOf(color.copy(alpha = 0.4f * draw.fill()), Color.Transparent), startY = 0f, endY = height))
-        drawPath(line.partial(draw.value), color, style = Stroke(size.minDimension * STROKE_SHARE * 2.5f, cap = StrokeCap.Round))
-        if (draw.value > 0.95f) drawCircle(color, size.minDimension * STROKE_SHARE * 5, points[peak])
-        listOf(0 to "12a", 6 to "6a", 12 to "12p", 18 to "6p").forEach { (h, l) ->
-            drawText(measurer.measure(l, axis), topLeft = Offset(h / 24f * size.width, size.height - axisHeight / 1.3f))
-        }
-    }
-}
-
-@Composable
-private fun ShareBars(shares: List<Int>, color: Color, labels: List<String>) {
-    val measurer = rememberTextMeasurer()
-    val axis = TaroTheme.text.axis.copy(color = TaroTheme.colors.accent)
-    val value = TaroTheme.text.meterValue
-    val growth = rememberBarGrowth(shares, shares.size)
-    Canvas(modifier = Modifier.fillMaxWidth().aspectRatio(CHART_ASPECT).padding(top = TaroTheme.spacing.loose)) {
-        val axisHeight = measurer.measure("0", axis).size.height * 1.4f
-        val valueHeight = measurer.measure("0", value).size.height * 1.3f
-        val height = size.height - axisHeight - valueHeight
-        val slot = size.width / shares.size
-        val width = slot * BAR_SHARE
-        val top = (shares.maxOrNull() ?: 1).coerceAtLeast(1).toFloat()
-        shares.forEachIndexed { i, share ->
-            val last = i == shares.lastIndex
-            val alpha = if (last) 1f else 0.35f + 0.12f * i
-            val h = share / top * height * growth.bar(i)
-            val left = i * slot + (slot - width) / 2
-            val top = valueHeight + height - h
-            drawRoundRect(color.copy(alpha = alpha), Offset(left, top), Size(width, h), CornerRadius(width * 0.2f))
-            val text = measurer.measure("$share%", value.copy(color = if (last) color else Color.White.copy(alpha = 0.6f)))
-            drawText(text, topLeft = Offset(left + (width - text.size.width) / 2, top - text.size.height * 1.15f), alpha = growth.bar(i).coerceIn(0f, 1f))
-            val label = measurer.measure(labels[i], axis)
-            drawText(label, topLeft = Offset(left + (width - label.size.width) / 2, size.height - label.size.height))
-        }
-    }
-}
-
-@Composable
-private fun CompareRow(label: String, value: String, fraction: Float, color: Color, delay: Int) {
-    val type = TaroTheme.text
-    val spacing = TaroTheme.spacing
-    val grow = remember { Animatable(0f) }
+private fun CountGiant(value: Long, delay: Int = 0, color: Color = LocalDuo.current.fg, scale: Float = 1f, prefix: String = "") {
     val enabled = rememberAnimationsEnabled()
+    val count = remember { Animatable(if (enabled) 0f else 1f) }
     LaunchedEffect(Unit) {
-        if (!enabled) grow.snapTo(1f) else {
-            delay(delay.toLong())
-            grow.animateTo(1f, TaroMotion.snappy())
-        }
+        if (!enabled) return@LaunchedEffect
+        delay(delay.toLong())
+        count.animateTo(1f, tween(COUNT_MS, easing = FastOutSlowInEasing))
     }
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = spacing.gap)) {
-        Text(label, style = type.meterLabel, color = MaterialTheme.colorScheme.onSurface.copy(alpha = LINE_DIM), modifier = Modifier.weight(0.35f))
+    val style = TaroTheme.text.storyGiant.let { it.copy(fontSize = it.fontSize * scale, lineHeight = it.lineHeight * scale, color = color) }
+    BasicText(
+        text = prefix + grouped((value * count.value).roundToLong()),
+        style = style,
+        maxLines = 1,
+        autoSize = TextAutoSize.StepBased(maxFontSize = style.fontSize),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun Sticker(text: String, delay: Int, bg: Color = LocalDuo.current.fg, fg: Color = LocalDuo.current.bg, tilt: Float = STICKER_TILT, modifier: Modifier = Modifier) =
+    Reveal(delay, Entrance.SPIN, modifier.padding(top = TaroTheme.spacing.loose), tilt) {
+        Text(
+            text = text.uppercase(),
+            style = TaroTheme.text.storyMid,
+            color = fg,
+            modifier = Modifier
+                .clip(RoundedCornerShape(TaroTheme.spacing.gap))
+                .background(bg)
+                .padding(horizontal = TaroTheme.spacing.loose, vertical = TaroTheme.spacing.tight),
+        )
+    }
+
+@Composable
+private fun ColumnScope.Fill() = Spacer(Modifier.weight(1f))
+
+@Composable
+private fun Marquee(text: String, bg: Color, fg: Color, tilt: Float, alpha: Float = 1f) {
+    val animate = rememberAnimationsEnabled()
+    BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Box(
             modifier = Modifier
-                .weight(0.45f)
-                .height(spacing.gap)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f)),
+                .requiredWidth(maxWidth * WIDE_MARQUEE)
+                .graphicsLayer {
+                    rotationZ = tilt
+                    this.alpha = alpha
+                }
+                .background(bg)
+                .padding(vertical = TaroTheme.spacing.gap),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth((fraction * grow.value).coerceIn(0f, 1f))
-                    .height(spacing.gap)
-                    .clip(CircleShape)
-                    .background(color),
+            Text(
+                text = text.repeat(4),
+                style = TaroTheme.text.storyMid,
+                color = fg,
+                maxLines = 1,
+                softWrap = false,
+                modifier = if (animate) Modifier.basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = 0, initialDelayMillis = 0) else Modifier,
             )
         }
-        Text(value, style = type.meterLabel, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(0.2f).padding(start = spacing.gap))
     }
 }
 
+private class Choice(val label: String, val reveal: String? = null)
+
 @Composable
-private fun StreakChain(count: Int, delay: Int) {
-    val colors = TaroTheme.colors
-    val shown = count.coerceAtMost(MAX_CHAIN)
-    val dot = with(LocalDensity.current) { TaroTheme.text.storyAside.lineHeight.toDp() }
-    Row(horizontalArrangement = Arrangement.spacedBy(TaroTheme.spacing.tight), modifier = Modifier.padding(top = TaroTheme.spacing.loose)) {
-        repeat(shown) { i ->
-            Reveal(delay + i * 90, Entrance.POP) {
-                Box(modifier = Modifier.size(dot).clip(CircleShape).background(colors.goal))
+private fun ColumnScope.Choices(choices: List<Choice>, answer: Int, retry: Boolean, big: Boolean, onDone: () -> Unit) {
+    val duo = LocalDuo.current
+    val spacing = TaroTheme.spacing
+    val haptics = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val wrong = remember { mutableStateListOf<Int>() }
+    var picked by remember { mutableStateOf<Int?>(null) }
+    val shift = with(LocalDensity.current) { spacing.tight.toPx() }
+    val style = if (big) TaroTheme.text.storyGiant.let { it.copy(fontSize = it.fontSize * 0.6f, lineHeight = it.lineHeight * 0.6f) } else TaroTheme.text.storyHead
+    Column(
+        verticalArrangement = Arrangement.spacedBy(if (big) spacing.gap else spacing.tight),
+        modifier = Modifier.weight(1f).fillMaxWidth().padding(top = spacing.wide),
+    ) {
+        choices.forEachIndexed { i, choice ->
+            val shake = remember { Animatable(0f) }
+            val right = picked == answer && i == answer
+            val missed = i in wrong
+            val lift by animateFloatAsState(if (right) 1f else 0f, TaroMotion.bouncy(), label = "pick")
+            Reveal(300 + i * 60, modifier = Modifier.weight(1f).fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            translationX = shake.value * shift
+                            scaleX = 1f + lift * 0.04f
+                            scaleY = 1f + lift * 0.04f
+                        }
+                        .clip(RoundedCornerShape(spacing.loose))
+                        .background(
+                            when {
+                                right -> duo.fg
+                                missed -> duo.fg.copy(alpha = SOFT / 2)
+                                else -> duo.fg.copy(alpha = SOFT)
+                            }
+                        )
+                        .clickable(enabled = picked == null && !missed) {
+                            if (i == answer) {
+                                picked = i
+                                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                                scope.launch {
+                                    delay(ANSWER_MS)
+                                    onDone()
+                                }
+                            } else {
+                                wrong += i
+                                if (!retry) picked = i
+                                haptics.performHapticFeedback(HapticFeedbackType.Reject)
+                                scope.launch {
+                                    shake.animateTo(0f, keyframes {
+                                        durationMillis = 400
+                                        -1f at 80
+                                        1f at 160
+                                        -1f at 240
+                                        1f at 320
+                                    })
+                                    if (!retry) {
+                                        delay(ANSWER_MS)
+                                        onDone()
+                                    }
+                                }
+                            }
+                        }
+                        .padding(horizontal = spacing.loose + spacing.tight),
+                ) {
+                    Text(
+                        choice.label,
+                        style = style,
+                        color = if (right) duo.bg else duo.fg.copy(alpha = if (missed) 0.4f else 1f),
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (missed && choice.reveal != null) Text(choice.reveal, style = TaroTheme.text.storyMid, color = duo.fg.copy(alpha = DIM), maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+private class TileSpec(val duo: Duo, val value: String, val line: String, val wide: Boolean = false)
+
+@Composable
+private fun ColumnScope.Bento(tiles: List<TileSpec>) {
+    val spacing = TaroTheme.spacing
+    val rows = buildList {
+        var pending: TileSpec? = null
+        tiles.forEach { tile ->
+            when {
+                tile.wide -> add(listOf(tile))
+                pending == null -> pending = tile
+                else -> {
+                    add(listOf(pending!!, tile))
+                    pending = null
+                }
+            }
+        }
+        pending?.let { add(listOf(it)) }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.gap), modifier = Modifier.weight(1f).fillMaxWidth().padding(top = spacing.loose)) {
+        var order = 0
+        rows.forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.gap), modifier = Modifier.weight(1f).fillMaxWidth()) {
+                row.forEach { tile ->
+                    Reveal(100 + order++ * 150, Entrance.POP, Modifier.weight(1f).fillMaxHeight()) {
+                        Column(
+                            verticalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(spacing.loose * 1.25f))
+                                .background(tile.duo.bg)
+                                .padding(spacing.loose),
+                        ) {
+                            BasicText(tile.value, style = TaroTheme.text.storyTile.copy(color = tile.duo.fg), maxLines = 1, autoSize = TextAutoSize.StepBased(maxFontSize = TaroTheme.text.storyTile.fontSize))
+                            Text(tile.line, style = TaroTheme.text.note, color = tile.duo.fg)
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ProgressLine(fraction: Float, color: Color, delay: Int) {
-    val grow = remember { Animatable(0f) }
+private fun GrowBar(text: String, fraction: Float, delay: Int, alpha: Float = 1f) {
+    val duo = LocalDuo.current
     val enabled = rememberAnimationsEnabled()
+    val grow = remember { Animatable(if (enabled) 0f else 1f) }
     LaunchedEffect(Unit) {
-        if (!enabled) grow.snapTo(1f) else {
-            delay(delay.toLong())
-            grow.animateTo(1f, TaroMotion.snappy())
-        }
+        if (!enabled) return@LaunchedEffect
+        delay(delay.toLong())
+        grow.animateTo(1f, tween(1_200, easing = FastOutSlowInEasing))
     }
     Box(
         modifier = Modifier
-            .padding(top = TaroTheme.spacing.loose)
-            .fillMaxWidth()
-            .height(TaroTheme.spacing.tight)
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.1f)),
+            .padding(top = TaroTheme.spacing.gap)
+            .fillMaxWidth((fraction * grow.value).coerceIn(0.01f, 1f))
+            .clip(RoundedCornerShape(TaroTheme.spacing.loose))
+            .background(duo.fg.copy(alpha = alpha))
+            .padding(horizontal = TaroTheme.spacing.loose, vertical = TaroTheme.spacing.gap),
     ) {
-        Box(modifier = Modifier.fillMaxWidth((fraction * grow.value).coerceIn(0f, 1f)).height(TaroTheme.spacing.tight).clip(CircleShape).background(color))
+        Text(text, style = TaroTheme.text.storyMid, color = duo.bg, maxLines = 1, softWrap = false)
     }
 }
 
 @Composable
-private fun NextWeek(highlight: Int?, firstDay: java.time.DayOfWeek, delay: Int) {
-    val colors = TaroTheme.colors
-    val spacing = TaroTheme.spacing
-    Row(horizontalArrangement = Arrangement.spacedBy(spacing.tight), modifier = Modifier.padding(top = spacing.loose)) {
-        (0 until 7).forEach { i ->
-            val day = firstDay.plus(i.toLong())
-            val lit = day.value == highlight
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                Reveal(delay + i * 70, Entrance.POP) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(0.8f)
-                            .drawBehind {
-                                val stroke = size.minDimension * 0.05f
-                                drawRoundRect(
-                                    if (lit) colors.goal else Color.White.copy(alpha = 0.22f),
-                                    cornerRadius = CornerRadius(size.minDimension * 0.2f),
-                                    style = Stroke(stroke, pathEffect = if (lit) null else PathEffect.dashPathEffect(floatArrayOf(stroke * 2, stroke * 2))),
-                                )
-                                if (lit) drawRoundRect(colors.goal.copy(alpha = 0.15f), cornerRadius = CornerRadius(size.minDimension * 0.2f))
-                            },
-                    )
-                }
-                Text(
-                    day.getDisplayName(DayStyle.NARROW, Locale.getDefault()),
-                    style = TaroTheme.text.axis,
-                    color = if (lit) MaterialTheme.colorScheme.onSurface else colors.accent,
-                    modifier = Modifier.padding(top = spacing.hair),
+private fun Dots(count: Int, columns: Int, delay: Int, color: Color = LocalDuo.current.fg, highlightFrom: Int = Int.MAX_VALUE, highlight: Color = THIS_PERIOD) {
+    val enabled = rememberAnimationsEnabled()
+    val rows = ceil(count / columns.toFloat()).toInt().coerceAtLeast(1)
+    val total = (count * DOT_STEP_MS + 400).toFloat()
+    val time = remember { Animatable(if (enabled) 0f else total) }
+    LaunchedEffect(Unit) {
+        if (!enabled) return@LaunchedEffect
+        delay(delay.toLong())
+        time.animateTo(total, tween(total.toInt(), easing = LinearEasing))
+    }
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = TaroTheme.spacing.loose)
+            .aspectRatio(columns / rows.toFloat()),
+    ) {
+        val cell = size.width / columns
+        val radius = cell * 0.4f
+        repeat(count) { i ->
+            val local = ((time.value - i * DOT_STEP_MS) / 300f).coerceIn(0f, 1f)
+            val pop = 1f + 2.70158f * (local - 1f) * (local - 1f) * (local - 1f) + 1.70158f * (local - 1f) * (local - 1f)
+            if (local > 0f) {
+                drawCircle(
+                    color = if (i >= highlightFrom) highlight else color,
+                    radius = radius * pop,
+                    center = Offset(cell * (i % columns) + cell / 2, cell * (i / columns) + cell / 2),
                 )
             }
         }
@@ -851,8 +648,794 @@ private fun NextWeek(highlight: Int?, firstDay: java.time.DayOfWeek, delay: Int)
 }
 
 @Composable
-private fun clockOf(minuteOfDay: Int): String {
+private fun CadenceGauge(steps: Int, labels: List<String>) {
+    val duo = LocalDuo.current
+    val spacing = TaroTheme.spacing
+    val enabled = rememberAnimationsEnabled()
+    val zone = (CADENCE_EDGES.indexOfLast { steps >= it }).coerceIn(0, CADENCE_ZONES - 1)
+    val within = ((steps - CADENCE_EDGES[zone]).toFloat() / (CADENCE_EDGES[zone + 1] - CADENCE_EDGES[zone])).coerceIn(0f, 1f)
+    val target = ((zone + within) / CADENCE_ZONES).coerceIn(0.02f, 0.98f)
+    val needle = remember { Animatable(if (enabled) 0f else target) }
+    LaunchedEffect(Unit) {
+        if (!enabled) return@LaunchedEffect
+        delay(600)
+        needle.animateTo(target, TaroMotion.bouncy())
+    }
+    Canvas(modifier = Modifier.fillMaxWidth().padding(top = spacing.wide).aspectRatio(7f)) {
+        val bar = size.height * 0.34f
+        val top = (size.height - bar) / 2
+        val segment = size.width / CADENCE_ZONES
+        repeat(CADENCE_ZONES) { i ->
+            drawRect(duo.fg.copy(alpha = 0.18f + i * 0.2f), topLeft = Offset(segment * i, top), size = Size(segment, bar))
+        }
+        val x = size.width * needle.value
+        val width = size.height * 0.11f
+        drawRoundRect(duo.bg, topLeft = Offset(x - width, 0f), size = Size(width * 3, size.height), cornerRadius = CornerRadius(width))
+        drawRoundRect(duo.fg, topLeft = Offset(x - width / 2, 0f), size = Size(width * 2, size.height), cornerRadius = CornerRadius(width))
+    }
+    Row(modifier = Modifier.fillMaxWidth()) {
+        labels.forEachIndexed { i, label ->
+            Text(
+                label,
+                style = TaroTheme.text.note,
+                color = duo.fg.copy(alpha = DIM),
+                textAlign = when (i) {
+                    0 -> TextAlign.Start
+                    labels.lastIndex -> TextAlign.End
+                    else -> TextAlign.Center
+                },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+private class AwardSpec(val category: String, val winner: String, val why: String)
+
+@Composable
+private fun Envelope(award: AwardSpec, delay: Int, startOpen: Boolean, onOpen: () -> Unit) {
+    val duo = LocalDuo.current
+    val spacing = TaroTheme.spacing
+    val haptics = LocalHapticFeedback.current
+    var open by remember { mutableStateOf(startOpen) }
+    val angle by animateFloatAsState(if (open) 180f else 0f, TaroMotion.bouncy(), label = "envelope")
+    val shape = RoundedCornerShape(spacing.loose)
+    Reveal(delay, modifier = Modifier.padding(top = spacing.gap)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    rotationX = angle
+                    cameraDistance = 14f * density
+                }
+                .clip(shape)
+                .clickable {
+                    if (!open) {
+                        open = true
+                        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                        onOpen()
+                    }
+                },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer { alpha = if (angle <= 90f) 1f else 0f }
+                    .background(duo.fg.copy(alpha = SOFT))
+                    .drawBehind {
+                        drawRoundRect(
+                            duo.fg.copy(alpha = 0.45f),
+                            cornerRadius = CornerRadius(spacing.loose.toPx()),
+                            style = Stroke(spacing.hair.toPx() * 0.75f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(spacing.tight.toPx(), spacing.tight.toPx() / 2))),
+                        )
+                    }
+                    .padding(spacing.loose),
+            ) {
+                Text(award.category.uppercase(), style = TaroTheme.text.storyKick, color = duo.fg)
+                Text(stringResource(R.string.story_tap_open), style = TaroTheme.text.storyMid, color = duo.fg.copy(alpha = 0.6f))
+                Text(" ", style = TaroTheme.text.note)
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        rotationX = 180f
+                        alpha = if (angle > 90f) 1f else 0f
+                    }
+                    .background(duo.fg)
+                    .padding(spacing.loose),
+            ) {
+                Text(award.category.uppercase(), style = TaroTheme.text.storyKick, color = duo.bg)
+                Text(award.winner, style = TaroTheme.text.storyMid, color = duo.bg, maxLines = 1)
+                Text(award.why, style = TaroTheme.text.note, color = duo.bg, maxLines = 1)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TraitRow(label: String, value: Int, delay: Int, ink: Color) {
+    val enabled = rememberAnimationsEnabled()
+    val grow = remember { Animatable(if (enabled) 0f else 1f) }
+    LaunchedEffect(Unit) {
+        if (!enabled) return@LaunchedEffect
+        delay(delay.toLong())
+        grow.animateTo(1f, tween(1_000, easing = FastOutSlowInEasing))
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = TaroTheme.spacing.tight)) {
+        Text(label, style = TaroTheme.text.note, color = ink, modifier = Modifier.weight(0.4f))
+        Canvas(modifier = Modifier.weight(0.6f).aspectRatio(18f)) {
+            val radius = CornerRadius(size.height / 2)
+            drawRoundRect(ink.copy(alpha = 0.18f), cornerRadius = radius)
+            drawRoundRect(ink, size = Size(size.width * value / 100f * grow.value, size.height), cornerRadius = radius)
+        }
+    }
+}
+
+@Composable
+private fun BigProgress(fraction: Float, delay: Int) {
+    val duo = LocalDuo.current
+    val enabled = rememberAnimationsEnabled()
+    val grow = remember { Animatable(if (enabled) 0f else 1f) }
+    LaunchedEffect(Unit) {
+        if (!enabled) return@LaunchedEffect
+        delay(delay.toLong())
+        grow.animateTo(1f, tween(2_000, easing = FastOutSlowInEasing))
+    }
+    Canvas(modifier = Modifier.fillMaxWidth().padding(top = TaroTheme.spacing.wide).aspectRatio(4.5f)) {
+        val radius = CornerRadius(size.height * 0.3f)
+        drawRoundRect(duo.fg.copy(alpha = 0.15f), cornerRadius = radius)
+        drawRoundRect(duo.fg, size = Size(size.width * fraction.coerceIn(0.03f, 1f) * grow.value, size.height), cornerRadius = radius)
+    }
+}
+
+@Composable
+private fun storySlides(report: PeriodReport, facts: StoryFacts, onDetails: () -> Unit, onShare: (ImageBitmap) -> Unit): List<StorySlide> {
     val context = LocalContext.current
+    val inputs = report.inputs
+    val days = inputs.days
+    val week = inputs.period.kind == ReportKind.WEEK
+    val word = stringResource(if (week) R.string.story_week else R.string.story_month)
+    val zone = ZoneId.systemDefault()
+    val slides = mutableListOf<StorySlide>()
+    val title = storyTitle(report, facts, word)
+    val awards = awards(facts, word, days.size)
+    val persona = facts.persona
+    val fastest = facts.fastest.maxByOrNull { it.steps }
+
+    val marquee = listOfNotNull(
+        periodLabel(inputs.period),
+        stringResource(R.string.story_mq_steps, grouped(report.steps)),
+        facts.favourite?.let { stringResource(R.string.story_mq_food, it.now, it.name) },
+        facts.turn?.takeIf { it.times >= TWIST_TIMES }?.let { stringResource(R.string.story_mq_missing, dayName(it.low.date)) },
+        fastest?.takeIf { it.steps >= BRISK }?.let { stringResource(R.string.story_mq_speed, it.steps) },
+        facts.power?.let { stringResource(R.string.story_mq_hour, hourOf(it.hour)) },
+    ).joinToString("  ·  ", postfix = "  ·  ").uppercase(Locale.getDefault())
+
+    slides += StorySlide(TOMATO) { _, _ ->
+        Fill()
+        Marquee(marquee, LocalDuo.current.fg, LocalDuo.current.bg, MARQUEE_TILT)
+        Fill()
+        Head(stringResource(R.string.story_cover_title, word), delay = 200)
+        val line = when (facts.plot) {
+            Plot.COMEBACK -> facts.turn?.let { stringResource(R.string.story_cover_comeback, days.size, dayName(it.low.date)) }
+            Plot.BREAKTHROUGH -> stringResource(R.string.story_cover_breakthrough, days.size)
+            Plot.STEADY -> stringResource(R.string.story_cover_steady, days.size)
+            Plot.REST -> stringResource(R.string.story_cover_rest, word)
+            Plot.PLAIN -> null
+        } ?: stringResource(R.string.story_cover_plain, days.size)
+        Say(line, delay = 600)
+        Marquee(marquee, Color.Transparent, LocalDuo.current.fg, -MARQUEE_TILT / 2, alpha = 0.25f)
+        Fill()
+        Say(stringResource(R.string.story_tap_start), delay = 900, alpha = DIM)
+    }
+
+    facts.biggest?.let { big ->
+        val tracked = days.filter { it.steps > 0 }
+        if (week && tracked.size >= 3) {
+            slides += StorySlide(FOREST, gated = true) { answered, release ->
+                var done by remember { mutableStateOf(answered) }
+                Kick(stringResource(R.string.story_quick))
+                Head(stringResource(R.string.story_quiz_day), delay = 120)
+                if (!done) {
+                    Choices(days.map { Choice(dayName(it.date), stringResource(R.string.story_mq_steps, grouped(it.steps))) }, days.indexOf(big.day), retry = true, big = false) {
+                        done = true
+                        release()
+                    }
+                    days.filter { it.complete && it.steps > 0 }.minByOrNull { it.steps }?.takeIf { it.date != big.day.date }?.let { low ->
+                        Say(stringResource(R.string.story_quiz_hint, dayName(low.date)), delay = 500, alpha = DIM)
+                    }
+                } else {
+                    Giant(grouped(big.day.steps), delay = 0)
+                    Mid(dayName(big.day.date) + ".", delay = 300)
+                    when {
+                        big.rank == 1 -> Sticker(stringResource(R.string.story_rank_record), delay = 700)
+                        big.rank <= MAX_RANK -> Sticker(stringResource(R.string.story_rank_n, big.rank), delay = 700)
+                    }
+                    if (big.rank > 1) {
+                        val gap = big.record - big.day.steps
+                        Say(
+                            stringResource(R.string.story_quiz_off, grouped(gap), big.recordDate.format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))) +
+                                if (gap <= big.record * CLOSE_SHARE) " " + stringResource(R.string.story_quiz_close) else "",
+                            delay = 1_000,
+                        )
+                    } else {
+                        Say(stringResource(R.string.story_quiz_best), delay = 1_000)
+                    }
+                }
+            }
+        }
+    }
+
+    if (report.steps > 0) {
+        slides += StorySlide(CREAM) { _, _ ->
+            Kick(stringResource(R.string.story_numbers, word), color = CREAM_INK)
+            val change = report.stepsChange
+            val tiles = buildList {
+                add(
+                    TileSpec(
+                        Duo(Color(0xFF14800F), CREAM.bg),
+                        grouped(report.steps),
+                        when {
+                            change != null && change >= 5 -> stringResource(R.string.story_tile_steps_up, change, word)
+                            change != null && change <= -5 -> stringResource(R.string.story_tile_steps_down, -change, word)
+                            else -> stringResource(R.string.story_tile_steps)
+                        },
+                        wide = true,
+                    )
+                )
+                val km = report.distanceM / 1_000
+                add(
+                    TileSpec(
+                        TOMATO,
+                        "${Util.formatMeasure((Util.metersToDistance(report.distanceM) * 10).roundToInt() / 10.0)} ${Util.distanceUnit()}",
+                        when {
+                            km >= MARATHON_KM -> stringResource(R.string.story_tile_km_marathons, Util.formatMeasure((km / MARATHON_KM * 10).roundToInt() / 10.0))
+                            km >= MARATHON_KM * 0.7 -> stringResource(R.string.story_tile_km_nearly)
+                            else -> stringResource(R.string.story_tile_km)
+                        },
+                    )
+                )
+                if (facts.numbers.sleepMinutes > 0) {
+                    val nights = facts.bedtimes.count { it != null }.coerceAtLeast(1)
+                    add(
+                        TileSpec(
+                            MIDNIGHT,
+                            stringResource(R.string.story_hours_short, (facts.numbers.sleepMinutes / 60).toInt()),
+                            if (facts.twin?.kind == TwinKind.SLEEP) stringResource(R.string.story_tile_sleep_hold) else stringResource(R.string.story_tile_sleep, minutesText((facts.numbers.sleepMinutes / nights).toInt())),
+                        )
+                    )
+                }
+                facts.numbers.eaten?.let { eaten ->
+                    val favourite = facts.favourite
+                    add(
+                        TileSpec(
+                            COCOA,
+                            grouped(eaten),
+                            if (favourite != null && favourite.now > 0) {
+                                val share = eaten.takeIf { it > 0 }?.let { favourite.kcal / favourite.count * favourite.now }
+                                stringResource(R.string.story_tile_eaten_fav, grouped(share ?: 0.0), favourite.name)
+                            } else {
+                                stringResource(R.string.story_tile_eaten)
+                            },
+                        )
+                    )
+                }
+                facts.numbers.protein?.takeIf { it > 0 }?.let { protein ->
+                    val proteinChange = facts.numbers.proteinChange
+                    add(
+                        TileSpec(
+                            PLUM,
+                            stringResource(R.string.food_grams_value, grouped(protein)),
+                            when {
+                                proteinChange != null && proteinChange >= 10 -> stringResource(R.string.story_tile_protein_up, proteinChange)
+                                proteinChange != null && proteinChange <= -10 -> stringResource(R.string.story_tile_protein_down, -proteinChange)
+                                else -> stringResource(R.string.story_tile_protein)
+                            },
+                        )
+                    )
+                }
+                if (facts.numbers.walkingMinutes > 0) {
+                    add(TileSpec(TEAL, minutesText(facts.numbers.walkingMinutes), stringResource(R.string.story_tile_walking, days.size * 24), wide = true))
+                }
+            }
+            Bento(tiles)
+        }
+    }
+
+    val twin = facts.twin
+    val odd = facts.odd
+    val still = facts.still
+    val late = facts.late
+    if (twin != null || odd != null || still != null || late != null) {
+        slides += StorySlide(MIDNIGHT) { _, _ ->
+            Kick(stringResource(R.string.story_odd_kick))
+            when {
+                twin != null -> {
+                    val sleep = twin.kind == TwinKind.SLEEP
+                    val now = if (sleep) minutesText(twin.now.toInt()) else grouped(twin.now)
+                    val before = if (sleep) minutesText(twin.before.toInt()) else grouped(twin.before)
+                    val wide = maxOf(twin.now, twin.before).toFloat()
+                    Say(stringResource(if (sleep) R.string.story_twin_slept else R.string.story_twin_walked, word), delay = 150)
+                    GrowBar(now, twin.now / wide, delay = 400)
+                    Say(stringResource(if (sleep) R.string.story_twin_slept_before else R.string.story_twin_walked_before, word), delay = 900)
+                    GrowBar(before, twin.before / wide, delay = 1_100, alpha = 0.55f)
+                    if (sleep && week && facts.bedtimes.isNotEmpty()) {
+                        Say(stringResource(R.string.story_twin_bedtimes), delay = 1_500, alpha = DIM)
+                        val none = stringResource(R.string.story_none)
+                        Mid(facts.bedtimes.joinToString("  ·  ") { minute -> minute?.let { clockText(context, it) } ?: none }, delay = 1_700)
+                    }
+                    Fill()
+                    val gap = abs(twin.now - twin.before)
+                    Head(
+                        if (sleep) pluralStringResource(R.plurals.story_twin_minutes, gap.toInt(), gap.toInt()) else pluralStringResource(R.plurals.story_twin_steps, gap.toInt(), grouped(gap)),
+                        delay = 1_900,
+                        entrance = Entrance.SLAM,
+                    )
+                    Say(stringResource(if (sleep) R.string.story_twin_sleep_aside else R.string.story_twin_steps_aside), delay = 2_300)
+                }
+                odd != null -> {
+                    val at = Instant.ofEpochMilli(odd.at).atZone(zone)
+                    Fill()
+                    Giant(clockOf(at.hour * 60 + at.minute), delay = 200)
+                    Mid(stringResource(R.string.story_odd_line, grouped(odd.steps), dayName(at.toLocalDate())), delay = 500)
+                    Fill()
+                    Head(stringResource(R.string.story_odd_stamp), delay = 1_200, entrance = Entrance.SLAM)
+                    Say(stringResource(R.string.story_odd_aside), delay = 1_600)
+                }
+                still != null -> {
+                    Fill()
+                    Giant(minutesText(still.minutes), delay = 200)
+                    Mid(stringResource(R.string.story_still_line, dayName(still.date)), delay = 500)
+                    Fill()
+                    Head(stringResource(R.string.story_still_stamp), delay = 1_200, entrance = Entrance.SLAM)
+                    Say(stringResource(R.string.story_still_aside), delay = 1_600)
+                }
+                late != null -> {
+                    Fill()
+                    Giant(clockOf(late.minute), delay = 200)
+                    Mid(stringResource(R.string.story_late_line, clockOf(late.usualMinute), dayName(late.date)), delay = 500)
+                    Fill()
+                    Head(stringResource(R.string.story_late_stamp), delay = 1_200, entrance = Entrance.SLAM)
+                }
+            }
+        }
+    }
+
+    facts.power?.takeIf { it.steps >= POWER_STEPS }?.let { power ->
+        slides += StorySlide(COCOA) { _, _ ->
+            Kick(stringResource(R.string.story_power_kick))
+            Giant(hourOf(power.hour), delay = 0)
+            val stepsText = stringResource(R.string.story_mq_steps, grouped(power.steps))
+            val tail = when (power.hour) {
+                in 18..23, in 0..2 -> " " + stringResource(R.string.story_power_night)
+                in 4..8 -> " " + stringResource(R.string.story_power_morning)
+                in 11..14 -> " " + stringResource(R.string.story_power_lunch)
+                else -> ""
+            }
+            Say(stringResource(R.string.story_power_line, stepsText, hourOf(power.hour), hourOf(power.hour + 1), word) + tail, delay = 400, bold = stepsText)
+            val unit = power.unit
+            if (unit != null) {
+                Dots(power.units.coerceAtMost(MAX_DOTS), 9, delay = 900)
+                Fill()
+                Mid(stringResource(R.string.story_power_units, power.units, dayName(unit.date)), delay = 900 + power.units.coerceAtMost(MAX_DOTS) * DOT_STEP_MS + 300)
+            } else {
+                Fill()
+                Mid(stringResource(R.string.story_power_share, power.steps * 100 / report.steps.coerceAtLeast(1), word), delay = 1_200)
+            }
+        }
+    }
+
+    fastest?.takeIf { it.steps >= BRISK }?.let { top ->
+        slides += StorySlide(PLUM) { _, _ ->
+            val at = Instant.ofEpochMilli(top.at).atZone(zone)
+            Kick(stringResource(R.string.story_speed_kick, dayName(at.toLocalDate()), clockOf(at.hour * 60 + at.minute)))
+            Giant(top.steps.toString(), delay = 0)
+            Mid(stringResource(R.string.story_speed_unit), delay = 300)
+            CadenceGauge(
+                top.steps,
+                listOf(stringResource(R.string.story_zone_stroll), stringResource(R.string.story_zone_walk), stringResource(R.string.story_zone_brisk), stringResource(R.string.story_zone_run)),
+            )
+            if (facts.fastest.size > 1) {
+                Say(pluralStringResource(R.plurals.story_speed_top, facts.fastest.size, facts.fastest.size), delay = 1_400, alpha = DIM, modifier = Modifier.padding(top = TaroTheme.spacing.loose))
+                facts.fastest.forEachIndexed { i, minute -> FastRow(minute, zone, 1_600 + i * 200) }
+            }
+            Fill()
+            Say(stringResource(if (top.steps >= RUN) R.string.story_speed_run else R.string.story_speed_brisk), delay = 2_000)
+            Sticker(stringResource(R.string.story_speed_sticker), delay = 2_400)
+        }
+    }
+
+    facts.turn?.takeIf { it.times >= TWIST_TIMES }?.let { turn ->
+        slides += StorySlide(COUCH, bleed = true) { _, _ ->
+            val spacing = TaroTheme.spacing
+            val pad = Modifier.padding(horizontal = spacing.loose + spacing.tight)
+            Box(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Column(verticalArrangement = Arrangement.Center, modifier = Modifier.weight(1f).fillMaxWidth().then(pad)) {
+                        Kick(dayName(turn.low.date))
+                        Giant(grouped(turn.low.steps), delay = 200, entrance = Entrance.RISE, scale = 0.8f)
+                        val napped = facts.nap?.takeIf { Instant.ofEpochMilli(it.start).atZone(zone).toLocalDate() == turn.low.date }
+                        Say(
+                            if (napped != null) stringResource(R.string.story_twist_nap, minutesText(napped.minutes)) else stringResource(R.string.story_twist_low),
+                            delay = 400,
+                        )
+                    }
+                    CompositionLocalProvider(LocalDuo provides FOREST) {
+                        Column(
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .background(FOREST.bg)
+                                .navigationBarsPadding()
+                                .then(pad),
+                        ) {
+                            Kick(dayName(turn.turn.date), delay = 900)
+                            Giant(grouped(turn.turn.steps), delay = 1_100, scale = 0.8f)
+                            Say(
+                                when {
+                                    turn.madeUp -> stringResource(R.string.story_twist_made, dayName(turn.low.date), grouped(turn.turn.steps - turn.turn.goal - (turn.low.goal - turn.low.steps)))
+                                    turn.rested -> stringResource(R.string.story_twist_rest, dayName(turn.low.date))
+                                    else -> stringResource(R.string.story_twist_back)
+                                },
+                                delay = 1_400,
+                            )
+                        }
+                    }
+                }
+                Sticker(
+                    stringResource(R.string.story_times, turn.times),
+                    delay = 1_800,
+                    bg = TOMATO.bg,
+                    fg = TOMATO.fg,
+                    tilt = 8f,
+                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = spacing.loose),
+                )
+            }
+        }
+    }
+
+    if (awards.size >= 2) {
+        slides += StorySlide(INK, gated = true) { answered, release ->
+            var opened by remember { mutableIntStateOf(0) }
+            Kick(stringResource(R.string.story_awards_kick))
+            Head(stringResource(R.string.story_awards_title), delay = 100)
+            awards.forEachIndexed { i, award ->
+                Envelope(award, 300 + i * 150, answered) {
+                    opened++
+                    if (opened == awards.size) release()
+                }
+            }
+        }
+    }
+
+    facts.favourite?.let { fav ->
+        slides += StorySlide(COCOA) { _, _ ->
+            Kick(stringResource(R.string.story_award_lifetime))
+            Head(fav.name, delay = 100)
+            Reveal(200, modifier = Modifier.padding(top = TaroTheme.spacing.loose)) { CountGiant(fav.kcal.roundToLong(), delay = 200, scale = 0.8f) }
+            Mid(stringResource(R.string.story_fav_since, fav.since.format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))), delay = 400)
+            val perDot = if (fav.count > MAX_DOTS) ceil(fav.count / MAX_DOTS.toFloat()).toInt() else 1
+            Dots(ceil(fav.count / perDot.toFloat()).toInt(), 10, delay = 600, highlightFrom = (fav.count - fav.now) / perDot)
+            Say(
+                if (perDot == 1) stringResource(R.string.story_fav_dots, word) else stringResource(R.string.story_fav_dots_many, perDot, word),
+                delay = 2_100,
+                alpha = DIM,
+            )
+            Fill()
+            val dayKcal = facts.numbers.eaten?.let { it / days.size }?.takeIf { it > 0 } ?: FAVOURITE_DAY_KCAL
+            val fed = (fav.kcal / dayKcal).roundToInt()
+            val span = if (fed >= WEEK_DAYS) pluralStringResource(R.plurals.story_weeks_of_you, fed / 7, fed / 7) else pluralStringResource(R.plurals.story_days_of_you, fed, fed)
+            Say(stringResource(R.string.story_fav_line, fav.count, span), delay = 2_300, bold = span)
+            Sticker(stringResource(R.string.story_fav_next, fav.next - fav.count, fav.next), delay = 2_700, tilt = 5f)
+        }
+    }
+
+    persona?.let { type ->
+        slides += StorySlide(TEAL) { _, _ ->
+            Kick(stringResource(R.string.story_type_kick, word))
+            PersonaCard(type.type, persona, facts, word, delay = 300)
+            facts.habit?.let { habit ->
+                Say(stringResource(R.string.story_spotted, hourOf(habit.hour)), delay = 1_400, alpha = DIM, modifier = Modifier.padding(top = TaroTheme.spacing.gap))
+                Mid(habit.starts.joinToString("  ·  ") { clockText(context, Instant.ofEpochMilli(it).atZone(zone).let { at -> at.hour * 60 + at.minute }) }, delay = 1_600)
+            }
+            Fill()
+            val others = StoryType.entries.filter { it != type.type }.map { stringResource(typeName(it)) }
+            Say(stringResource(R.string.story_type_others, others.joinToString(", ")), delay = 1_900, alpha = DIM)
+        }
+    }
+
+    facts.versus?.let { versus ->
+        slides += StorySlide(TOMATO, gated = true) { answered, release ->
+            var done by remember { mutableStateOf(answered) }
+            val more = versus.now > versus.before
+            Kick(stringResource(R.string.story_hl_kick))
+            Head(stringResource(if (versus.kind == VersusKind.EATEN) R.string.story_hl_eaten else R.string.story_hl_steps, word), delay = 100)
+            if (!done) {
+                Choices(
+                    listOf(Choice(stringResource(R.string.story_more), stringResource(R.string.story_nope)), Choice(stringResource(R.string.story_less), stringResource(R.string.story_nope))),
+                    if (more) 0 else 1,
+                    retry = false,
+                    big = true,
+                ) {
+                    done = true
+                    release()
+                }
+            } else {
+                val gap = abs(versus.now - versus.before)
+                Giant((if (more) "+" else "-") + grouped(gap), delay = 0, scale = 0.8f)
+                if (versus.kind == VersusKind.EATEN) {
+                    Mid(stringResource(if (more) R.string.story_hl_eaten_more else R.string.story_hl_eaten_less, grouped(versus.now)), delay = 300)
+                    val protein = versus.proteinChange
+                    when {
+                        more && protein != null && protein >= 10 -> Say(stringResource(R.string.story_hl_gains, protein), delay = 700, bold = "$protein%")
+                        !more -> Say(stringResource(R.string.story_hl_lighter, word), delay = 700)
+                        else -> Say(stringResource(R.string.story_hl_more_line), delay = 700)
+                    }
+                    if (protein != null && protein >= 10) Sticker(stringResource(R.string.story_hl_protein_sticker, protein), delay = 1_100)
+                } else {
+                    Mid(stringResource(if (more) R.string.story_hl_steps_more else R.string.story_hl_steps_less, word), delay = 300)
+                    Say(stringResource(if (more) R.string.story_hl_steps_more_line else R.string.story_hl_steps_less_line, word), delay = 700)
+                }
+            }
+        }
+    }
+
+    facts.milestone?.let { goal ->
+        slides += StorySlide(CREAM) { _, _ ->
+            Kick(stringResource(R.string.story_next_kick, word), color = CREAM_INK)
+            Fill()
+            Giant(grouped(goal.left), delay = 0)
+            val target = when (goal.target) {
+                HALF_MILLION -> stringResource(R.string.story_half_million)
+                MILLION -> stringResource(R.string.story_million)
+                else -> grouped(goal.target)
+            }
+            Mid(stringResource(R.string.story_next_to, target), delay = 300, color = CREAM_INK)
+            BigProgress(goal.total.toFloat() / goal.target, delay = 500)
+            Say(stringResource(R.string.story_next_so_far, grouped(goal.total)), delay = 600, color = CREAM_INK, alpha = DIM)
+            Fill()
+            val best = goal.best
+            val line = if (best != null && goal.left <= best.steps) {
+                stringResource(R.string.story_next_one, dayName(best.date))
+            } else {
+                val usual = goal.average.coerceAtLeast(1)
+                pluralStringResource(R.plurals.story_next_days, ceil(goal.left / usual.toDouble()).toInt(), ceil(goal.left / usual.toDouble()).toInt())
+            }
+            val move = stringResource(R.string.story_next_move)
+            Head("$line\n$move", delay = 1_800, color = CREAM_INK, accent = move, accentColor = CREAM.fg)
+        }
+    }
+
+    slides += StorySlide(PLUM) { _, _ ->
+        ShareCard(report, facts, title, awards, word, fastest, onShare, onDetails)
+    }
+    return slides
+}
+
+@Composable
+private fun FastRow(minute: FastMinute, zone: ZoneId, delay: Int) {
+    val duo = LocalDuo.current
+    val at = Instant.ofEpochMilli(minute.at).atZone(zone)
+    val line = TaroTheme.spacing.hair
+    Reveal(delay) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBehind {
+                    drawLine(duo.fg.copy(alpha = 0.25f), Offset(0f, size.height), Offset(size.width, size.height), line.toPx() / 2)
+                }
+                .padding(vertical = TaroTheme.spacing.tight),
+        ) {
+            Text(clockOf(at.hour * 60 + at.minute), style = TaroTheme.text.storyMid, color = duo.fg, modifier = Modifier.weight(1f))
+            Text(minute.steps.toString(), style = TaroTheme.text.storyMid, color = duo.fg)
+        }
+    }
+}
+
+@Composable
+private fun PersonaCard(type: StoryType, persona: com.prateek.taro.report.Persona, facts: StoryFacts, word: String, delay: Int) {
+    val duo = LocalDuo.current
+    val spacing = TaroTheme.spacing
+    val ink = duo.bg
+    val zone = ZoneId.systemDefault()
+    Reveal(delay, Entrance.POP, Modifier.padding(top = spacing.loose)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(spacing.wide))
+                .background(duo.fg)
+                .padding(spacing.loose),
+        ) {
+            Text(stringResource(R.string.story_type_card, word).uppercase(), style = TaroTheme.text.storyKick, color = ink.copy(alpha = DIM))
+            Text(stringResource(typeName(type)), style = TaroTheme.text.storyHead, color = ink, modifier = Modifier.padding(top = spacing.tight))
+            Text(stringResource(typeLine(type)), style = TaroTheme.text.note, color = ink, modifier = Modifier.padding(top = spacing.tight))
+            Column(modifier = Modifier.padding(top = spacing.tight)) {
+                TraitRow(stringResource(R.string.story_trait_night), persona.nightOwl, delay + 400, ink)
+                TraitRow(stringResource(R.string.story_trait_routine), persona.routine, delay + 550, ink)
+                TraitRow(stringResource(R.string.story_trait_weekend), persona.weekend, delay + 700, ink)
+                persona.loyalty?.let { TraitRow(stringResource(R.string.story_trait_loyalty), it, delay + 850, ink) }
+            }
+            val moves = buildList {
+                facts.habit?.let { add(stringResource(R.string.story_move_signature) to stringResource(R.string.story_move_walk, hourOf(it.hour))) }
+                persona.weakDay?.let { add(stringResource(R.string.story_move_weak) to stringResource(R.string.story_move_days, it.getDisplayName(DayStyle.FULL, Locale.getDefault()))) }
+                persona.secret?.takeIf { secret -> facts.habit == null || Instant.ofEpochMilli(secret.start).atZone(zone).let { (it.hour * 60 + it.minute + 30) / 60 % 24 } != facts.habit.hour }?.let { secret ->
+                    val at = Instant.ofEpochMilli(secret.start).atZone(zone)
+                    add(stringResource(R.string.story_move_secret) to stringResource(R.string.story_move_secret_walk, clockOf(at.hour * 60 + at.minute), minutesText(secret.minutes)))
+                }
+            }
+            moves.forEach { (label, value) ->
+                Text(
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Black)) { append(label) }
+                        append("  ")
+                        append(value)
+                    },
+                    style = TaroTheme.text.note,
+                    color = ink,
+                    modifier = Modifier.padding(top = spacing.tight),
+                )
+            }
+        }
+    }
+}
+
+private fun typeName(type: StoryType) = when (type) {
+    StoryType.NIGHT_SHIFT -> R.string.story_type_night
+    StoryType.EARLY_BIRD -> R.string.story_type_early
+    StoryType.LUNCH_WALKER -> R.string.story_type_lunch
+    StoryType.WEEKEND_WARRIOR -> R.string.story_type_weekend
+    StoryType.CLOCKWORK -> R.string.story_type_clockwork
+    StoryType.WANDERER -> R.string.story_type_wanderer
+}
+
+private fun typeLine(type: StoryType) = when (type) {
+    StoryType.NIGHT_SHIFT -> R.string.story_type_night_line
+    StoryType.EARLY_BIRD -> R.string.story_type_early_line
+    StoryType.LUNCH_WALKER -> R.string.story_type_lunch_line
+    StoryType.WEEKEND_WARRIOR -> R.string.story_type_weekend_line
+    StoryType.CLOCKWORK -> R.string.story_type_clockwork_line
+    StoryType.WANDERER -> R.string.story_type_wanderer_line
+}
+
+@Composable
+private fun awards(facts: StoryFacts, word: String, days: Int): List<AwardSpec> {
+    val zone = ZoneId.systemDefault()
+    fun at(millis: Long) = Instant.ofEpochMilli(millis).atZone(zone)
+    return buildList {
+        facts.habit?.let {
+            add(AwardSpec(stringResource(R.string.story_award_reliable), stringResource(R.string.story_award_reliable_win, hourOf(it.hour)), stringResource(R.string.story_award_reliable_why, it.days, days)))
+        }
+        val turn = facts.turn
+        val big = facts.biggest
+        if (turn != null && turn.times >= TWIST_TIMES) {
+            add(AwardSpec(stringResource(R.string.story_award_comeback, word), dayName(turn.turn.date), stringResource(R.string.story_award_comeback_why, grouped(turn.low.steps), grouped(turn.turn.steps))))
+        } else if (big != null) {
+            add(AwardSpec(stringResource(R.string.story_award_biggest), dayName(big.day.date), stringResource(R.string.story_mq_steps, grouped(big.day.steps))))
+        }
+        facts.nap?.let { nap ->
+            val from = at(nap.start)
+            val to = at(nap.end)
+            add(
+                AwardSpec(
+                    stringResource(R.string.story_award_nap),
+                    stringResource(R.string.story_award_nap_win, dayName(from.toLocalDate()), clockOf(from.hour * 60 + from.minute), clockOf(to.hour * 60 + to.minute)),
+                    stringResource(R.string.story_award_nap_why, minutesText(nap.minutes)),
+                )
+            )
+        }
+        facts.favourite?.let { add(AwardSpec(stringResource(R.string.story_award_lifetime), it.name, stringResource(R.string.story_award_lifetime_why, it.count))) }
+        facts.earliest?.let { walk ->
+            val start = at(walk.start)
+            add(AwardSpec(stringResource(R.string.story_award_early), stringResource(R.string.story_award_when, dayName(start.toLocalDate()), clockOf(start.hour * 60 + start.minute)), stringResource(R.string.story_award_early_why)))
+        }
+        facts.late?.let { late ->
+            add(AwardSpec(stringResource(R.string.story_award_owl), stringResource(R.string.story_award_when, dayName(late.date), clockOf(late.minute)), stringResource(R.string.story_award_owl_why)))
+        }
+    }.take(4)
+}
+
+@Composable
+private fun storyTitle(report: PeriodReport, facts: StoryFacts, word: String): String = when (facts.plot) {
+    Plot.COMEBACK -> facts.turn?.let { stringResource(R.string.story_name_comeback, dayName(it.low.date)) }
+    Plot.BREAKTHROUGH -> facts.biggest?.let { stringResource(R.string.story_name_breakthrough, dayName(it.day.date)) }
+    Plot.STEADY -> stringResource(R.string.story_name_steady, report.goalDays)
+    Plot.REST -> stringResource(R.string.story_name_rest, word)
+    Plot.PLAIN -> null
+} ?: stringResource(R.string.story_name_plain, word)
+
+@Composable
+private fun ColumnScope.ShareCard(
+    report: PeriodReport,
+    facts: StoryFacts,
+    title: String,
+    awards: List<AwardSpec>,
+    word: String,
+    fastest: FastMinute?,
+    onShare: (ImageBitmap) -> Unit,
+    onDetails: () -> Unit,
+) {
+    val duo = LocalDuo.current
+    val spacing = TaroTheme.spacing
+    val type = TaroTheme.text
+    val layer = rememberGraphicsLayer()
+    val scope = rememberCoroutineScope()
+    val period = report.inputs.period
+    val ink = duo.bg
+    val stats = buildList {
+        add(grouped(report.steps) to stringResource(R.string.story_card_steps))
+        facts.power?.let { add(hourOf(it.hour) to stringResource(R.string.story_card_hour)) }
+        fastest?.takeIf { it.steps >= BRISK }?.let { add(it.steps.toString() to stringResource(R.string.story_card_speed)) }
+        val turn = facts.turn
+        if (turn != null && turn.times >= TWIST_TIMES) {
+            add(stringResource(R.string.story_times, turn.times) to stringResource(R.string.story_card_twist, shortDay(turn.low.date), shortDay(turn.turn.date)))
+        } else {
+            facts.biggest?.let { add(grouped(it.day.steps) to stringResource(R.string.story_card_best)) }
+        }
+    }.take(4)
+    Reveal(100, Entrance.POP, Modifier.weight(1f).padding(top = spacing.loose)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .drawWithContent {
+                    layer.record { this@drawWithContent.drawContent() }
+                    drawLayer(layer)
+                }
+                .clip(RoundedCornerShape(spacing.wide))
+                .background(duo.fg)
+                .padding(spacing.loose + spacing.tight),
+        ) {
+            Row {
+                Text(stringResource(R.string.story_card_head, periodLabel(period)).uppercase(), style = type.storyKick, color = ink.copy(alpha = DIM), modifier = Modifier.weight(1f))
+                if (period.kind == ReportKind.WEEK) Text(stringResource(R.string.story_card_week, period.start.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)).uppercase(), style = type.storyKick, color = ink.copy(alpha = DIM))
+            }
+            facts.persona?.let { Text(stringResource(typeName(it.type)), style = type.storyHead, color = ink, modifier = Modifier.padding(top = spacing.gap)) }
+            stats.chunked(2).forEach { row ->
+                Row(modifier = Modifier.padding(top = spacing.loose)) {
+                    row.forEach { (value, label) ->
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(value, style = type.storyTile, color = ink, maxLines = 1)
+                            Text(label, style = type.note, color = ink)
+                        }
+                    }
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+            Column(modifier = Modifier.padding(top = spacing.loose)) {
+                awards.take(3).forEach { award ->
+                    Text(
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(fontWeight = FontWeight.Black)) { append(award.category) }
+                            append("  ")
+                            append(award.winner)
+                        },
+                        style = type.note,
+                        color = ink,
+                        maxLines = 1,
+                    )
+                }
+            }
+            Spacer(Modifier.weight(1f))
+            Text(title, style = type.storyMid, color = ink)
+            Text(stringResource(R.string.story_card_sign, stringResource(R.string.app_name)), style = type.note, color = ink.copy(alpha = DIM), modifier = Modifier.padding(top = spacing.tight))
+        }
+    }
+    Reveal(700, modifier = Modifier.padding(top = spacing.loose)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.loose * 2, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
+            LinkText(stringResource(R.string.story_share), duo.fg, onClick = { scope.launch { onShare(layer.toImageBitmap()) } })
+            LinkText(stringResource(R.string.story_full), duo.fg.copy(alpha = DIM), onClick = onDetails)
+        }
+    }
+}
+
+private fun grouped(value: Number): String = NumberFormat.getIntegerInstance(Locale.getDefault()).format(value.toDouble().roundToLong())
+
+@Composable
+private fun clockOf(minuteOfDay: Int): String = clockText(LocalContext.current, minuteOfDay)
+
+private fun clockText(context: Context, minuteOfDay: Int): String {
     val pattern = if (android.text.format.DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm a"
     return LocalTime.of(minuteOfDay / 60 % 24, minuteOfDay % 60).format(DateTimeFormatter.ofPattern(pattern, Locale.getDefault())).lowercase(Locale.getDefault())
 }
@@ -866,349 +1449,10 @@ private fun hourOf(hour: Int): String {
 
 private fun dayName(date: LocalDate) = date.dayOfWeek.getDisplayName(DayStyle.FULL, Locale.getDefault())
 
+private fun shortDay(date: LocalDate) = date.dayOfWeek.getDisplayName(DayStyle.SHORT, Locale.getDefault())
+
 @Composable
 private fun minutesText(minutes: Int): String = stringResource(R.string.sleep_duration, minutes / 60, minutes % 60)
-
-private fun personaName(startHour: Int): Int = when (startHour + StoryFinder.PERSONA_HOURS / 2) {
-    in 4..8 -> R.string.persona_early
-    in 9..11 -> R.string.persona_morning
-    in 12..14 -> R.string.persona_lunch
-    in 15..17 -> R.string.persona_afternoon
-    in 18..21 -> R.string.persona_evening
-    else -> R.string.persona_night
-}
-
-@Composable
-private fun storySlides(report: PeriodReport, facts: StoryFacts, onDetails: () -> Unit, onShare: (ImageBitmap) -> Unit): List<StorySlide> {
-    val colors = TaroTheme.colors
-    val inputs = report.inputs
-    val days = inputs.days
-    val week = inputs.period.kind == ReportKind.WEEK
-    val random = Random(inputs.period.key.hashCode())
-    val word = stringResource(if (week) R.string.story_week else R.string.story_month)
-    val dayFormat = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
-    val label = if (week) {
-        stringResource(R.string.report_week_range, inputs.period.start.format(dayFormat), inputs.period.end.format(dayFormat))
-    } else {
-        "${inputs.period.start.month.getDisplayName(DayStyle.FULL, Locale.getDefault())} ${inputs.period.start.year}"
-    }
-    val everyDay = days.map { it.date }.toSet()
-    val tiers = tierStyles()
-    val sprees = spreeStyles()
-    val stepMatch = pick(random, report.steps.toDouble(), STEP_THINGS to 1.0) to pick(random, report.distanceM, DISTANCE_THINGS to 1.0)
-    val steps = listOfNotNull(stepMatch.first, stepMatch.second).randomOrNull(random)
-    val snack = pick(random, report.activeKcal, SNACK_THINGS to 1.0)
-    val sleep = pick(random, facts.sleepMinutes.toDouble(), SLEEP_THINGS to 1.0)
-    val weight = report.actualKg?.let { pick(random, abs(it), WEIGHT_THINGS to 1.0) }
-    val slides = mutableListOf<StorySlide>()
-    val plotColor = plotColor(facts.plot)
-
-    slides += StorySlide(colors.goal) {
-        Kick(label)
-        Slam(stringResource(R.string.story_cover_a), delay = 250)
-        Slam(stringResource(R.string.story_cover_b), colors.goal, delay = 450)
-        Line(stringResource(if (facts.plot == Plot.REST) R.string.story_cover_quiet else R.string.story_cover_line, word), delay = 900)
-        Spacer(Modifier.weight(1f))
-        Speaker(delay = 1_400)
-    }
-
-    if (report.steps > 0) {
-        slides += StorySlide(colors.goal, everyDay) {
-            Speaker()
-            Line(stringResource(R.string.story_counted), delay = 150)
-            BigNumber(grouped(report.steps), colors.goal, delay = 250)
-            steps?.let { match ->
-                val count = amount(match.count)
-                Line(stringResource(R.string.story_steps_word) + " " + stringResource(match.thing.long, count), count, delay = 700)
-            }
-            report.stepsChange?.takeIf { abs(it) >= 5 }?.let { change ->
-                val text = stringResource(if (change > 0) R.string.story_steps_more else R.string.story_steps_fewer, abs(change), word)
-                Say(text, "${abs(change)}%", if (change > 0) colors.goal else colors.accent, delay = 1_000)
-            }
-            steps?.let { Pictos(it, colors.goal, delay = 1_200, columns = if (it.count > 30) 14 else 10) }
-            Spacer(Modifier.weight(1f))
-            val aside = when {
-                report.averageSteps >= 10_000 -> R.string.story_steps_aside_high
-                report.averageSteps >= 6_000 -> R.string.story_steps_aside_mid
-                else -> R.string.story_steps_aside_low
-            }
-            Aside(stringResource(aside), delay = 2_600)
-        }
-    }
-
-    facts.odd?.let { odd ->
-        val at = Instant.ofEpochMilli(odd.at).atZone(ZoneId.systemDefault())
-        val evening = at.toLocalDate().minusDays(1)
-        slides += StorySlide(colors.special, setOf(evening).filter { it in everyDay }.toSet()) {
-            val clock = clockOf(at.hour * 60 + at.minute)
-            Speaker(stringResource(R.string.story_night_of, dayName(evening)))
-            Line(stringResource(R.string.story_odd_line, clock, grouped(odd.steps)), clock, colors.special, delay = 200)
-            Slam(stringResource(R.string.story_odd_slam), delay = 900, share = MEDIUM_SLAM)
-            Spacer(Modifier.weight(1f))
-            NightBlip(odd, stringResource(R.string.story_odd_blip, clock, grouped(odd.steps)))
-            Aside(stringResource(R.string.story_odd_aside), delay = 1_900)
-        }
-    }
-
-    val turn = facts.turn
-    val still = facts.still
-    val stillOnLow = turn != null && still?.date == turn.low.date
-    if (still != null && !stillOnLow && facts.odd == null) {
-        slides += StorySlide(colors.special, setOf(still.date)) {
-            val length = minutesText(still.minutes)
-            Speaker(dayName(still.date))
-            Line(stringResource(R.string.story_still_line, length), length, colors.special, delay = 200)
-            Aside(stringResource(R.string.story_still_aside), delay = 800)
-            Spacer(Modifier.weight(1f))
-            StillLane(facts.stillMinutes, still)
-        }
-    }
-
-    if (turn != null) {
-        slides += StorySlide(colors.red, setOf(turn.low.date)) {
-            Speaker(dayName(turn.low.date))
-            Line(stringResource(R.string.story_low_line, dayName(turn.low.date)), delay = 200)
-            if (stillOnLow && still != null) {
-                val length = minutesText(still.minutes)
-                Line(stringResource(R.string.story_still_line, length), length, colors.special, delay = 500)
-                Aside(stringResource(R.string.story_still_aside), delay = 900)
-                StillLane(facts.stillMinutes, still)
-            }
-            Spacer(Modifier.weight(1f))
-            StoryBars(days, setOf(turn.low.date), until = turn.low.date, gap = turn.low.date, delay = 1)
-            val short = stringResource(R.string.story_low_short, grouped(turn.low.goal - turn.low.steps))
-            val stakes = if (turn.streakBefore) " " + stringResource(R.string.story_low_stakes) else ""
-            Line(short + stakes, short, colors.red, delay = 1_600, style = TaroTheme.text.title)
-        }
-        slides += StorySlide(colors.mint, setOf(turn.turn.date)) {
-            Speaker(dayName(turn.turn.date))
-            Line(stringResource(R.string.story_turn_line, dayName(turn.turn.date)), delay = 200)
-            Slam(stringResource(if (turn.madeUp) R.string.story_turn_made else R.string.story_turn_back), colors.mint, delay = 800, share = MEDIUM_SLAM)
-            val walked = grouped(turn.turn.steps)
-            val note = when {
-                turn.madeUp -> stringResource(R.string.story_turn_made_note, dayName(turn.low.date), grouped(turn.low.goal - turn.low.steps), walked)
-                turn.rested -> stringResource(R.string.story_turn_rest_note, dayName(turn.low.date), walked)
-                else -> stringResource(R.string.story_turn_note, walked)
-            }
-            Say(note, walked, colors.mint, delay = 1_100)
-            Spacer(Modifier.weight(1f))
-            StoryBars(days, setOf(turn.low.date, turn.turn.date), until = turn.turn.date, madeUp = turn.turn.date.takeIf { turn.madeUp }, delay = 2)
-            if (facts.next.streak > 0) {
-                StreakChain(facts.next.streak, delay = 1_500)
-                Say(pluralStringResource(R.plurals.story_streak_alive, facts.next.streak, facts.next.streak), delay = 1_900)
-            }
-        }
-    }
-
-    facts.climax?.takeIf { days.size > 1 }?.let { climax ->
-        val tier = StepTiers.reached(climax.day.steps, climax.day.goal)
-        val color = if (tier >= 1) tiers[tier].color else colors.flame
-        slides += StorySlide(color, setOf(climax.day.date)) {
-            ClimaxSlide(climax, tier, color, facts, random)
-        }
-    }
-
-    if (report.activeKcal >= 50) {
-        slides += StorySlide(colors.flame) {
-            val kcal = grouped(report.activeKcal)
-            Speaker(stringResource(R.string.story_kitchen))
-            Line(stringResource(R.string.story_food_line, kcal) + (snack?.let { " " + stringResource(it.thing.long, amount(it.count)) } ?: ""), "$kcal kcal", colors.flame, delay = 200)
-            snack?.let { Pictos(it, colors.flame, delay = 700) }
-            Spacer(Modifier.weight(1f))
-            facts.topFood?.takeIf { it.second >= 3 }?.let { (name, count) ->
-                Line(stringResource(R.string.story_food_habit, name, count), "$count", colors.special, delay = 1_500)
-                Aside(stringResource(R.string.story_food_habit_aside), delay = 1_900)
-                Pictos(Match(Thing(R.drawable.ic_pic_bowl, 0, 0, 1.0), count.toDouble()), colors.special, delay = 2_100)
-            }
-        }
-    }
-
-    if (facts.sleepMinutes >= 60) {
-        slides += StorySlide(colors.sleep) {
-            val hours = stringResource(R.string.story_hours, (facts.sleepMinutes / 60).toInt())
-            Speaker(stringResource(R.string.story_nightstand))
-            Line(stringResource(R.string.story_sleep_line, hours) + (sleep?.let { " " + stringResource(it.thing.long, amount(it.count)) } ?: ""), hours, colors.sleep, delay = 200)
-            sleep?.let { Pictos(it, colors.sleep, delay = 700) }
-            Spacer(Modifier.weight(1f))
-            facts.late?.let { late ->
-                Line(stringResource(R.string.story_late_line, clockOf(late.usualMinute)), delay = 1_400)
-                Slam(stringResource(R.string.story_late_slam, dayName(late.date)), colors.sleep, delay = 1_900, share = SMALL_SLAM)
-                Aside(stringResource(R.string.story_late_aside, clockOf(late.minute)), delay = 2_300)
-            }
-        }
-    }
-
-    report.actualKg?.takeIf { abs(it) >= 0.1 }?.let { actual ->
-        slides += StorySlide(colors.goal) {
-            val change = Util.formatWeightChange(abs(actual)).removePrefix("+")
-            Speaker(stringResource(R.string.story_scale_via))
-            Line(stringResource(if (actual < 0) R.string.story_weight_down else R.string.story_weight_up, change), change, if (actual < 0) colors.goal else colors.special, delay = 200)
-            weight?.let { match ->
-                Pictos(match, colors.special, delay = 800, columns = 6)
-                Say(stringResource(match.thing.long, amount(match.count)), delay = 1_100)
-            }
-            Spacer(Modifier.weight(1f))
-            report.expectedKg?.let { expected ->
-                val scale = maxOf(abs(expected), abs(actual)) * 1.2
-                CompareRow(stringResource(R.string.story_log), Util.formatWeightChange(expected), (abs(expected) / scale).toFloat(), colors.special, 1_300)
-                CompareRow(stringResource(R.string.story_scale), Util.formatWeightChange(actual), (abs(actual) / scale).toFloat(), colors.goal, 1_500)
-                report.verdict?.let { verdict ->
-                    val text = when (verdict) {
-                        WeightVerdict.MATCHES -> R.string.story_verdict_match
-                        WeightVerdict.LOST_MORE -> R.string.story_verdict_more
-                        WeightVerdict.LOST_LESS -> R.string.story_verdict_less
-                    }
-                    Aside(stringResource(text), delay = 1_900)
-                }
-            }
-        }
-    }
-
-    facts.persona?.let { persona ->
-        slides += StorySlide(colors.mint) {
-            val from = hourOf(persona.startHour)
-            val to = hourOf(persona.startHour + StoryFinder.PERSONA_HOURS)
-            val now = persona.now
-            val then = persona.usual
-            val changed = then != null && persona.before.size >= 2 && abs(now - then) >= 5
-            val shares = persona.before + now
-            Speaker(stringResource(R.string.story_observation))
-            if (changed) {
-                Line(stringResource(R.string.story_persona_change, then!!, from, to, word, now), "$now%", colors.mint, delay = 200)
-            } else {
-                Line(stringResource(R.string.story_persona_same, now, from, to), "$now%", colors.mint, delay = 200)
-            }
-            if (shares.size >= 2) {
-                ShareBars(
-                    shares,
-                    colors.mint,
-                    shares.indices.map { i ->
-                        if (i == shares.lastIndex) stringResource(R.string.story_this, word) else stringResource(R.string.story_weeks_ago, shares.lastIndex - i)
-                    },
-                )
-            }
-            Spacer(Modifier.weight(1f))
-            Slam(stringResource(personaName(persona.startHour)), colors.mint, delay = 1_400, share = MEDIUM_SLAM)
-            Aside(stringResource(if (changed) R.string.story_persona_aside_change else R.string.story_persona_aside_same), delay = 1_900)
-        }
-    }
-
-    val next = facts.next
-    if (next.spree != null || next.slowDay != null) {
-        slides += StorySlide(colors.goal) {
-            Speaker(stringResource(R.string.story_next, word))
-            next.spree?.let { spree ->
-                val name = stringResource(SPREE_NAMES[spree])
-                val left = Sprees.DAYS[spree] - next.streak
-                Line(pluralStringResource(R.plurals.story_spree_away, left, name, left), name, sprees[spree].color, delay = 200)
-                ProgressLine(next.streak.toFloat() / Sprees.DAYS[spree], sprees[spree].color, delay = 500)
-                Say(stringResource(R.string.story_spree_progress, next.streak, Sprees.DAYS[spree]), delay = 700)
-            }
-            Spacer(Modifier.weight(1f))
-            next.slowDay?.let { slow ->
-                NextWeek(slow.value, ReportData.firstDayOfWeek(), delay = 900)
-                val name = slow.getDisplayName(DayStyle.FULL, Locale.getDefault())
-                Line(stringResource(R.string.story_next_slow, name, grouped(next.slowSteps)), name + "s", colors.goal, delay = 1_300)
-                Aside(stringResource(R.string.story_next_aside), delay = 1_700)
-            }
-        }
-    }
-
-    slides += StorySlide(plotColor) {
-        Poster(report, facts, label, word, plotColor, steps, snack, weight, onShare, onDetails)
-    }
-    return slides
-}
-
-@Composable
-private fun ColumnScope.ClimaxSlide(climax: Climax, tier: Int, color: Color, facts: StoryFacts, random: Random) {
-    val tiers = tierStyles()
-    val walk = pick(random, climax.walkMinutes.toDouble(), WALK_THINGS to 1.0)
-    val stepsText = grouped(climax.day.steps)
-    Speaker(dayName(climax.day.date))
-    Slam(if (tier >= 1) stringResource(tiers[tier].name) else dayName(climax.day.date), color, delay = 250, share = MEDIUM_SLAM)
-    val line = if (climax.walkMinutes >= 10) {
-        stringResource(R.string.story_climax_line, stepsText, climax.walkMinutes) + (walk?.let { " " + stringResource(it.thing.long, amount(it.count)) } ?: "")
-    } else {
-        stringResource(R.string.story_climax_short, stepsText)
-    }
-    Line(line, stepsText, color, delay = 700)
-    if (climax.walkMinutes >= 10) walk?.let { Pictos(it, color, delay = 1_100) }
-    Say(stringResource(R.string.story_climax_score, grouped(climax.score)), grouped(climax.score), color, delay = 1_300)
-    Spacer(Modifier.weight(1f))
-    HourCurve(climax.hours, color)
-    facts.samePeak?.takeIf { climax.day.date in it.dates }?.let { peak ->
-        val others = peak.dates.filter { it != climax.day.date }.joinToString(stringResource(R.string.story_and)) { dayName(it) }
-        Aside(stringResource(R.string.story_peak_aside, others, hourOf(peak.hour)), delay = 2_000)
-    }
-}
-
-@Composable
-private fun ColumnScope.Poster(
-    report: PeriodReport,
-    facts: StoryFacts,
-    label: String,
-    word: String,
-    color: Color,
-    steps: Match?,
-    snack: Match?,
-    weight: Match?,
-    onShare: (ImageBitmap) -> Unit,
-    onDetails: () -> Unit,
-) {
-    val colors = TaroTheme.colors
-    val type = TaroTheme.text
-    val spacing = TaroTheme.spacing
-    val ink = MaterialTheme.colorScheme.onSurface
-    val layer = rememberGraphicsLayer()
-    val scope = rememberCoroutineScope()
-    val title = plotTitle(facts.plot, word)
-    val rows = buildList {
-        add(stringResource(R.string.story_poster_steps, grouped(report.steps)) to (steps?.let { stringResource(it.thing.short, amount(it.count)) } ?: ""))
-        if (report.activeKcal >= 50) add(stringResource(R.string.story_poster_active, grouped(report.activeKcal)) to (snack?.let { stringResource(it.thing.short, amount(it.count)) } ?: ""))
-        report.actualKg?.takeIf { abs(it) >= 0.1 }?.let { add(Util.formatWeightChange(it) to (weight?.let { w -> stringResource(w.thing.short, amount(w.count)) } ?: "")) }
-        facts.odd?.let { odd ->
-            val at = Instant.ofEpochMilli(odd.at).atZone(ZoneId.systemDefault())
-            add(stringResource(R.string.story_odd_blip, clockOf(at.hour * 60 + at.minute), grouped(odd.steps)) to stringResource(R.string.story_unexplained))
-        }
-    }
-    Kick(stringResource(R.string.story_that_was, word))
-    Reveal(200) {
-        Column(
-            modifier = Modifier
-                .padding(top = spacing.loose)
-                .drawWithContent {
-                    layer.record { this@drawWithContent.drawContent() }
-                    drawLayer(layer)
-                }
-                .clip(RoundedCornerShape(spacing.loose * 1.5f))
-                .background(STORY_BACKGROUND)
-                .background(Brush.linearGradient(listOf(color.copy(alpha = POSTER_GLOW), Color.White.copy(alpha = 0.03f))))
-                .padding(spacing.loose),
-        ) {
-            Text(label.uppercase(), style = type.heroLabel, color = colors.accent)
-            Text(title.uppercase(), style = type.stamp.copy(fontSize = type.stamp.fontSize * SMALL_SLAM, lineHeight = type.stamp.lineHeight * SMALL_SLAM), color = ink, modifier = Modifier.padding(top = spacing.tight))
-            StoryBars(report.inputs.days, emptySet(), delay = 3)
-            rows.forEach { (left, right) ->
-                Row(modifier = Modifier.fillMaxWidth().padding(top = spacing.gap), verticalAlignment = Alignment.CenterVertically) {
-                    Text(left, style = type.meterLabel, color = ink, modifier = Modifier.weight(1f))
-                    Text(right, style = type.meterValue, color = colors.accent)
-                }
-            }
-            Row(modifier = Modifier.fillMaxWidth().padding(top = spacing.loose)) {
-                Text(stringResource(R.string.app_name).uppercase(), style = type.heroLabel, color = colors.accent, modifier = Modifier.weight(1f))
-                Text(stringResource(R.string.story_signed).uppercase(), style = type.heroLabel, color = colors.accent)
-            }
-        }
-    }
-    Spacer(Modifier.weight(1f))
-    Reveal(900) {
-        Row(horizontalArrangement = Arrangement.spacedBy(spacing.loose * 2, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
-            com.prateek.taro.ui.components.LinkText(stringResource(R.string.story_share), ink, onClick = { scope.launch { onShare(layer.toImageBitmap()) } })
-            com.prateek.taro.ui.components.LinkText(stringResource(R.string.story_full), colors.goal, onClick = onDetails)
-        }
-    }
-}
 
 private suspend fun sharePoster(context: Context, image: ImageBitmap) {
     val uri = withContext(Dispatchers.IO) {

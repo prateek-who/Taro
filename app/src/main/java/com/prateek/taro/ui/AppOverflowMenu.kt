@@ -1,5 +1,7 @@
 package com.prateek.taro.ui
 
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.foundation.layout.heightIn
 import com.prateek.taro.ui.components.IconDisc
 import com.prateek.taro.ui.components.BentoTile
 import androidx.compose.ui.text.style.TextOverflow
@@ -21,6 +23,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,13 +55,14 @@ import com.prateek.taro.ui.theme.TaroTheme
 data class MenuEntry(val title: Int, val hint: Int, val icon: Int, val color: Color, val onClick: () -> Unit)
 
 @Composable
-fun AppOverflowMenu(center: @Composable () -> Unit = {}, actions: List<MenuEntry> = emptyList(), back: Boolean = false, title: String? = null, trailing: (@Composable () -> Unit)? = null, onBack: (() -> Unit)? = null) {
+fun AppOverflowMenu(center: (@Composable () -> Unit)? = null, actions: List<MenuEntry> = emptyList(), back: Boolean = false, title: String? = null, trailing: (@Composable () -> Unit)? = null, onBack: (() -> Unit)? = null) {
     val navigator = LocalNavigator.currentOrThrow
 
     val spacing = TaroTheme.spacing
     val padding = Modifier
         .fillMaxWidth()
         .padding(start = spacing.gap, top = spacing.hair, end = spacing.gap, bottom = spacing.tight)
+        .heightIn(min = LocalMinimumInteractiveComponentSize.current)
     val plus: @Composable (Modifier) -> Unit = { modifier ->
         if (actions.isNotEmpty()) MenuButton(R.drawable.ic_add, stringResource(R.string.quick_add), actions, openRotation = 45f, modifier = modifier)
     }
@@ -71,12 +75,15 @@ fun AppOverflowMenu(center: @Composable () -> Unit = {}, actions: List<MenuEntry
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false).padding(start = if (back) spacing.hair else spacing.tight),
+                modifier = Modifier.weight(1f, fill = center == null).padding(start = if (back) spacing.hair else spacing.tight),
             )
         }
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.weight(1f).padding(horizontal = spacing.hair)) { center() }
+        if (center != null || title == null) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.weight(1f).padding(horizontal = spacing.hair)) { center?.invoke() }
+        }
         trailing?.invoke()
         plus(Modifier)
+        if (back && center != null && trailing == null && actions.isEmpty()) Spacer(Modifier.size(LocalMinimumInteractiveComponentSize.current))
     }
 }
 

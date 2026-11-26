@@ -73,7 +73,7 @@ fun WeightChart(
     val dateFormat = remember { DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()) }
     val monthFormat = remember { DateTimeFormatter.ofPattern("MMM", Locale.getDefault()) }
     val pillSurface = TaroTheme.colors.dialogSurface
-    val reveal = rememberDrawIn(points)
+    val reveal = rememberDrawIn(points.firstOrNull()?.date)
 
     Canvas(modifier = modifier.semantics { contentDescription = description }) {
         if (points.isEmpty()) return@Canvas
@@ -256,7 +256,7 @@ fun WeightTrendChart(
     val measurer = rememberTextMeasurer()
     val axis = TaroTheme.text.axis.copy(color = accent)
     val dateFormat = remember { DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()) }
-    val reveal = rememberDrawIn(points)
+    val reveal = rememberDrawIn(points.firstOrNull()?.date)
     val dates = points.map { it.date } + forecast.map { it.date }
     val currentSelect by androidx.compose.runtime.rememberUpdatedState(onSelect)
     var layoutX by remember { androidx.compose.runtime.mutableStateOf<List<Float>>(emptyList()) }

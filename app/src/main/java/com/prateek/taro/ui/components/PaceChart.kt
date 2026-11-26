@@ -35,6 +35,7 @@ fun PaceChart(
     onSelect: (Double?) -> Unit,
     modifier: Modifier = Modifier,
     hours: Double = 24.0,
+    appearKey: Any? = Unit,
 ) {
     val accent = TaroTheme.colors.accent
     val background = TaroTheme.colors.background
@@ -42,7 +43,7 @@ fun PaceChart(
     val grid = ink.copy(alpha = PACE_GRID_ALPHA)
     val measurer = rememberTextMeasurer()
     val axis = TaroTheme.text.axis.copy(color = accent)
-    val reveal = rememberDrawIn(today.lastOrNull())
+    val reveal = rememberDrawIn(appearKey)
     val currentSelect by rememberUpdatedState(onSelect)
     val last = today.lastOrNull()?.first ?: 0.0
     fun hourAt(x: Float, width: Float) = (x / width * hours).coerceIn(0.0, maxOf(last, usual?.lastOrNull()?.first ?: 0.0))

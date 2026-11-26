@@ -1,5 +1,13 @@
 package com.prateek.taro.ui.components
 
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.drawscope.scale
 import com.prateek.taro.R
 import androidx.compose.ui.res.stringResource
@@ -14,6 +22,7 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.background
@@ -136,13 +145,88 @@ fun BentoValue(value: String, color: Color, modifier: Modifier = Modifier, unit:
 }
 
 @Composable
+fun ValueField(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    color: Color,
+    modifier: Modifier = Modifier,
+    unit: String? = null,
+    focusRequester: FocusRequester? = null,
+) {
+    val type = TaroTheme.text
+    Row(modifier = modifier.padding(top = TaroTheme.spacing.tight)) {
+        NumberInput(value, onValueChange, type.value, color, Modifier.alignByBaseline(), TextAlign.Start, focusRequester)
+        unit?.let { Text(" $it", style = type.unit, color = TaroTheme.colors.accent, modifier = Modifier.alignByBaseline()) }
+    }
+}
+
+@Composable
+fun FactField(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    label: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+    unit: String? = null,
+    style: TextStyle = TaroTheme.text.fact,
+) {
+    val type = TaroTheme.text
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier.padding(horizontal = TaroTheme.spacing.tight, vertical = TaroTheme.spacing.hair)) {
+        Row {
+            NumberInput(value, onValueChange, style, color, Modifier.alignByBaseline(), TextAlign.Center)
+            unit?.let { Text(" $it", style = style, color = color, modifier = Modifier.alignByBaseline()) }
+        }
+        BasicText(
+            text = label,
+            style = type.note.copy(color = TaroTheme.colors.accent),
+            maxLines = 1,
+            autoSize = TextAutoSize.StepBased(maxFontSize = type.note.fontSize),
+        )
+    }
+}
+
+@Composable
+private fun NumberInput(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    style: TextStyle,
+    color: Color,
+    modifier: Modifier,
+    align: TextAlign,
+    focusRequester: FocusRequester? = null,
+) {
+    val measurer = rememberTextMeasurer()
+    val line = TaroTheme.spacing.hair
+    val width = with(LocalDensity.current) {
+        val text = measurer.measure(value.text.ifEmpty { "0" }, style).size.width.toDp() + line * 2
+        maxOf(text, style.fontSize.toDp() * FIELD_MIN_SHARE)
+    }
+    BasicTextField(
+        value = value,
+        onValueChange = { input -> if (input.text.all { it.isDigit() || it == '.' || it == ',' }) onValueChange(input) },
+        singleLine = true,
+        textStyle = style.copy(color = color, textAlign = align),
+        cursorBrush = SolidColor(color),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        modifier = modifier
+            .width(width)
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .drawBehind {
+                val stroke = line.toPx() * FIELD_LINE_SHARE
+                val y = size.height - stroke / 2
+                drawLine(color.copy(alpha = FIELD_LINE_ALPHA), Offset(0f, y), Offset(size.width, y), stroke)
+            },
+    )
+}
+
+@Composable
 fun BentoNote(text: String, modifier: Modifier = Modifier, color: Color = TaroTheme.colors.accent) {
     Text(text, style = TaroTheme.text.note, color = color, modifier = modifier.padding(top = TaroTheme.spacing.hair))
 }
 
 @Composable
 fun Sparkline(values: List<Double?>, color: Color, modifier: Modifier = Modifier, floor: Double? = null) {
-    val progress = rememberDrawIn(values)
+    val progress = rememberDrawIn(values.size)
     Canvas(modifier = modifier) {
         val known = values.withIndex().filter { it.value != null }
         if (known.size < 2) return@Canvas
@@ -210,7 +294,7 @@ private fun Pairs(values: List<Pair<Double, Double?>>, first: Color, second: Col
 
 @Composable
 fun NightColumns(hours: List<Double?>, target: Double, labels: List<String>, targetLabel: String, color: Color, modifier: Modifier = Modifier) {
-    val growth = rememberBarGrowth(hours, hours.size)
+    val growth = rememberBarGrowth(labels, hours.size)
     val type = TaroTheme.text
     val accent = TaroTheme.colors.accent
     val measurer = rememberTextMeasurer()
@@ -373,7 +457,7 @@ fun Fact(value: String, label: String, color: Color, modifier: Modifier = Modifi
                             .size(iconSize),
                     )
                 }
-                Column(horizontalAlignment = if (icon != null) Alignment.Start else Alignment.CenterHorizontally) {
+                Column(horizontalAlignment = if (icon != null || (alignment as? BiasAlignment)?.horizontalBias == -1f) Alignment.Start else Alignment.CenterHorizontally) {
                     RollingText(value, style.copy(color = color))
                     BasicText(
                         text = label,
@@ -528,3 +612,7 @@ fun <T> TextTabs(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> U
         }
     }
 }
+
+private const val FIELD_MIN_SHARE = 1.2f
+private const val FIELD_LINE_ALPHA = 0.5f
+private const val FIELD_LINE_SHARE = 0.75f

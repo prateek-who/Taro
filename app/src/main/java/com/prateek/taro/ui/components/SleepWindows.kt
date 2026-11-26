@@ -31,7 +31,7 @@ fun SleepWindows(nights: List<NightWindow>, color: Color, selected: Int?, onSele
     val axis = TaroTheme.text.axis.copy(color = TaroTheme.colors.accent)
     val strong = axis.copy(color = MaterialTheme.colorScheme.onSurface)
     val grid = MaterialTheme.colorScheme.onSurface.copy(alpha = GRID_ALPHA)
-    val growth = rememberBarGrowth(nights, nights.size)
+    val growth = rememberBarGrowth(nights.map { it.label }, nights.size)
     val format = remember {
         SimpleDateFormat(if (android.text.format.DateFormat.is24HourFormat(context)) "HH:mm" else "h a", Locale.getDefault())
     }

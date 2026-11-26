@@ -639,7 +639,7 @@ private fun PacePanel(pace: StepPace, goal: Int, date: LocalDate, modifier: Modi
     val spacing = TaroTheme.spacing
     val clock = rememberClock(date)
     val marks = rememberHourMarks(date)
-    var selected by remember(pace) { mutableStateOf<Double?>(null) }
+    var selected by remember(date) { mutableStateOf<Double?>(null) }
     val usual = pace.usual?.let { curve -> curve.indices.map { it.toDouble() to curve[it] } }
     val kind = stringResource(if (pace.weekend) R.string.pace_weekend else R.string.pace_weekday)
     val end = pace.now ?: StepPaces.HOURS.toDouble()
@@ -668,6 +668,7 @@ private fun PacePanel(pace: StepPace, goal: Int, date: LocalDate, modifier: Modi
             color = colors.goal,
             selected = selected,
             onSelect = { selected = it },
+            appearKey = date,
             modifier = Modifier
                 .padding(top = spacing.gap)
                 .fillMaxWidth()
