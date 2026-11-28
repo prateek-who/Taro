@@ -8,6 +8,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,8 +49,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
@@ -150,7 +153,10 @@ private const val FOLD_LIGHT = 0.035f
 private const val FOLD_DARK = 0.16f
 private const val SCALLOPS = 12
 private const val SCALLOP_DROP = 0.45f
-private const val GLOW_ALPHA = 0.35f
+private const val BLOCK_DEPTH = 0.45f
+private const val EDGE_LIGHT = 0.4f
+private const val CONTACT_ALPHA = 0.35f
+private const val CONTACT_REACH = 0.7f
 private const val SHADE_ALPHA = 0.2f
 private const val TRACK_ALPHA = 0.14f
 private const val RANK_SHARE = 1.2f
@@ -365,22 +371,41 @@ private fun BoardContent(board: Board, initial: BoardRange) {
 }
 
 @Composable
-private fun StageBones() {
+fun LeaderboardTile(modifier: Modifier = Modifier, onOpen: () -> Unit) {
+    val context = LocalContext.current
+    val tick by Database.changes.collectAsStateWithLifecycle()
+    val loaded = rememberInBackground(tick) { LeaderboardData.load(context) }
+    var shown by remember { mutableStateOf<Loaded<BoardData?>?>(null) }
+    if (loaded != null) shown = loaded
+    val card = RoundedCornerShape(TaroTheme.spacing.loose + TaroTheme.spacing.tight)
+    val current = shown ?: return StageBones(modifier, records = false, shape = card)
+    val data = current.value ?: return
+    val pin = AppPreferences.leaderboardPins.firstOrNull { data.has(it.board) } ?: return
+    Stage(pin.board, pin.range, data, onSeeAll = null, compact = true, modifier = modifier.clip(card).clickable(onClick = onOpen))
+}
+
+@Composable
+private fun StageBones() = StageBones(Modifier)
+
+@Composable
+private fun StageBones(modifier: Modifier, records: Boolean = true, shape: Shape = RoundedCornerShape(0)) {
     val spacing = TaroTheme.spacing
-    Skeleton(modifier = Modifier.padding(top = spacing.gap)) {
+    Skeleton(modifier = modifier.padding(top = spacing.gap)) {
         Bone(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(BLOCKS_ASPECT * 0.8f),
-            RoundedCornerShape(0),
+            shape,
         )
-        BoneTilePair(1.1f, Modifier.padding(start = spacing.loose, end = spacing.loose, top = spacing.wide))
-        BoneTilePair(1.1f, Modifier.padding(start = spacing.loose, end = spacing.loose, top = spacing.gap))
+        if (records) {
+            BoneTilePair(1.1f, Modifier.padding(start = spacing.loose, end = spacing.loose, top = spacing.wide))
+            BoneTilePair(1.1f, Modifier.padding(start = spacing.loose, end = spacing.loose, top = spacing.gap))
+        }
     }
 }
 
 @Composable
-private fun Stage(board: Board, range: BoardRange, data: BoardData, onSeeAll: (() -> Unit)?, modifier: Modifier = Modifier) {
+private fun Stage(board: Board, range: BoardRange, data: BoardData, onSeeAll: (() -> Unit)?, modifier: Modifier = Modifier, compact: Boolean = false) {
     val palette = STAGES.getValue(board)
     val spacing = TaroTheme.spacing
     val type = TaroTheme.text
@@ -410,8 +435,12 @@ private fun Stage(board: Board, range: BoardRange, data: BoardData, onSeeAll: ((
             },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = spacing.loose, end = spacing.loose, top = spacing.wide)) {
-            Text(stringResource(boardName(board)).uppercase(), style = type.label, color = palette.dim, modifier = Modifier.weight(1f))
-            Text(stringResource(R.string.lb_stage_head, stringResource(rangeName(range)), count), style = type.note, color = palette.dim)
+            Text(stringResource(if (compact) R.string.lb_title else boardName(board)).uppercase(), style = type.label, color = palette.dim, modifier = Modifier.weight(1f))
+            Text(
+                if (compact) stringResource(R.string.lb_stage_head, stringResource(boardName(board)), stringResource(rangeName(range)).lowercase()) else stringResource(R.string.lb_stage_head, stringResource(rangeName(range)), count),
+                style = type.note,
+                color = palette.dim,
+            )
         }
         BoxWithConstraints(
             modifier = Modifier
@@ -459,22 +488,20 @@ private fun Stage(board: Board, range: BoardRange, data: BoardData, onSeeAll: ((
                 .clipToBounds()
                 .drawBehind {
                     drawRect(Brush.verticalGradient(listOf(palette.floor, palette.footer)))
-                    drawLine(Color.White.copy(alpha = TRACK_ALPHA * 1.5f), Offset.Zero, Offset(size.width, 0f), spacing.hair.toPx() / 2)
                     val pad = spacing.loose.toPx()
                     val slot = (size.width - pad * 2 - gap * 2) / 3
                     PODIUM_ORDER.forEachIndexed { column, place ->
                         if (entries.getOrNull(place) != null) {
-                            val centre = Offset(pad + slot * column + gap * column + slot / 2, 0f)
-                            drawOval(
-                                Brush.radialGradient(listOf(MEDALS[place].first.copy(alpha = GLOW_ALPHA), Color.Transparent), center = centre, radius = slot / 2),
-                                topLeft = Offset(centre.x - slot / 2, -size.height / 2),
-                                size = Size(slot, size.height),
+                            drawRect(
+                                Brush.verticalGradient(listOf(Color.Black.copy(alpha = CONTACT_ALPHA), Color.Transparent), endY = size.height * CONTACT_REACH),
+                                topLeft = Offset(pad + (slot + gap) * column, 0f),
+                                size = Size(slot, size.height * CONTACT_REACH),
                             )
                         }
                     }
                 },
         )
-        Footer(board, range, standing, palette, entries.size, onSeeAll)
+        Footer(board, range, standing, palette, entries.size, onSeeAll, compact)
     }
 }
 
@@ -494,8 +521,11 @@ private fun Block(entry: Entry, place: Int, range: BoardRange, today: LocalDate,
         modifier = modifier
             .clip(RoundedCornerShape(topStart = spacing.gap, topEnd = spacing.gap))
             .drawBehind {
-                drawRect(Brush.verticalGradient(listOf(light, deep)))
-                drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = SHADE_ALPHA)), startY = size.height * 0.6f))
+                drawRect(Brush.verticalGradient(listOf(light, lerp(light, deep, BLOCK_DEPTH))))
+                val edge = spacing.hair.toPx()
+                drawRect(Color.White.copy(alpha = EDGE_LIGHT), size = Size(size.width, edge))
+                drawRect(Color.White.copy(alpha = EDGE_LIGHT / 2), size = Size(edge / 2, size.height))
+                drawRect(Color.Black.copy(alpha = SHADE_ALPHA / 2), topLeft = Offset(size.width - edge / 2, 0f), size = Size(edge / 2, size.height))
             }
             .padding(horizontal = spacing.tight, vertical = spacing.gap),
     ) {
@@ -517,7 +547,7 @@ private fun Block(entry: Entry, place: Int, range: BoardRange, today: LocalDate,
 }
 
 @Composable
-private fun Footer(board: Board, range: BoardRange, standing: Standing, palette: StagePalette, ranked: Int, onSeeAll: (() -> Unit)?) {
+private fun Footer(board: Board, range: BoardRange, standing: Standing, palette: StagePalette, ranked: Int, onSeeAll: (() -> Unit)?, compact: Boolean = false) {
     val spacing = TaroTheme.spacing
     val type = TaroTheme.text
     val color = boardColor(board)
@@ -555,41 +585,43 @@ private fun Footer(board: Board, range: BoardRange, standing: Standing, palette:
                 )
             }
         }
-        val fill = if (next == null) 1f else (standing.value / next.value).toFloat().coerceIn(0f, 1f)
-        Canvas(
-            modifier = Modifier
-                .padding(top = spacing.gap)
-                .fillMaxWidth()
-                .height(spacing.gap),
-        ) {
-            val radius = CornerRadius(size.height / 2)
-            drawRoundRect(Color.White.copy(alpha = TRACK_ALPHA), cornerRadius = radius)
-            drawRoundRect(color, size = Size(size.width * fill * growth.bar(0), size.height), cornerRadius = radius)
-            drawRect(ON_STAGE, topLeft = Offset(size.width - spacing.hair.toPx(), -size.height / 2), size = Size(spacing.hair.toPx(), size.height * 2))
-        }
-        Text(
-            text = if (next != null) {
-                val gap = boardValue(board, next.value - standing.value)
-                val line = stringResource(R.string.lb_to_pass, gap, entryLabel(next, range), standing.rank - 1)
-                buildAnnotatedString {
-                    append(line)
-                    addStyle(SpanStyle(color = ON_STAGE), 0, gap.length.coerceAtMost(line.length))
-                }
-            } else {
-                buildAnnotatedString { append(stringResource(if (range == BoardRange.WEEKS) R.string.lb_ahead_week else R.string.lb_ahead)) }
-            },
-            style = type.note,
-            color = palette.dim,
-            modifier = Modifier.padding(top = spacing.tight),
-        )
-        onSeeAll?.let {
-            LinkText(
-                text = if (range == BoardRange.WEEKS) pluralStringResource(R.plurals.lb_see_weeks, ranked, ranked) else pluralStringResource(R.plurals.lb_see_days, ranked, ranked),
-                color = SPOT_GOLD,
-                onClick = it,
-                trailingIcon = R.drawable.ic_chevron_right,
+        if (!compact) {
+            val fill = if (next == null) 1f else (standing.value / next.value).toFloat().coerceIn(0f, 1f)
+            Canvas(
+                modifier = Modifier
+                    .padding(top = spacing.gap)
+                    .fillMaxWidth()
+                    .height(spacing.gap),
+            ) {
+                val radius = CornerRadius(size.height / 2)
+                drawRoundRect(Color.White.copy(alpha = TRACK_ALPHA), cornerRadius = radius)
+                drawRoundRect(color, size = Size(size.width * fill * growth.bar(0), size.height), cornerRadius = radius)
+                drawRect(ON_STAGE, topLeft = Offset(size.width - spacing.hair.toPx(), -size.height / 2), size = Size(spacing.hair.toPx(), size.height * 2))
+            }
+            Text(
+                text = if (next != null) {
+                    val gap = boardValue(board, next.value - standing.value)
+                    val line = stringResource(R.string.lb_to_pass, gap, entryLabel(next, range), standing.rank - 1)
+                    buildAnnotatedString {
+                        append(line)
+                        addStyle(SpanStyle(color = ON_STAGE), 0, gap.length.coerceAtMost(line.length))
+                    }
+                } else {
+                    buildAnnotatedString { append(stringResource(if (range == BoardRange.WEEKS) R.string.lb_ahead_week else R.string.lb_ahead)) }
+                },
+                style = type.note,
+                color = palette.dim,
                 modifier = Modifier.padding(top = spacing.tight),
             )
+            onSeeAll?.let {
+                LinkText(
+                    text = if (range == BoardRange.WEEKS) pluralStringResource(R.plurals.lb_see_weeks, ranked, ranked) else pluralStringResource(R.plurals.lb_see_days, ranked, ranked),
+                    color = SPOT_GOLD,
+                    onClick = it,
+                    trailingIcon = R.drawable.ic_chevron_right,
+                    modifier = Modifier.padding(top = spacing.tight),
+                )
+            }
         }
     }
 }

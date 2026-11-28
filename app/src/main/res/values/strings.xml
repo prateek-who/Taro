@@ -535,20 +535,28 @@
     <string name="food_unit_equals">Counts as %1$s</string>
     <string name="food_unit_approx">Counts as about %1$s, assuming 1 g per ml like water or milk</string>
     <string name="food_name">Name</string>
-    <string name="food_kcal">Calories</string>
     <string name="food_protein">Protein</string>
-    <string name="food_kcal_100">Calories per 100 %1$s</string>
-    <string name="food_protein_100">Protein per 100 %1$s</string>
-    <string name="food_carbs_100">Carbs, optional</string>
-    <string name="food_fat_100">Fat, optional</string>
     <string name="food_create_named">Create \"%1$s\" from its label</string>
-    <string name="food_serving_optional">Serving size, optional</string>
-    <string name="food_serving_weight">Weight of a serving, optional</string>
+    <string name="recipe_name_hint">Name your recipe</string>
+    <string name="food_quick_name">What was it</string>
+    <string name="food_quick_note">Type what you know. Protein, carbs and fat are optional.</string>
+    <string name="food_quick_keep">Also save to Your foods, as 1 serving</string>
+    <string name="food_quick_when">%1$s, %2$s %3$s</string>
+    <string name="food_limit_kcal">Calories go up to %1$s kcal%2$s.</string>
+    <string name="food_limit_grams">Protein, carbs and fat go up to %1$s g%2$s.</string>
+    <string name="food_serving_title">1 serving</string>
+    <string name="food_serving_weight_title">Weight of a serving</string>
+    <string name="food_serving_none">Optional, type its weight</string>
+    <string name="food_serving_unknown">Not known, you log it in servings</string>
+    <string name="food_serving_weighed">%1$s, saved as a food per 100 g</string>
+    <string name="food_serving_kcal">%1$s, %2$s kcal</string>
+    <plurals name="scan_found_note">
+        <item quantity="one">Read %d value from the label. Check it before saving.</item>
+        <item quantity="other">Read %d values from the label. Check them before saving.</item>
+    </plurals>
     <string name="food_per_serving">per serving</string>
     <string name="food_kcal_per_serving">%1$s kcal / serving</string>
     <string name="food_serving_values">Per serving: %1$s kcal, %2$s g protein</string>
-    <string name="food_kcal_serving">Calories per serving</string>
-    <string name="food_protein_serving">Protein per serving</string>
     <string name="food_create_serving_hint">For a bowl, plate or pack when you know the calories but not the weight. You log it in servings.</string>
     <plurals name="food_servings_unit">
         <item quantity="one">serving</item>
@@ -1801,10 +1809,6 @@
         <item quantity="one">Updated %1$d past entry</item>
         <item quantity="other">Updated %1$d past entries</item>
     </plurals>
-    <plurals name="scan_found">
-        <item quantity="one">Read %1$d value from the label, check it before saving</item>
-        <item quantity="other">Read %1$d values from the label, check them before saving</item>
-    </plurals>
     <plurals name="food_copied">
         <item quantity="one">Copied %1$d food</item>
         <item quantity="other">Copied %1$d foods</item>
@@ -1987,7 +1991,6 @@
     <string name="lb_drag">Drag to reorder</string>
     <string name="lb_all_time_rank">#%1$d all time</string>
     <string name="lb_open">Leaderboards</string>
-    <string name="lb_open_note">Your days ranked against each other</string>
     <plurals name="lb_days">
         <item quantity="one">%d day</item>
         <item quantity="other">%d days</item>

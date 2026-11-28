@@ -166,6 +166,9 @@ private fun YouContent() {
                 )
             }
 
+            LeaderboardTile(Modifier.padding(top = spacing.gap)) { root.push(LeaderboardScreen) }
+            BadgesTile(badges, modifier = Modifier.padding(top = spacing.loose)) { root.push(AchievementsScreen) }
+
             SectionLabel(stringResource(R.string.you_goals))
             Panel {
                 Column(modifier = Modifier.padding(vertical = spacing.hair)) {
@@ -189,8 +192,6 @@ private fun YouContent() {
                     )
                 }
             }
-
-            BadgesTile(badges, modifier = Modifier.padding(top = spacing.loose)) { root.push(AchievementsScreen) }
 
             SectionLabel(stringResource(R.string.pref_step_length))
             Panel {
@@ -216,8 +217,6 @@ private fun YouContent() {
             Panel {
                 Column(modifier = Modifier.padding(vertical = spacing.hair)) {
                     NavRow(R.drawable.ic_schedule, colors.goal, stringResource(R.string.report_title), stringResource(R.string.you_reports_note), onClick = { root.push(ReportScreen()) })
-                    RowDivider()
-                    NavRow(R.drawable.ic_small_trophy, colors.red, stringResource(R.string.lb_open), stringResource(R.string.lb_open_note), onClick = { root.push(LeaderboardScreen) })
                     RowDivider()
                     NavRow(R.drawable.ic_small_backup, colors.flame, stringResource(R.string.you_backup), stringResource(R.string.you_backup_note), onClick = { root.push(BackupScreen) })
                     RowDivider()

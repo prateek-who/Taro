@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import com.prateek.taro.food.Macros
 import com.prateek.taro.ui.components.selectedAll
-import com.prateek.taro.ui.components.NameDialog
 import com.prateek.taro.ui.components.StepperValue
 import com.prateek.taro.ui.components.StepperField
 import com.prateek.taro.ui.components.StackBar
@@ -59,6 +58,7 @@ import com.prateek.taro.ui.components.Panel
 import com.prateek.taro.ui.components.PrimaryButton
 import com.prateek.taro.ui.components.SectionLabel
 import com.prateek.taro.ui.components.TaroTextField
+import com.prateek.taro.ui.components.TitleField
 import com.prateek.taro.ui.components.ToastKind
 import com.prateek.taro.ui.theme.TaroTheme
 import com.prateek.taro.util.Database
@@ -122,7 +122,8 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
             unit = ingredient.unit ?: Units.GRAMS,
         ).takeIf { ingredient.grams > 0 }
 
-    var naming by remember { mutableStateOf(existing == null) }
+    val nameFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { if (existing == null) nameFocus.requestFocus() }
     val colors = TaroTheme.colors
     val spacing = TaroTheme.spacing
     val type = TaroTheme.text
@@ -134,15 +135,7 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
             .navigationBarsPadding()
             .imePadding(),
     ) {
-        AppOverflowMenu(
-            back = true,
-            title = name.text.trim().ifEmpty { stringResource(R.string.recipe_create) },
-            trailing = {
-                IconButton(onClick = { naming = true }) {
-                    Icon(painterResource(R.drawable.ic_edit), contentDescription = stringResource(R.string.recipe_name), tint = colors.accent)
-                }
-            },
-        )
+        AppOverflowMenu(back = true)
         Column(
             verticalArrangement = Arrangement.spacedBy(spacing.gap),
             modifier = Modifier
@@ -151,6 +144,15 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
                 .verticalScroll(rememberScrollState())
                 .padding(start = spacing.loose, end = spacing.loose, bottom = spacing.loose),
         ) {
+            TitleField(
+                name,
+                { if (it.text.length <= MAX_NAME) name = it },
+                stringResource(R.string.recipe_name_hint),
+                colors.special,
+                style = type.greeting,
+                focusRequester = nameFocus,
+                modifier = Modifier.padding(horizontal = spacing.tight),
+            )
             SectionLabel(stringResource(R.string.recipe_ingredients))
             Panel {
                 Column(modifier = Modifier.padding(horizontal = spacing.tight)) {
@@ -289,22 +291,6 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
         }
     }
 
-    if (naming) {
-        NameDialog(
-            title = stringResource(R.string.recipe_name),
-            label = stringResource(R.string.recipe_name),
-            initial = name.text,
-            maxLength = MAX_NAME,
-            onSave = {
-                name = TextFieldValue(it)
-                naming = false
-            },
-            onDismiss = {
-                naming = false
-                if (name.text.isBlank() && existing == null && items.isEmpty()) onDone()
-            },
-        )
-    }
 
     fun ingredientFrom(log: FoodLog) = Ingredient(log.foodKey, log.name, log.grams ?: 0.0, log.kcal, log.protein, log.carbs, log.fat, log.unit)
 
