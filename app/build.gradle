@@ -24,8 +24,8 @@ android {
         applicationId "com.prateek.taro"
         minSdkVersion 26
         targetSdkVersion 35
-        versionCode 31
-        versionName "2.0.0"
+        versionCode 32
+        versionName "2.0.1"
         proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         ndk {
             abiFilters 'arm64-v8a'

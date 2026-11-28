@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.drawscope.scale
 import com.prateek.taro.R
@@ -158,6 +159,42 @@ fun ValueField(
         NumberInput(value, onValueChange, type.value, color, Modifier.alignByBaseline(), TextAlign.Start, focusRequester)
         unit?.let { Text(" $it", style = type.unit, color = TaroTheme.colors.accent, modifier = Modifier.alignByBaseline()) }
     }
+}
+
+@Composable
+fun TitleField(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    placeholder: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+    style: TextStyle = TaroTheme.text.greeting,
+    focusRequester: FocusRequester? = null,
+) {
+    val ink = MaterialTheme.colorScheme.onSurface
+    val line = TaroTheme.spacing.hair
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        textStyle = style.copy(color = ink),
+        cursorBrush = SolidColor(color),
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .drawBehind {
+                val stroke = line.toPx() * FIELD_LINE_SHARE
+                val y = size.height - stroke / 2
+                drawLine((if (value.text.isEmpty()) ink else color).copy(alpha = FIELD_LINE_ALPHA), Offset(0f, y), Offset(size.width, y), stroke)
+            },
+        decorationBox = { inner ->
+            Box(modifier = Modifier.padding(bottom = line)) {
+                if (value.text.isEmpty()) Text(placeholder, style = style, color = TaroTheme.colors.accent, maxLines = 1)
+                inner()
+            }
+        },
+    )
 }
 
 @Composable

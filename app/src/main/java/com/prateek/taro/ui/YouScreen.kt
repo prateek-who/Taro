@@ -166,6 +166,9 @@ private fun YouContent() {
                 )
             }
 
+            LeaderboardTile(Modifier.padding(top = spacing.gap)) { root.push(LeaderboardScreen) }
+            BadgesTile(badges, modifier = Modifier.padding(top = spacing.loose)) { root.push(AchievementsScreen) }
+
             SectionLabel(stringResource(R.string.you_goals))
             Panel {
                 Column(modifier = Modifier.padding(vertical = spacing.hair)) {
@@ -189,8 +192,6 @@ private fun YouContent() {
                     )
                 }
             }
-
-            BadgesTile(badges, modifier = Modifier.padding(top = spacing.loose)) { root.push(AchievementsScreen) }
 
             SectionLabel(stringResource(R.string.pref_step_length))
             Panel {

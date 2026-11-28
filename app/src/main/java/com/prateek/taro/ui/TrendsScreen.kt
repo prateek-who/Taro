@@ -164,7 +164,9 @@ private fun TrendsContent() {
             SectionLabel(stringResource(R.string.body_title), info = infoOf(R.string.info_body_title, R.string.info_body))
             BodyFactors(insights?.model, loaded = insights != null)
 
-            SectionLabel(stringResource(R.string.trends_bests, stringResource(range.span)))
+            SectionLabel(stringResource(R.string.trends_bests, stringResource(range.span))) {
+                LinkText(stringResource(R.string.lb_open), colors.red, onClick = { root.push(LeaderboardScreen) }, trailingIcon = R.drawable.ic_chevron_right)
+            }
             BestsPanel(summary)
 
             SectionLabel(stringResource(R.string.report_title))

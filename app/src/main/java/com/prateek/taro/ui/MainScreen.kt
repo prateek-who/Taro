@@ -94,6 +94,9 @@ import com.prateek.taro.ui.components.SwipeableTabs
 import androidx.compose.foundation.pager.rememberPagerState
 import com.prateek.taro.ui.components.ToastKind
 import com.prateek.taro.R
+import com.prateek.taro.leaderboard.Board
+import com.prateek.taro.leaderboard.BoardRange
+import com.prateek.taro.leaderboard.LeaderboardData
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.layout.aspectRatio
@@ -227,6 +230,9 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
     val day = rememberInBackground(date, summary.steps, goal, refreshKey) { stepsDay(context, date, summary.steps, goal) }?.value
     val tallyVersion = rememberDataVersion()
     val tally = rememberInBackground(date, tallyVersion) { if (date == Util.logicalToday()) null else dayTally(context, date) }?.value
+    val pastDay = date != Util.logicalToday()
+    val scoreRanks = rememberInBackground(tallyVersion, pastDay) { if (pastDay) LeaderboardData.scoreRanks(context) else null }?.value
+    val stepsNavigator = LocalNavigator.currentOrThrow
     val chart = rememberRefreshed(date, steps, refreshKey) { chartData(context, false, date, steps) }
     val months = rememberRefreshed(date.year, steps, refreshKey) { monthlyAverages(context, date.year, Util.logicalToday(), steps) }
     val dayTotals = rememberRefreshed(refreshKey) { stepsByDay(context) }
@@ -352,6 +358,15 @@ private fun MainScreen(tracking: TrackingState, actions: MainActions) {
             }
 
             tally?.takeIf { !isToday }?.let { TallyCard(it, stringResource(R.string.tally_title), play = true, modifier = Modifier.padding(top = spacing.loose)) }
+            scoreRanks?.get(date)?.takeIf { !isToday && tally != null }?.let { rank ->
+                LinkText(
+                    stringResource(R.string.lb_all_time_rank, rank),
+                    colors.red,
+                    onClick = { stepsNavigator.push(BoardScreen(Board.SCORE, BoardRange.ALL)) },
+                    trailingIcon = R.drawable.ic_chevron_right,
+                    modifier = Modifier.padding(top = spacing.gap),
+                )
+            }
 
             day?.let { loaded ->
                 PacePanel(loaded.pace, goal, date, Modifier.padding(top = spacing.loose))

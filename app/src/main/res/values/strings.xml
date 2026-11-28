@@ -535,14 +535,33 @@
     <string name="food_unit_equals">Counts as %1$s</string>
     <string name="food_unit_approx">Counts as about %1$s, assuming 1 g per ml like water or milk</string>
     <string name="food_name">Name</string>
-    <string name="food_kcal">Calories</string>
     <string name="food_protein">Protein</string>
-    <string name="food_kcal_100">Calories per 100 %1$s</string>
-    <string name="food_protein_100">Protein per 100 %1$s</string>
-    <string name="food_carbs_100">Carbs, optional</string>
-    <string name="food_fat_100">Fat, optional</string>
     <string name="food_create_named">Create \"%1$s\" from its label</string>
-    <string name="food_serving_optional">Serving size, optional</string>
+    <string name="recipe_name_hint">Name your recipe</string>
+    <string name="food_quick_name">What was it</string>
+    <string name="food_quick_note">Type what you know. Protein, carbs and fat are optional.</string>
+    <string name="food_quick_keep">Also save to Your foods, as 1 serving</string>
+    <string name="food_quick_when">%1$s, %2$s %3$s</string>
+    <string name="food_limit_kcal">Calories go up to %1$s kcal%2$s.</string>
+    <string name="food_limit_grams">Protein, carbs and fat go up to %1$s g%2$s.</string>
+    <string name="food_serving_title">1 serving</string>
+    <string name="food_serving_weight_title">Weight of a serving</string>
+    <string name="food_serving_none">Optional, type its weight</string>
+    <string name="food_serving_unknown">Not known, you log it in servings</string>
+    <string name="food_serving_weighed">%1$s, saved as a food per 100 g</string>
+    <string name="food_serving_kcal">%1$s, %2$s kcal</string>
+    <plurals name="scan_found_note">
+        <item quantity="one">Read %d value from the label. Check it before saving.</item>
+        <item quantity="other">Read %d values from the label. Check them before saving.</item>
+    </plurals>
+    <string name="food_per_serving">per serving</string>
+    <string name="food_kcal_per_serving">%1$s kcal / serving</string>
+    <string name="food_serving_values">Per serving: %1$s kcal, %2$s g protein</string>
+    <string name="food_create_serving_hint">For a bowl, plate or pack when you know the calories but not the weight. You log it in servings.</string>
+    <plurals name="food_servings_unit">
+        <item quantity="one">serving</item>
+        <item quantity="other">servings</item>
+    </plurals>
     <string name="food_create_hint">Copy the per 100 g values from the label, or per 100 ml for drinks. What you log gets multiplied from these.</string>
     <string name="food_logged">Logged %1$s</string>
     <string name="food_updated">Updated</string>
@@ -1790,10 +1809,6 @@
         <item quantity="one">Updated %1$d past entry</item>
         <item quantity="other">Updated %1$d past entries</item>
     </plurals>
-    <plurals name="scan_found">
-        <item quantity="one">Read %1$d value from the label, check it before saving</item>
-        <item quantity="other">Read %1$d values from the label, check them before saving</item>
-    </plurals>
     <plurals name="food_copied">
         <item quantity="one">Copied %1$d food</item>
         <item quantity="other">Copied %1$d foods</item>
@@ -1926,5 +1941,70 @@
     <plurals name="food_scope_past_note">
         <item quantity="one">Saves these numbers to %1$s and fixes %2$d past entry too.</item>
         <item quantity="other">Saves these numbers to %1$s and fixes %2$d past entries too.</item>
+    </plurals>
+    <string name="lb_title">Leaderboards</string>
+    <string name="lb_score">Score</string>
+    <string name="lb_steps">Steps</string>
+    <string name="lb_distance">Distance</string>
+    <string name="lb_moving">Moving</string>
+    <string name="lb_walk">Longest walk</string>
+    <string name="lb_speed">Top speed</string>
+    <string name="lb_early">Early</string>
+    <string name="lb_sleep">Sleep</string>
+    <string name="lb_protein">Protein</string>
+    <string name="lb_unit_steps">steps</string>
+    <string name="lb_unit_kcal">kcal</string>
+    <string name="lb_unit_speed">steps a minute</string>
+    <string name="lb_unit_early">steps before %1$s</string>
+    <string name="lb_unit_grams">g</string>
+    <string name="lb_range_all">All time</string>
+    <string name="lb_range_month">This month</string>
+    <string name="lb_range_weeks">Weeks</string>
+    <string name="lb_range_weekday">By weekday</string>
+    <string name="lb_week_of">Week of %1$s</string>
+    <string name="lb_edit">Edit</string>
+    <string name="lb_empty">Walk a full day and it lands here.</string>
+    <string name="lb_nothing_yet">Nothing ranked here yet</string>
+    <string name="lb_records">Records</string>
+    <string name="lb_stage_head">%1$s, %2$s</string>
+    <string name="lb_new">● new</string>
+    <string name="lb_today">Today so far</string>
+    <string name="lb_this_week">This week so far</string>
+    <string name="lb_if_now">If it ended now</string>
+    <string name="lb_rank">#%1$d</string>
+    <string name="lb_of">of %1$d</string>
+    <string name="lb_to_pass">%1$s to pass %2$s, #%3$d</string>
+    <string name="lb_ahead">Ahead of every day so far. A new record if it holds.</string>
+    <string name="lb_ahead_week">Ahead of every week so far. A new record if it holds.</string>
+    <string name="lb_hub_today">Today #%1$d so far</string>
+    <string name="lb_top_ten">top 10</string>
+    <string name="lb_part_steps">Steps</string>
+    <string name="lb_part_goal">Goal</string>
+    <string name="lb_part_tiers">Tiers</string>
+    <string name="lb_part_streak">Streak</string>
+    <string name="lb_part_walks">Walks</string>
+    <string name="lb_part_early">Early</string>
+    <string name="lb_part_best">Best</string>
+    <string name="lb_pins_title">Pinned boards</string>
+    <string name="lb_pins_note">Shown over the podium. Drag to change the order.</string>
+    <string name="lb_more_boards">More boards</string>
+    <string name="lb_drag">Drag to reorder</string>
+    <string name="lb_all_time_rank">#%1$d all time</string>
+    <string name="lb_open">Leaderboards</string>
+    <plurals name="lb_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <plurals name="lb_weeks">
+        <item quantity="one">%d week</item>
+        <item quantity="other">%d weeks</item>
+    </plurals>
+    <plurals name="lb_see_days">
+        <item quantity="one">See the %d day</item>
+        <item quantity="other">See all %d days</item>
+    </plurals>
+    <plurals name="lb_see_weeks">
+        <item quantity="one">See the %d week</item>
+        <item quantity="other">See all %d weeks</item>
     </plurals>
 </resources>

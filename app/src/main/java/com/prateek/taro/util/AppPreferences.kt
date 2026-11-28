@@ -16,6 +16,8 @@ import com.prateek.taro.energy.DietGoal
 import com.prateek.taro.energy.EnergyFactors
 import com.prateek.taro.energy.Sex
 import com.prateek.taro.food.MealSlot
+import com.prateek.taro.leaderboard.Leaderboards
+import com.prateek.taro.leaderboard.Pin
 import com.prateek.taro.food.Meals
 import com.prateek.taro.util.Util.UnitSystem
 import java.text.SimpleDateFormat
@@ -69,6 +71,8 @@ object AppPreferences {
         val FOOD_REMINDER_MINUTES                = intPreferencesKey("food_reminder_minutes")
         val REPORT_NOTIFICATIONS                 = booleanPreferencesKey("report_notifications")
         val REPORTS_SEEN                         = stringSetPreferencesKey("reports_seen")
+        val LEADERBOARD_PINS                     = stringPreferencesKey("leaderboard_pins")
+        val SLEEP_DISMISSED                      = stringSetPreferencesKey("sleep_dismissed")
         val STEPS_HINT_SHOWN                     = booleanPreferencesKey("steps_hint_shown")
         val INFO_HINT_SHOWN                      = booleanPreferencesKey("info_hint_shown")
         val INCOMPLETE_FOOD_DAYS                 = stringSetPreferencesKey("incomplete_food_days")
@@ -451,12 +455,26 @@ object AppPreferences {
         get() = runBlocking { reportNotificationsFlow().first() }
         set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.REPORT_NOTIFICATIONS] = value } }
 
+    var leaderboardPins: List<Pin>
+        get() = runBlocking { Leaderboards.decode(dataStore.data.first()[PreferenceKeys.LEADERBOARD_PINS]) }
+        set(value) = runBlocking { dataStore.edit { it[PreferenceKeys.LEADERBOARD_PINS] = Leaderboards.encode(value) } }
+
     fun reportsSeenFlow(): Flow<Set<String>> = dataStore.data.map { it[PreferenceKeys.REPORTS_SEEN].orEmpty() }
 
     val reportsSeen: Set<String> get() = runBlocking { reportsSeenFlow().first() }
 
     fun markReportSeen(key: String) = runBlocking {
         dataStore.edit { prefs -> prefs[PreferenceKeys.REPORTS_SEEN] = (prefs[PreferenceKeys.REPORTS_SEEN].orEmpty() + key).sorted().takeLast(60).toSet() }
+    }
+
+    val sleepDismissed: Set<String> get() = runBlocking { dataStore.data.first()[PreferenceKeys.SLEEP_DISMISSED].orEmpty() }
+
+    fun dismissSleep(span: String, keepAfterMs: Long) = runBlocking {
+        dataStore.edit { prefs ->
+            prefs[PreferenceKeys.SLEEP_DISMISSED] = (prefs[PreferenceKeys.SLEEP_DISMISSED].orEmpty() + span)
+                .filter { it.substringAfter(':').toLongOrNull()?.let { end -> end > keepAfterMs } ?: false }
+                .toSet()
+        }
     }
 
     var stepsHintShown: Boolean
