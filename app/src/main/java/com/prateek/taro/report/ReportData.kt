@@ -40,13 +40,13 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
 object ReportData {
-    fun scores(context: Context, from: LocalDate, to: LocalDate, minutes: Map<String, List<MinuteSteps>>? = null): Map<LocalDate, DayScore> {
+    fun scores(context: Context, from: LocalDate, to: LocalDate, minutes: Map<String, List<MinuteSteps>>? = null, withToday: Boolean = false): Map<LocalDate, DayScore> {
         val database = Database.getInstance(context)
         val totals = database.getEntries(database.firstEntry, database.lastEntry)
             .mapNotNull { entry -> runCatching { LocalDate.parse(entry.date) }.getOrNull()?.let { it to entry.steps } }
             .toMap()
         val first = totals.filterValues { it > 0 }.keys.minOrNull() ?: return emptyMap()
-        val last = minOf(to, Util.logicalToday().minusDays(1))
+        val last = minOf(to, if (withToday) Util.logicalToday() else Util.logicalToday().minusDays(1))
         if (last.isBefore(from)) return emptyMap()
         val goals = AppPreferences.goalHistory
         val choices = AppPreferences.streakChoices

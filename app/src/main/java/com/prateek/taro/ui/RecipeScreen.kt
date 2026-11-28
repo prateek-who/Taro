@@ -100,7 +100,7 @@ private fun RecipeContent(recipeId: Long?, onDone: () -> Unit) {
     var catalog by remember { mutableStateOf<List<FoodItem>>(emptyList()) }
     LaunchedEffect(Unit) { catalog = withContext(Dispatchers.IO) { FoodCatalog.load(context) } }
     val dataVersion = rememberDataVersion()
-    val custom = remember(dataVersion) { Database.getInstance(context).customFoods().filter { it.id != recipeId }.map(FoodCatalog::custom) }
+    val custom = remember(dataVersion) { Database.getInstance(context).customFoods().filter { it.id != recipeId && it.unit != Units.SERVING }.map(FoodCatalog::custom) }
     val all = remember(catalog, custom) { custom + catalog }
 
     val totals = Recipes.totals(items)

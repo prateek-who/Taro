@@ -233,6 +233,16 @@ private fun SleepContent(tracking: TrackingState) {
                         onClick = { dialog = SleepDialog.Entry(selected, night, nap = false) },
                         icon = R.drawable.ic_edit,
                     )
+                    LinkText(
+                        text = stringResource(R.string.day_remove),
+                        color = MaterialTheme.colorScheme.error,
+                        onClick = {
+                            SleepRepository.delete(context, night)
+                            version++
+                            toast.show(context.getString(R.string.sleep_deleted), ToastKind.INFO)
+                        },
+                        icon = R.drawable.ic_delete,
+                    )
                 }
             }
 
@@ -377,6 +387,7 @@ fun SleepCard(session: SleepSession, usualMinutes: Long?, expanded: Boolean, onT
                 CardActions {
                     LinkText(stringResource(R.string.day_looks_right), colors.goal, onClick = onConfirm, icon = R.drawable.ic_check)
                     LinkText(stringResource(R.string.day_change), MaterialTheme.colorScheme.onSurface, onClick = onChange, icon = R.drawable.ic_edit)
+                    LinkText(stringResource(R.string.day_remove), MaterialTheme.colorScheme.error, onClick = onRemove, icon = R.drawable.ic_delete)
                 }
             }
             AnimatedVisibility(visible = expanded) {

@@ -20,6 +20,10 @@ class FoodCatalogTest {
         assertEquals(1_188.0 / 5, recipe.kcal, 0.01)
         assertEquals(125.0, recipe.servingGrams!!, 0.0)
         assertEquals(listOf(125.0, 500.0), FoodCatalog.custom(recipe).portions.map { it.grams })
+        val bowl = FoodCatalog.custom(recipe.copy(name = "Rice bowl", kcal = 1_000.0, ingredients = null, servingGrams = FoodUnit.SERVING.size, servings = null, unit = Units.SERVING))
+        val servings = Units.toBase(1.5, Units.base(bowl), bowl)
+        assertEquals(1_500.0, bowl.kcalFor(servings), 0.0)
+        assertEquals("1.5 servings", Units.format(servings, Units.SERVING))
 
         val day = java.time.LocalDate.of(2026, 10, 1)
         val orders = MealOrders(emptyList()).with(day, listOf("b", "a"), today = day.plusDays(3), fallback = listOf("a", "b"))

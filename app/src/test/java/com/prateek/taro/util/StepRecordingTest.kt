@@ -1,6 +1,11 @@
 package com.prateek.taro.util
 
 import com.prateek.taro.energy.AscentTracker
+import com.prateek.taro.leaderboard.Board
+import com.prateek.taro.leaderboard.BoardDay
+import com.prateek.taro.leaderboard.BoardRange
+import com.prateek.taro.leaderboard.Leaderboards
+import com.prateek.taro.leaderboard.Pin
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -29,6 +34,17 @@ class StepRecordingTest {
         assertEquals(2.94, tally.mult, 0.0)
         assertEquals(37_785, tally.score)
         assertEquals(4.41, DayScores.score(12_852, 10_000, 22, 3, 1_200, 12_000).mult, 0.0)
+
+        val monday = java.time.LocalDate.of(2026, 11, 23)
+        val days = listOf(8_000.0, 12_000.0, 0.0, 9_000.0, 3_000.0).mapIndexed { i, value ->
+            BoardDay(monday.minusDays(7L - i), mapOf(Board.STEPS to value))
+        } + BoardDay(monday.plusDays(2), mapOf(Board.STEPS to 10_000.0))
+        val ranked = Leaderboards.entries(days, Board.STEPS, BoardRange.ALL, monday.plusDays(2), java.time.DayOfWeek.MONDAY)
+        assertEquals(listOf(12_000.0, 9_000.0, 8_000.0, 3_000.0), ranked.map { it.value })
+        val standing = Leaderboards.standing(Leaderboards.current(days, Board.STEPS, BoardRange.ALL, monday.plusDays(2), java.time.DayOfWeek.MONDAY), ranked)
+        assertEquals(Triple(2, 5, monday.minusDays(6)), Triple(standing.rank, standing.of, standing.next!!.date))
+        assertEquals(32_000.0, Leaderboards.entries(days, Board.STEPS, BoardRange.WEEKS, monday.plusDays(2), java.time.DayOfWeek.MONDAY).single().value, 0.0)
+        assertEquals(listOf(Pin(Board.SPEED, BoardRange.ALL), Pin(Board.STEPS, BoardRange.WEEKS)), Leaderboards.decode("speed:weekday,steps:weeks,speed:all,nope:all"))
     }
 
     @Test

@@ -17,6 +17,7 @@ object SleepRepository {
     private const val EARLIEST_ESTIMATE_HOUR = 5
     private const val MIN_NAP_MS = 15 * 60_000L
     private const val DAYTIME_LOOKBACK_DAYS = 120L
+    private const val DISMISSED_KEEP_MS = 30 * 24 * 60 * 60_000L
 
     fun sessions(context: Context, days: Long): List<SleepSession> =
         Database.getInstance(context).sleepsSince(SleepDates.today().minusDays(days).toString()).filterNot { it.nap }
@@ -31,6 +32,7 @@ object SleepRepository {
     }
 
     fun saveDetected(context: Context, start: Long, end: Long, source: String): Boolean {
+        if (dismissed(start, end)) return false
         if (SleepDates.isDaytime(start)) return saveDetectedNap(context, start, end, source)
         if (!SleepEstimator.isPlausibleNight(start, end)) return false
         val database = Database.getInstance(context)
@@ -71,6 +73,13 @@ object SleepRepository {
 
     fun delete(context: Context, session: SleepSession) {
         Database.getInstance(context).deleteSleep(session.id)
+        if (session.source != SOURCE_MANUAL) AppPreferences.dismissSleep("${session.startAt}:${session.endAt}", System.currentTimeMillis() - DISMISSED_KEEP_MS)
+    }
+
+    private fun dismissed(start: Long, end: Long): Boolean = AppPreferences.sleepDismissed.any { span ->
+        val from = span.substringBefore(':').toLongOrNull() ?: return@any false
+        val to = span.substringAfter(':').toLongOrNull() ?: return@any false
+        minOf(end, to) - maxOf(start, from) > (end - start) / 2
     }
 
     private fun at(date: LocalDate, hour: Int): Long = Calendar.getInstance().apply {

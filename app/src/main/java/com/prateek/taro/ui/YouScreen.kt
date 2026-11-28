@@ -217,6 +217,8 @@ private fun YouContent() {
                 Column(modifier = Modifier.padding(vertical = spacing.hair)) {
                     NavRow(R.drawable.ic_schedule, colors.goal, stringResource(R.string.report_title), stringResource(R.string.you_reports_note), onClick = { root.push(ReportScreen()) })
                     RowDivider()
+                    NavRow(R.drawable.ic_small_trophy, colors.red, stringResource(R.string.lb_open), stringResource(R.string.lb_open_note), onClick = { root.push(LeaderboardScreen) })
+                    RowDivider()
                     NavRow(R.drawable.ic_small_backup, colors.flame, stringResource(R.string.you_backup), stringResource(R.string.you_backup_note), onClick = { root.push(BackupScreen) })
                     RowDivider()
                     NavRow(R.drawable.ic_small_settings, MaterialTheme.colorScheme.onSurface, stringResource(R.string.settings), stringResource(R.string.you_settings_note), onClick = { root.push(SettingsScreen) })
